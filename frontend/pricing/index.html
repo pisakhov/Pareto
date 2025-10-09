@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+
+{% block title %}Pareto - Pricing Management{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <div class="text-center py-8">
+        <h1 class="text-4xl font-bold text-foreground mb-4">Pricing Management</h1>
+        <p class="text-xl text-muted-foreground mb-8">Manage providers, items, and their pricing offers</p>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="flex flex-wrap justify-between items-center mb-8 gap-4">
+        <div class="flex flex-wrap items-center gap-4">
+            <div class="flex flex-wrap gap-3">
+                <button onclick="showProviderModal()" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-[#023047] text-white hover:bg-[#023047]/90">
+                    <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 18H3c-1.1 0-2-.9-2-2V8c0-1.1.9-2 2-2h3.19c.43 0 .84-.18 1.13-.47l1.35-1.35c.38-.38.92-.6 1.49-.6h4.68c.57 0 1.11.22 1.49.6l1.35 1.35c.29.29.7.47 1.13.47H21c1.1 0 2 .9 2 2v8c0 1.1-.9 2-2 2h-2"/><circle cx="12" cy="13" r="4"/></svg>
+                    Add Provider
+                </button>
+                <button onclick="showItemModal()" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-slate-600 text-white hover:bg-slate-600/90">
+                    <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l-5.5 9h11z"/><path d="M12 22l5.5-9h-11z"/></svg>
+                    Add Item
+                </button>
+                <button onclick="showOfferModal()" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-[#7f4f24] text-white hover:bg-[#7f4f24]/90">
+                    <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                    Add Offer
+                </button>
+            </div>
+            <button onclick="showRelationshipModal()" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background h-10 px-4 py-2 text-purple-600 border-purple-600 hover:bg-purple-600 hover:text-white">
+                <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.72"/></svg>
+                Manage Relationships
+            </button>
+        </div>
+        <button onclick="loadData()" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-secondary text-secondary-foreground hover:bg-secondary/90">
+            <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v6h6"/><path d="M21 12A9 9 0 0 0 6 5.3L3 8"/><path d="M21 22v-6h-6"/><path d="M3 12a9 9 0 0 0 15 6.7l3-2.7"/></svg>
+            Refresh
+        </button>
+    </div>
+
+    <!-- Three-Section Layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <!-- Providers Section -->
+        <div class="bg-card border rounded-lg">
+            <div class="p-4 border-b bg-secondary/50">
+                <h2 class="text-lg font-semibold flex items-center justify-between">
+                    Providers
+                    <span class="text-xs bg-[#023047]/10 text-[#023047] px-2 py-1 rounded-full" id="providerCount">0</span>
+                </h2>
+            </div>
+            <div class="overflow-x-auto max-h-96">
+                <table class="w-full" role="table" aria-label="Providers list">
+                    <thead class="bg-secondary">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-secondary-foreground uppercase tracking-wider" scope="col">Name</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-secondary-foreground uppercase tracking-wider" scope="col">Status</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-secondary-foreground uppercase tracking-wider" scope="col">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="providersTableBody" class="bg-card divide-y divide-border">
+                        <!-- Providers will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Items Section -->
+        <div class="bg-card border rounded-lg">
+            <div class="p-4 border-b bg-secondary/50">
+                <h2 class="text-lg font-semibold flex items-center justify-between">
+                    Items
+                    <span class="text-xs bg-slate-600/10 text-slate-600 px-2 py-1 rounded-full" id="itemCount">0</span>
+                </h2>
+            </div>
+            <div class="overflow-x-auto max-h-96">
+                <table class="w-full" role="table" aria-label="Items list">
+                    <thead class="bg-secondary">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-secondary-foreground uppercase tracking-wider" scope="col">Name</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-secondary-foreground uppercase tracking-wider" scope="col">Providers</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-secondary-foreground uppercase tracking-wider" scope="col">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="itemsTableBody" class="bg-card divide-y divide-border">
+                        <!-- Items will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Offers Section -->
+        <div class="bg-card border rounded-lg">
+            <div class="p-4 border-b bg-secondary/50">
+                <h2 class="text-lg font-semibold flex items-center justify-between">
+                    Recent Offers
+                    <span class="text-xs bg-[#7f4f24]/10 text-[#7f4f24] px-2 py-1 rounded-full" id="offerCount">0</span>
+                </h2>
+            </div>
+            <div class="overflow-x-auto max-h-96">
+                <table class="w-full" role="table" aria-label="Recent offers list">
+                    <thead class="bg-secondary">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-secondary-foreground uppercase tracking-wider" scope="col">Item</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-secondary-foreground uppercase tracking-wider" scope="col">Price</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-secondary-foreground uppercase tracking-wider" scope="col">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="offersTableBody" class="bg-card divide-y divide-border">
+                        <!-- Offers will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Sections -->
+    <div class="grid grid-cols-1 gap-6 mb-8">
+        <!-- Provider-Item Relationship Matrix -->
+        <div class="bg-card border rounded-lg">
+            <div class="p-4 border-b bg-secondary/50">
+                <h2 class="text-xl font-bold">Provider-Item Matrix</h2>
+                <p class="text-sm text-muted-foreground">Visual overview of provider-item relationships</p>
+            </div>
+            <div class="p-4 overflow-x-auto">
+                <div id="relationshipMatrix" class="min-w-full">
+                    <!-- Relationship matrix will be rendered here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Provider Modal -->
+<div id="providerModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="providerModalTitle">
+    <div class="bg-card rounded-lg p-6 w-full max-w-md">
+        <h3 id="providerModalTitle" class="text-lg font-semibold mb-4">Add Provider</h3>
+        <form id="providerForm" aria-label="Provider form">
+            <input type="hidden" id="providerId" name="provider_id">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Company Name *</label>
+                    <input type="text" id="companyName" name="company_name" required
+                           class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Details</label>
+                    <textarea id="details" name="details" rows="3"
+                              class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Status</label>
+                    <select id="providerStatus" name="status"
+                            class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent">
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3 mt-6">
+                <button type="button" onclick="window.modalManager.closeProviderModal()"
+                        class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
+                    Cancel
+                </button>
+                <button type="submit"
+                        class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-[#023047] text-white hover:bg-[#023047]/90">
+                    Save Provider
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Item Modal -->
+<div id="itemModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="itemModalTitle">
+    <div class="bg-card rounded-lg p-6 w-full max-w-md">
+        <h3 id="itemModalTitle" class="text-lg font-semibold mb-4">Add Item</h3>
+        <form id="itemForm" aria-label="Item form">
+            <input type="hidden" id="itemId" name="item_id">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Item Name *</label>
+                    <input type="text" id="itemName" name="item_name" required placeholder="e.g., FICO Score"
+                           class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Description</label>
+                    <textarea id="itemDescription" name="description" rows="3" placeholder="Brief description of the item"
+                              class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Providers</label>
+                    <select id="itemProviders" name="providers" multiple
+                            class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent h-32">
+                        <!-- Provider options will be dynamically loaded here -->
+                    </select>
+                    <p class="text-xs text-muted-foreground mt-1">Hold Command (Mac) or Ctrl (Windows) to select multiple providers.</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Status</label>
+                    <select id="itemStatus" name="status"
+                            class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent">
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end space-x-3 mt-6">
+                <button type="button" onclick="window.modalManager.closeItemModal()"
+                        class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
+                    Cancel
+                </button>
+                <button type="submit"
+                        class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-slate-600 text-white hover:bg-slate-600/90">
+                    Save Item
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Offer Modal -->
+<div id="offerModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="offerModalTitle">
+    <div class="bg-card rounded-lg p-6 w-full max-w-md">
+        <h3 id="offerModalTitle" class="text-lg font-semibold mb-4">Add Offer</h3>
+        <form id="offerForm" aria-label="Offer form">
+            <input type="hidden" id="offerId" name="offer_id">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Item *</label>
+                    <select id="itemSelect" name="item_id" required
+                            class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent">
+                        <option value="">Select an item</option>
+                        <option value="new">+ Create New Item</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Provider *</label>
+                    <select id="providerSelect" name="provider_id" required
+                            class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent">
+                        <option value="">Select a provider</option>
+                        <option value="new">+ Create New Provider</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Minimum Units *</label>
+                    <input type="number" id="unitRange" name="unit_range" required placeholder="e.g., 100" min="1"
+                           class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent">
+                    <p class="text-xs text-muted-foreground mt-1">Enter the minimum number of units (will be displayed as &ge; N)</p>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Price per Unit *</label>
+                    <input type="number" id="pricePerUnit" name="price_per_unit" required step="0.01" min="0"
+                           class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Status</label>
+                    <select id="offerStatus" name="status"
+                            class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent">
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-between items-center mt-6">
+                <button type="button" id="deleteOfferBtn" class="hidden px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors" title="Delete Offer">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.134-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.067-2.09 1.02-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                    </svg>
+                </button>
+                <div class="flex space-x-3">
+                    <button type="button" onclick="window.modalManager.closeOfferModal()"
+                            class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                            class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-[#7f4f24] text-white hover:bg-[#7f4f24]/90">
+                        Save Offer
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Relationship Management Modal -->
+<div id="relationshipModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="relationshipModalTitle">
+    <div class="bg-card rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <h3 id="relationshipModalTitle" class="text-lg font-semibold mb-4">Manage Provider-Item Relationships</h3>
+
+        <div class="mb-6">
+            <p class="text-sm text-muted-foreground">Select which providers offer which items by checking the boxes below.</p>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full border-collapse">
+                <thead>
+                    <tr id="relationshipHeaderRow" class="bg-secondary">
+                        <th class="border border-border px-4 py-2 text-left text-sm font-medium">Provider \ Item</th>
+                    </tr>
+                </thead>
+                <tbody id="relationshipTableBody">
+                    <!-- Relationship matrix will be dynamically rendered here -->
+                </tbody>
+            </table>
+        </div>
+
+        <div class="flex justify-end space-x-3 mt-6">
+            <button type="button" onclick="window.modalManager.closeRelationshipModal()"
+                    class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
+                Cancel
+            </button>
+            <button type="button" onclick="saveRelationships()"
+                    class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-purple-600 text-white hover:bg-purple-600/90">
+                Save Relationships
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Component Scripts (in dependency order) -->
+<script src="/static/pricing/js/dataService.js"></script>
+<script src="/static/pricing/js/uiManager.js"></script>
+<script src="/static/pricing/js/modalManager.js"></script>
+<script src="/static/pricing/js/tableRenderer.js"></script>
+<script src="/static/pricing/js/formHandler.js"></script>
+<script src="/static/pricing/js/pricingApp.js"></script>
+{% endblock %}

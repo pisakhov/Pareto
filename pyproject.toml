@@ -1,0 +1,13 @@
+[project]
+name = "pareto"
+version = "0.1.0"
+description = "Efficient point for productivity and optimization"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.118.2",
+    "uvicorn>=0.32.0",
+    "jinja2>=3.1.0",
+    "python-multipart>=0.0.6",
+    "duckdb>=1.4.1",
+]
