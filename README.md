@@ -1,0 +1,2 @@
+# Pareto
+Effecient point
