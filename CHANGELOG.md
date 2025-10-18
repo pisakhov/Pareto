@@ -7,6 +7,191 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - 2025-01-XX
+
+#### Tier-Based Pricing System
+**Implemented comprehensive tier-based pricing with credit file terminology and manual override support**
+
+**Database Changes:**
+- `migrations/002_add_tier_thresholds.sql` - Added tier management schema
+  - Added `tier_thresholds` JSON column to `providers` table for tier threshold configuration
+  - Added `provider_tier_overrides` table for manual tier adjustments per provider
+  - Schema supports flexible tier thresholds with base prices per tier
+  - Stores calculated tier, manual override tier, and override notes
+
+**Backend Changes:**
+- `db/pricing_repository.py` - Enhanced with tier management methods
+  - Added `get_tier_thresholds()` and `set_tier_thresholds()` for provider tier configuration
+  - Added `get_tier_for_credit_files()` to calculate appropriate tier based on volume
+  - Added `get_provider_tier_override()` and `set_provider_tier_override()` for manual tier control
+  - Added `get_price_for_item_at_tier()` for tier-based price lookup with inheritance
+  - Updated price calculation logic to use tiers instead of unit ranges
+
+- `db/optimization_repository.py` - Updated cost calculation for tiers
+  - Modified `calculate_current_cost()` to use tier-based pricing
+  - Added `get_provider_tier_status()` to fetch tier status across all providers
+  - Implemented tier inheritance logic: prices inherit from lower tiers if not explicitly set
+  - Returns tier info in provider breakdown for visualization
+
+- `api/routers/pricing.py` - Extended API with tier endpoints
+  - Replaced `unit_range` with `tier_number` in Offer model
+  - Added GET/PUT `/api/providers/{provider_id}/tier-thresholds` endpoints
+  - Added GET/PUT `/api/providers/{provider_id}/tier-override` endpoints
+  - Added DELETE `/api/providers/{provider_id}/tier-override` endpoint
+  - Updated offer CRUD operations to handle tier_number
+
+- `api/routers/home.py` - Added tier status endpoint (line 128-133)
+  - POST `/api/optimization/tier-status` endpoint for fetching tier status per provider
+  - Returns calculated tier, override tier, effective tier, and credit files per provider
+
+**Frontend - Pricing Management:**
+- `frontend/pricing/index.html` - Added tier management UI
+  - Added "Tier Thresholds" section to provider modal with dynamic tier inputs
+  - Changed "Minimum Units" input to "Tier Number" dropdown in offer modal
+  - Tier dropdown populated dynamically based on selected provider's tiers
+  - Included tierManager.js script for tier management functionality
+
+- `frontend/pricing/js/tierManager.js` - NEW FILE for tier management
+  - Created `initializeTierThresholds()` to load and populate provider tiers
+  - Created `addTierThreshold()` and `removeTierThreshold()` for dynamic tier UI
+  - Created `getTierThresholds()` and `getTierBasePrices()` to extract tier data
+  - Implemented `populateTierSelect()` to populate tier dropdown in offer modal
+  - Handles tier selection change events and async tier loading
+
+- `frontend/pricing/js/formHandler.js` - Integrated tier management
+  - Updated provider form handling to save/load tier thresholds and base prices
+  - Modified offer form to use tier_number instead of unit_range
+  - Enhanced provider populate function to load tiers with error handling
+  - Enhanced offer populate function to select appropriate tier
+  - Added tier data to provider save/update requests
+
+- `frontend/pricing/js/tableRenderer.js` - Updated display for tiers
+  - Changed offer table column from "Min Units" to "Tier"
+  - Display tier number instead of unit range in offer listings
+  - Updated sort logic to work with tier numbers
+
+**Frontend - Home Dashboard:**
+- `frontend/home/index.html` - Added tier status panel and updated terminology
+  - Changed "Total Units" to "Total Credit Files" in cost summary
+  - Added "Provider Tier Status" panel to show tier info per provider
+  - Included tierStatusManager.js script
+
+- `frontend/home/js/tierStatusManager.js` - NEW FILE for tier status display
+  - Created `fetchTierStatus()` to retrieve tier status from backend
+  - Created `renderTierStatus()` to display tier cards with calculated/override/effective tiers
+  - Visual indicators for manual overrides with warning icons
+  - Shows credit files, override notes, and tier status per provider
+
+- `frontend/home/js/optimizationApp.js` - Integrated tier status
+  - Updated `calculate()` to fetch both cost and tier status in parallel
+  - Modified `displayResults()` to render tier status panel
+  - Updated to use totalCreditFiles instead of totalUnits
+
+- `frontend/home/js/allocationVisualizer.js` - Enhanced with tier display
+  - Added tier badge to provider cards showing effective tier
+  - Changed "units" to "credit files" throughout
+  - Display tier number alongside price in allocation bars
+  - Show tier info from provider breakdown data
+
+- `frontend/home/js/quantityManager.js` - No changes (credit files are product quantities)
+
+**Terminology Updates:**
+- Replaced "units" with "credit files" across all frontend displays
+- Replaced "unit_range" with "tier_number" in API and database
+- Updated labels, help text, and display strings consistently
+
+**Business Logic:**
+- Tiers are based on total credit files across all products, not per-product
+- Tier thresholds define minimum credit files required for each tier
+- Prices can be set per tier, with automatic inheritance from lower tiers
+- Manual tier overrides allow pricing flexibility for specific providers
+- Override status clearly displayed with warnings and notes
+- Tier pricing applies uniformly across all items from a provider
+
+**User Experience:**
+- Providers can configure multiple pricing tiers with thresholds
+- Offers select from available tiers rather than specifying unit ranges
+- Dashboard shows calculated vs. effective tiers for transparency
+- Visual indicators highlight when manual overrides are active
+- Tier badges on provider cards show at-a-glance tier status
+
+### Fixed - 2025-10-17
+
+#### Product Sequence Sync
+**Fixed duplicate key constraint errors when adding products**
+
+**Issue:**
+- Attempting to create new products resulted in: "Constraint Error: Duplicate key 'product_id: 1' violates primary key constraint"
+- Each click incremented sequence but hit the next existing ID (1, 2, 3...)
+- Same pattern as the previously fixed offer/provider/item sequences
+
+**Root Cause:**
+- DuckDB sequence `product_seq` started at 1
+- Existing products already occupied IDs 1, 2, 3, etc.
+- Sequence initialization didn't account for pre-existing records
+
+**Solution:**
+- `db/products_repository.py` (lines 107-115, 242-249)
+  - Added `_sync_sequences()` method following same pattern as pricing_repository
+  - Queries `MAX(product_id)` from products table and recreates sequence starting at max_id + 1
+  - Uses `COALESCE(MAX(product_id), 0)` to handle empty tables
+  - Called automatically during database initialization via `_create_sequences()`
+
+**Technical Details:**
+- Product sequence: `START {max(product_id) + 1}`
+- Uses `CREATE OR REPLACE SEQUENCE` pattern (DROP + CREATE for DuckDB)
+- UAT-compliant: minimal, self-documenting code without defensive checks
+
+#### Database Sequence Sync
+**Fixed duplicate key constraint errors when adding offers/providers/items**
+
+**Issue:**
+- Attempting to create new offers resulted in: "Constraint Error: Duplicate key 'offer_id: 1' violates primary key constraint"
+- Required multiple attempts (clicking 2-3 times) until sequence advanced past existing IDs
+- Same issue affected providers and items sequences
+
+**Root Cause:**
+- DuckDB sequences (provider_seq, item_seq, offer_seq) started at 1
+- Existing data already occupied IDs 1, 2, 3, etc.
+- Sequence initialization didn't account for pre-existing records
+
+**Solution:**
+- `db/pricing_repository.py` (lines 159-173)
+  - Added `_sync_sequences()` method to reset sequences based on existing max IDs
+  - Queries `MAX(id)` from each table and recreates sequence starting at max_id + 1
+  - Uses `COALESCE(MAX(id), 0)` to handle empty tables gracefully
+  - Called automatically during database initialization
+
+**Technical Details:**
+- Provider sequence: `START {max(provider_id) + 1}`
+- Item sequence: `START {max(item_id) + 1}`
+- Offer sequence: `START {max(offer_id) + 1}`
+- Uses `CREATE OR REPLACE SEQUENCE` to reset existing sequences
+
+#### Offer Edit Constraint
+**Disabled item and provider editing when modifying existing offers**
+
+**Frontend Changes:**
+- `frontend/pricing/js/formHandler.js` (lines 269-271)
+  - Added `disabled = true` for item and provider selects when editing offers
+  - Prevents accidental changes to offer's item/provider relationship
+  - Follows UAT principle: offers belong to specific item+provider combinations
+
+- `frontend/pricing/js/modalManager.js` (lines 145-146)
+  - Re-enables selects when creating new offers
+  - Ensures clean state for new offer creation
+
+**Business Logic:**
+- An offer is fundamentally tied to its item and provider
+- Changing these would create a different offer, not update the existing one
+- Users should delete and recreate offers if item/provider needs to change
+- This prevents data integrity issues and maintains clear business semantics
+
+**User Experience:**
+- When editing an offer: item and provider selects are disabled (grayed out)
+- When creating a new offer: all fields are editable as expected
+- Clear visual feedback via browser's native disabled state styling
+
 ### Added - 2025-10-09
 
 #### Cost Comparison Chart Enhancement

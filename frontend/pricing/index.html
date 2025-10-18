@@ -5,40 +5,38 @@
 {% block content %}
 <div class="max-w-7xl mx-auto">
     <div class="text-center py-8">
-        <h1 class="text-4xl font-bold text-foreground mb-4">Pricing Management</h1>
-        <p class="text-xl text-muted-foreground mb-8">Manage providers, items, and their pricing offers</p>
+        <h1 class="text-4xl font-bold text-foreground">Pricing Management</h1>
     </div>
 
     <!-- Action Buttons -->
-    <div class="flex flex-wrap justify-between items-center mb-8 gap-4">
-        <div class="flex flex-wrap items-center gap-4">
-            <div class="flex flex-wrap gap-3">
-                <button onclick="showProviderModal()" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-[#023047] text-white hover:bg-[#023047]/90">
-                    <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 18H3c-1.1 0-2-.9-2-2V8c0-1.1.9-2 2-2h3.19c.43 0 .84-.18 1.13-.47l1.35-1.35c.38-.38.92-.6 1.49-.6h4.68c.57 0 1.11.22 1.49.6l1.35 1.35c.29.29.7.47 1.13.47H21c1.1 0 2 .9 2 2v8c0 1.1-.9 2-2 2h-2"/><circle cx="12" cy="13" r="4"/></svg>
-                    Add Provider
-                </button>
-                <button onclick="showItemModal()" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-slate-600 text-white hover:bg-slate-600/90">
-                    <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l-5.5 9h11z"/><path d="M12 22l5.5-9h-11z"/></svg>
-                    Add Item
-                </button>
-                <button onclick="showOfferModal()" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-[#7f4f24] text-white hover:bg-[#7f4f24]/90">
-                    <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-                    Add Offer
-                </button>
-            </div>
-            <button onclick="showRelationshipModal()" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background h-10 px-4 py-2 text-purple-600 border-purple-600 hover:bg-purple-600 hover:text-white">
-                <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.72"/></svg>
-                Manage Relationships
-            </button>
-        </div>
-        <button onclick="loadData()" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-secondary text-secondary-foreground hover:bg-secondary/90">
-            <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v6h6"/><path d="M21 12A9 9 0 0 0 6 5.3L3 8"/><path d="M21 22v-6h-6"/><path d="M3 12a9 9 0 0 0 15 6.7l3-2.7"/></svg>
-            Refresh
+    <div class="flex flex-wrap gap-3 mb-8">
+        <button onclick="showProviderModal()" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-[#023047] text-white hover:bg-[#023047]/90">
+            <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            Add Provider
+        </button>
+        <button onclick="showItemModal()" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-slate-600 text-white hover:bg-slate-600/90">
+            <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+            Add Item
         </button>
     </div>
 
-    <!-- Three-Section Layout -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+    <!-- Provider Grid -->
+    <div class="grid grid-cols-1 gap-6 mb-8">
+        <div class="bg-card border rounded-lg">
+            <div class="p-4 border-b bg-secondary/50">
+                <h2 class="text-xl font-bold">Provider Grid</h2>
+                <p class="text-sm text-muted-foreground">Compare tier pricing and item availability across all providers</p>
+            </div>
+            <div class="p-4 overflow-x-auto">
+                <div id="relationshipMatrix" class="min-w-full">
+                    <!-- Relationship matrix will be rendered here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Two-Section Layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <!-- Providers Section -->
         <div class="bg-card border rounded-lg">
             <div class="p-4 border-b bg-secondary/50">
@@ -53,6 +51,7 @@
                         <tr>
                             <th class="px-4 py-2 text-left text-xs font-medium text-secondary-foreground uppercase tracking-wider" scope="col">Name</th>
                             <th class="px-4 py-2 text-left text-xs font-medium text-secondary-foreground uppercase tracking-wider" scope="col">Status</th>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-secondary-foreground uppercase tracking-wider" scope="col">Tiers</th>
                             <th class="px-4 py-2 text-left text-xs font-medium text-secondary-foreground uppercase tracking-wider" scope="col">Actions</th>
                         </tr>
                     </thead>
@@ -87,45 +86,6 @@
             </div>
         </div>
 
-        <!-- Offers Section -->
-        <div class="bg-card border rounded-lg">
-            <div class="p-4 border-b bg-secondary/50">
-                <h2 class="text-lg font-semibold flex items-center justify-between">
-                    Recent Offers
-                    <span class="text-xs bg-[#7f4f24]/10 text-[#7f4f24] px-2 py-1 rounded-full" id="offerCount">0</span>
-                </h2>
-            </div>
-            <div class="overflow-x-auto max-h-96">
-                <table class="w-full" role="table" aria-label="Recent offers list">
-                    <thead class="bg-secondary">
-                        <tr>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-secondary-foreground uppercase tracking-wider" scope="col">Item</th>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-secondary-foreground uppercase tracking-wider" scope="col">Price</th>
-                            <th class="px-4 py-2 text-left text-xs font-medium text-secondary-foreground uppercase tracking-wider" scope="col">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="offersTableBody" class="bg-card divide-y divide-border">
-                        <!-- Offers will be loaded here -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- Detailed Sections -->
-    <div class="grid grid-cols-1 gap-6 mb-8">
-        <!-- Provider-Item Relationship Matrix -->
-        <div class="bg-card border rounded-lg">
-            <div class="p-4 border-b bg-secondary/50">
-                <h2 class="text-xl font-bold">Provider-Item Matrix</h2>
-                <p class="text-sm text-muted-foreground">Visual overview of provider-item relationships</p>
-            </div>
-            <div class="p-4 overflow-x-auto">
-                <div id="relationshipMatrix" class="min-w-full">
-                    <!-- Relationship matrix will be rendered here -->
-                </div>
-            </div>
-        </div>
     </div>
 </div>
 
@@ -154,6 +114,20 @@
                         <option value="inactive">Inactive</option>
                     </select>
                 </div>
+                
+                <!-- Tier Thresholds Section -->
+                <div class="border-t border-border pt-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <label class="block text-sm font-medium">Tier Thresholds</label>
+                        <button type="button" id="addTierBtn" class="text-xs px-2 py-1 bg-secondary hover:bg-secondary/80 rounded">
+                            + Add Tier
+                        </button>
+                    </div>
+                    <div id="tierThresholdsContainer" class="space-y-2">
+                        <!-- Tier rows will be dynamically added here -->
+                    </div>
+                    <p class="text-xs text-muted-foreground mt-2">Tier selected by total credit files. Example: Tier 2 starts at 10,000 credit files.</p>
+                </div>
             </div>
             <div class="flex justify-end space-x-3 mt-6">
                 <button type="button" onclick="window.modalManager.closeProviderModal()"
@@ -170,12 +144,14 @@
 </div>
 
 <!-- Item Modal -->
-<div id="itemModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="itemModalTitle">
-    <div class="bg-card rounded-lg p-6 w-full max-w-md">
-        <h3 id="itemModalTitle" class="text-lg font-semibold mb-4">Add Item</h3>
-        <form id="itemForm" aria-label="Item form">
+<div id="itemModal" class="fixed inset-0 bg-black bg-opacity-30 z-50 hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="itemModalTitle">
+    <div class="bg-card rounded-lg w-full max-w-5xl flex flex-col" style="max-height: 90vh;">
+        <div class="p-6 border-b border-border flex-shrink-0">
+            <h3 id="itemModalTitle" class="text-lg font-semibold">Add Item</h3>
+        </div>
+        <form id="itemForm" aria-label="Item form" class="flex flex-col flex-1 min-h-0">
             <input type="hidden" id="itemId" name="item_id">
-            <div class="space-y-4">
+            <div class="space-y-4 p-6 overflow-y-auto flex-1">
                 <div>
                     <label class="block text-sm font-medium mb-1">Item Name *</label>
                     <input type="text" id="itemName" name="item_name" required placeholder="e.g., FICO Score"
@@ -186,13 +162,40 @@
                     <textarea id="itemDescription" name="description" rows="3" placeholder="Brief description of the item"
                               class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent"></textarea>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium mb-1">Providers</label>
-                    <select id="itemProviders" name="providers" multiple
-                            class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent h-32">
-                        <!-- Provider options will be dynamically loaded here -->
-                    </select>
-                    <p class="text-xs text-muted-foreground mt-1">Hold Command (Mac) or Ctrl (Windows) to select multiple providers.</p>
+                <!-- Provider Offers Section -->
+                <div class="border-t border-border pt-4 mt-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-base font-semibold text-foreground">Provider Offers</h3>
+                        <span class="text-xs text-muted-foreground">Add providers and set tier prices</span>
+                    </div>
+                    
+                    <!-- Add Provider Control -->
+                    <div id="addProviderControl" class="flex items-center gap-2 mb-4">
+                        <select id="providerSelect" class="flex-1 px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent">
+                            <option value="">Select a provider</option>
+                        </select>
+                        <button type="button" id="addProviderBtn" class="px-4 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-600/90 whitespace-nowrap">
+                            Add Provider
+                        </button>
+                    </div>
+                    
+                    <!-- All Providers Added Message -->
+                    <div id="allProvidersAddedMsg" class="hidden mb-4 px-4 py-3 rounded-md bg-slate-50 border border-slate-200 text-slate-700">
+                        <div class="flex items-center gap-2">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                            </svg>
+                            <span class="font-medium">All providers have been added to this item</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Validation Message -->
+                    <div id="offerValidationMsg" class="hidden text-sm text-red-600 mb-2">Enter all tier prices</div>
+                    
+                    <!-- Provider Offers Container (horizontal grid layout) -->
+                    <div id="providerOffersContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <p class="text-sm text-muted-foreground text-center py-4 col-span-full">No providers added yet</p>
+                    </div>
                 </div>
                 <div>
                     <label class="block text-sm font-medium mb-1">Status</label>
@@ -203,7 +206,7 @@
                     </select>
                 </div>
             </div>
-            <div class="flex justify-end space-x-3 mt-6">
+            <div class="flex justify-end space-x-3 p-6 border-t border-border bg-card flex-shrink-0">
                 <button type="button" onclick="window.modalManager.closeItemModal()"
                         class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
                     Cancel
@@ -217,107 +220,10 @@
     </div>
 </div>
 
-<!-- Offer Modal -->
-<div id="offerModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="offerModalTitle">
-    <div class="bg-card rounded-lg p-6 w-full max-w-md">
-        <h3 id="offerModalTitle" class="text-lg font-semibold mb-4">Add Offer</h3>
-        <form id="offerForm" aria-label="Offer form">
-            <input type="hidden" id="offerId" name="offer_id">
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium mb-1">Item *</label>
-                    <select id="itemSelect" name="item_id" required
-                            class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent">
-                        <option value="">Select an item</option>
-                        <option value="new">+ Create New Item</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-1">Provider *</label>
-                    <select id="providerSelect" name="provider_id" required
-                            class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent">
-                        <option value="">Select a provider</option>
-                        <option value="new">+ Create New Provider</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-1">Minimum Units *</label>
-                    <input type="number" id="unitRange" name="unit_range" required placeholder="e.g., 100" min="1"
-                           class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent">
-                    <p class="text-xs text-muted-foreground mt-1">Enter the minimum number of units (will be displayed as &ge; N)</p>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-1">Price per Unit *</label>
-                    <input type="number" id="pricePerUnit" name="price_per_unit" required step="0.01" min="0"
-                           class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium mb-1">Status</label>
-                    <select id="offerStatus" name="status"
-                            class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent">
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                    </select>
-                </div>
-            </div>
-            <div class="flex justify-between items-center mt-6">
-                <button type="button" id="deleteOfferBtn" class="hidden px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors" title="Delete Offer">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.134-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.067-2.09 1.02-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                    </svg>
-                </button>
-                <div class="flex space-x-3">
-                    <button type="button" onclick="window.modalManager.closeOfferModal()"
-                            class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
-                        Cancel
-                    </button>
-                    <button type="submit"
-                            class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-[#7f4f24] text-white hover:bg-[#7f4f24]/90">
-                        Save Offer
-                    </button>
-                </div>
-            </div>
-        </form>
-    </div>
-</div>
-
-<!-- Relationship Management Modal -->
-<div id="relationshipModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="relationshipModalTitle">
-    <div class="bg-card rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-        <h3 id="relationshipModalTitle" class="text-lg font-semibold mb-4">Manage Provider-Item Relationships</h3>
-
-        <div class="mb-6">
-            <p class="text-sm text-muted-foreground">Select which providers offer which items by checking the boxes below.</p>
-        </div>
-
-        <div class="overflow-x-auto">
-            <table class="w-full border-collapse">
-                <thead>
-                    <tr id="relationshipHeaderRow" class="bg-secondary">
-                        <th class="border border-border px-4 py-2 text-left text-sm font-medium">Provider \ Item</th>
-                    </tr>
-                </thead>
-                <tbody id="relationshipTableBody">
-                    <!-- Relationship matrix will be dynamically rendered here -->
-                </tbody>
-            </table>
-        </div>
-
-        <div class="flex justify-end space-x-3 mt-6">
-            <button type="button" onclick="window.modalManager.closeRelationshipModal()"
-                    class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
-                Cancel
-            </button>
-            <button type="button" onclick="saveRelationships()"
-                    class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-purple-600 text-white hover:bg-purple-600/90">
-                Save Relationships
-            </button>
-        </div>
-    </div>
-</div>
-
 <!-- Component Scripts (in dependency order) -->
 <script src="/static/pricing/js/dataService.js"></script>
+<script src="/static/pricing/js/tierManager.js"></script>
+<script src="/static/pricing/js/offerManager.js"></script>
 <script src="/static/pricing/js/uiManager.js"></script>
 <script src="/static/pricing/js/modalManager.js"></script>
 <script src="/static/pricing/js/tableRenderer.js"></script>

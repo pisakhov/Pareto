@@ -148,14 +148,12 @@ class UIManager {
   }
 
   // Count displays
-  updateCounts(providers, items, offers) {
+  updateCounts(providers, items) {
     const providerCount = document.getElementById("providerCount");
     const itemCount = document.getElementById("itemCount");
-    const offerCount = document.getElementById("offerCount");
 
     if (providerCount) providerCount.textContent = providers.length;
     if (itemCount) itemCount.textContent = items.length;
-    if (offerCount) offerCount.textContent = offers.length;
   }
 
   // Loading states

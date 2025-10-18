@@ -37,15 +37,24 @@ class ProviderUpdate(BaseModel):
 class OfferCreate(BaseModel):
     item_id: int
     provider_id: int
-    unit_range: int
+    tier_number: int
     price_per_unit: float
     status: Optional[str] = "active"
 
 
 class OfferUpdate(BaseModel):
-    unit_range: Optional[int] = None
+    tier_number: Optional[int] = None
     price_per_unit: Optional[float] = None
     status: Optional[str] = None
+
+
+class TierThresholdsUpdate(BaseModel):
+    thresholds: Dict[str, int]
+
+
+class TierOverrideCreate(BaseModel):
+    manual_tier: int
+    notes: Optional[str] = ""
 
 
 @router.get("/pricing", response_class=HTMLResponse)
@@ -60,20 +69,8 @@ async def get_providers():
     """Get all providers."""
     try:
         repo = get_pricing_repo()
-        providers = repo.get_all_providers()
-        return JSONResponse(
-            content=[
-                {
-                    "provider_id": p.provider_id,
-                    "company_name": p.company_name,
-                    "details": p.details,
-                    "status": p.status,
-                    "date_creation": p.date_creation,
-                    "date_last_update": p.date_last_update,
-                }
-                for p in providers
-            ]
-        )
+        providers = repo.get_all_providers_with_tier_counts()
+        return JSONResponse(content=providers)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -98,6 +95,20 @@ async def create_provider(provider: ProviderCreate):
                 "date_last_update": new_provider.date_last_update,
             }
         )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/api/providers/allocations")
+async def get_provider_allocations():
+    """Get total allocations per provider-item across all products.
+    
+    Returns allocation totals and per-product breakdown for tier highlighting.
+    """
+    try:
+        repo = get_pricing_repo()
+        allocations = repo.get_provider_item_allocations()
+        return JSONResponse(content=allocations)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -161,120 +172,96 @@ async def delete_provider(provider_id: int):
 @router.get("/api/offers")
 async def get_offers():
     """Get all offers with provider information."""
-    try:
-        repo = get_pricing_repo()
-        offers = repo.get_all_offers()
-        return JSONResponse(content=offers)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    repo = get_pricing_repo()
+    offers = repo.get_all_offers()
+    for offer in offers:
+        if "unit_range" in offer:
+            offer["tier_number"] = offer.pop("unit_range")
+    return JSONResponse(content=offers)
 
 
 @router.get("/api/offers/provider/{provider_id}")
 async def get_offers_by_provider(provider_id: int):
     """Get all offers for a specific provider."""
-    try:
-        repo = get_pricing_repo()
-        offers = repo.get_offers_by_provider(provider_id)
-        return JSONResponse(
-            content=[
-                {
-                    "offer_id": o.offer_id,
-                    "provider_id": o.provider_id,
-                    "unit_range": o.unit_range,
-                    "price_per_unit": float(o.price_per_unit),
-                    "status": o.status,
-                    "date_creation": o.date_creation,
-                    "date_last_update": o.date_last_update,
-                }
-                for o in offers
-            ]
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    repo = get_pricing_repo()
+    offers = repo.get_offers_by_provider(provider_id)
+    return JSONResponse(
+        content=[
+            {
+                "offer_id": o.offer_id,
+                "provider_id": o.provider_id,
+                "tier_number": o.unit_range,
+                "price_per_unit": float(o.price_per_unit),
+                "status": o.status,
+                "date_creation": o.date_creation,
+                "date_last_update": o.date_last_update,
+            }
+            for o in offers
+        ]
+    )
 
 
 @router.post("/api/offers")
 async def create_offer(offer: OfferCreate):
     """Create a new offer."""
-    try:
-        repo = get_pricing_repo()
-        new_offer = repo.create_offer(
-            item_id=offer.item_id,
-            provider_id=offer.provider_id,
-            unit_range=offer.unit_range,
-            price_per_unit=offer.price_per_unit,
-            status=offer.status,
-        )
-        if not new_offer:
-            raise HTTPException(status_code=400, detail="Provider or Item not found")
-        return JSONResponse(
-            content={
-                "offer_id": new_offer.offer_id,
-                "item_id": new_offer.item_id,
-                "provider_id": new_offer.provider_id,
-                "unit_range": new_offer.unit_range,
-                "price_per_unit": new_offer.price_per_unit,
-                "status": new_offer.status,
-                "date_creation": new_offer.date_creation,
-                "date_last_update": new_offer.date_last_update,
-            }
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    repo = get_pricing_repo()
+    new_offer = repo.create_offer(
+        item_id=offer.item_id,
+        provider_id=offer.provider_id,
+        unit_range=offer.tier_number,
+        price_per_unit=offer.price_per_unit,
+        status=offer.status,
+    )
+    if not new_offer:
+        raise HTTPException(status_code=400, detail="Provider or Item not found")
+    return JSONResponse(
+        content={
+            "offer_id": new_offer.offer_id,
+            "item_id": new_offer.item_id,
+            "provider_id": new_offer.provider_id,
+            "tier_number": new_offer.unit_range,
+            "price_per_unit": new_offer.price_per_unit,
+            "status": new_offer.status,
+            "date_creation": new_offer.date_creation,
+            "date_last_update": new_offer.date_last_update,
+        }
+    )
 
 
 @router.put("/api/offers/{offer_id}")
 async def update_offer(offer_id: int, offer: OfferUpdate):
     """Update an offer."""
-    try:
-        repo = get_pricing_repo()
-        success = repo.update_offer(
-            offer_id=offer_id,
-            unit_range=offer.unit_range,
-            price_per_unit=offer.price_per_unit,
-            status=offer.status,
-        )
-        if not success:
-            raise HTTPException(status_code=404, detail="Offer not found")
-        return JSONResponse(content={"message": "Offer updated successfully"})
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    repo = get_pricing_repo()
+    success = repo.update_offer(
+        offer_id=offer_id,
+        unit_range=offer.tier_number,
+        price_per_unit=offer.price_per_unit,
+        status=offer.status,
+    )
+    if not success:
+        raise HTTPException(status_code=404, detail="Offer not found")
+    return JSONResponse(content={"message": "Offer updated successfully"})
 
 
 @router.get("/api/offers/{offer_id}")
 async def get_offer(offer_id: int):
     """Get a specific offer."""
-
-    try:
-        repo = get_pricing_repo()
-
-        offer = repo.get_offer(offer_id)
-
-        if not offer:
-            raise HTTPException(status_code=404, detail="Offer not found")
-
-        return JSONResponse(
-            content={
-                "offer_id": offer.offer_id,
-                "item_id": offer.item_id,
-                "provider_id": offer.provider_id,
-                "unit_range": offer.unit_range,
-                "price_per_unit": float(offer.price_per_unit),
-                "status": offer.status,
-                "date_creation": offer.date_creation,
-                "date_last_update": offer.date_last_update,
-            }
-        )
-
-    except HTTPException:
-        raise
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    repo = get_pricing_repo()
+    offer = repo.get_offer(offer_id)
+    if not offer:
+        raise HTTPException(status_code=404, detail="Offer not found")
+    return JSONResponse(
+        content={
+            "offer_id": offer.offer_id,
+            "item_id": offer.item_id,
+            "provider_id": offer.provider_id,
+            "tier_number": offer.unit_range,
+            "price_per_unit": float(offer.price_per_unit),
+            "status": offer.status,
+            "date_creation": offer.date_creation,
+            "date_last_update": offer.date_last_update,
+        }
+    )
 
 
 @router.delete("/api/offers/{offer_id}")
@@ -284,6 +271,17 @@ async def delete_offer(offer_id: int):
         repo = get_pricing_repo()
         repo.delete_offer(offer_id)
         return JSONResponse(content={"message": "Offer deleted successfully"})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/api/items/{item_id}/offers")
+async def delete_offers_for_item(item_id: int):
+    """Delete all offers for an item."""
+    try:
+        repo = get_pricing_repo()
+        count = repo.delete_offers_for_item(item_id)
+        return JSONResponse(content={"message": f"{count} offers deleted successfully"})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -392,11 +390,23 @@ async def get_item(item_id: int):
 
 @router.get("/api/items/{item_id}/providers")
 async def get_item_providers(item_id: int):
-    """Get all provider IDs for a specific item."""
+    """Get all providers for a specific item with full details."""
     try:
         repo = get_pricing_repo()
         provider_ids = repo.get_providers_for_item(item_id)
-        return JSONResponse(content=provider_ids)
+        
+        # Get full provider details
+        providers = []
+        for provider_id in provider_ids:
+            provider = repo.get_provider(provider_id)
+            if provider and provider.status == 'active':
+                providers.append({
+                    'provider_id': provider.provider_id,
+                    'company_name': provider.company_name,
+                    'status': provider.status
+                })
+        
+        return JSONResponse(content=providers)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -441,10 +451,6 @@ async def delete_item(item_id: int):
 
 
 # Provider-Item relationship endpoints
-class RelationshipRequest(BaseModel):
-    relationships: List[Dict[str, int]]
-
-
 @router.get("/api/provider-items")
 async def get_provider_items():
     """Get all provider-item relationships."""
@@ -465,16 +471,65 @@ async def get_provider_items():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/api/provider-items/bulk")
-async def bulk_update_relationships(request: RelationshipRequest):
-    """Bulk update provider-item relationships."""
-    try:
-        repo = get_pricing_repo()
-        success = repo.bulk_update_provider_item_relationships(request.relationships)
-        if not success:
-            raise HTTPException(
-                status_code=500, detail="Failed to update relationships"
-            )
-        return JSONResponse(content={"message": "Relationships updated successfully"})
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# Tier-based pricing endpoints
+@router.get("/api/providers/{provider_id}/tier-thresholds")
+async def get_tier_thresholds(provider_id: int):
+    """Get tier thresholds and base prices for a provider."""
+    repo = get_pricing_repo()
+    provider = repo.get_provider(provider_id)
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    tier_data = repo.get_provider_tier_thresholds(provider_id)
+    return JSONResponse(content=tier_data)
+
+
+@router.put("/api/providers/{provider_id}/tier-thresholds")
+async def update_tier_thresholds(provider_id: int, data: Dict):
+    """Update tier thresholds and base prices for a provider."""
+    repo = get_pricing_repo()
+    provider = repo.get_provider(provider_id)
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    thresholds = data.get("thresholds", {})
+    base_prices = data.get("base_prices", {})
+    repo.set_provider_tier_thresholds(provider_id, thresholds, base_prices)
+    return JSONResponse(content={"message": "Tier thresholds updated successfully"})
+
+
+@router.get("/api/providers/{provider_id}/tier-override")
+async def get_tier_override(provider_id: int):
+    """Get manual tier override for a provider."""
+    repo = get_pricing_repo()
+    override = repo.get_provider_tier_override(provider_id)
+    if not override:
+        return JSONResponse(content={"override": None})
+    return JSONResponse(
+        content={
+            "override": {
+                "provider_id": override.provider_id,
+                "manual_tier": override.manual_tier,
+                "notes": override.notes,
+                "date_creation": override.date_creation,
+                "date_last_update": override.date_last_update,
+            }
+        }
+    )
+
+
+@router.post("/api/providers/{provider_id}/tier-override")
+async def create_tier_override(provider_id: int, data: TierOverrideCreate):
+    """Set manual tier override for a provider."""
+    repo = get_pricing_repo()
+    provider = repo.get_provider(provider_id)
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    repo.set_provider_tier_override(provider_id, data.manual_tier, data.notes)
+    return JSONResponse(content={"message": "Tier override set successfully"})
+
+
+@router.delete("/api/providers/{provider_id}/tier-override")
+async def delete_tier_override(provider_id: int):
+    """Clear manual tier override for a provider."""
+    repo = get_pricing_repo()
+    repo.clear_provider_tier_override(provider_id)
+    return JSONResponse(content={"message": "Tier override cleared successfully"})

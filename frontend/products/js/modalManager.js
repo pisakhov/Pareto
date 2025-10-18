@@ -13,6 +13,11 @@ const modalManager = {
             form.reset();
             window.editingProductId = null;
             title.textContent = 'Add Product';
+            
+            // Reset itemManager
+            if (window.itemManager) {
+                window.itemManager.reset();
+            }
         }
 
         modal.classList.remove('hidden');
@@ -28,6 +33,31 @@ const modalManager = {
         if (modal) {
             modal.classList.add('hidden');
             modal.classList.remove('flex');
+            
+            if (window.itemManager) {
+                window.itemManager.reset();
+            }
+            
+            if (window.pricingAdjustments) {
+                window.pricingAdjustments.renderAdjustments([]);
+                window.pricingAdjustments.multipliers = {};
+            }
+        }
+    },
+
+    showViewModal() {
+        const modal = document.getElementById('productViewModal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+    },
+
+    closeViewModal() {
+        const modal = document.getElementById('productViewModal');
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
         }
     },
 
@@ -36,11 +66,15 @@ const modalManager = {
             if (event.target.id === 'productModal') {
                 this.closeProductModal();
             }
+            if (event.target.id === 'productViewModal') {
+                this.closeViewModal();
+            }
         });
 
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
                 this.closeProductModal();
+                this.closeViewModal();
             }
         });
     },

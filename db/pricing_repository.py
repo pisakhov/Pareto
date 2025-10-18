@@ -19,6 +19,7 @@ class Provider:
     status: str
     date_creation: str
     date_last_update: str
+    tier_thresholds: str = None
 
 
 @dataclass
@@ -50,6 +51,15 @@ class Offer:
     date_last_update: str
 
 
+@dataclass
+class ProviderTierOverride:
+    provider_id: int
+    manual_tier: int
+    notes: str
+    date_creation: str
+    date_last_update: str
+
+
 class PricingRepository:
     """Repository class for managing pricing data with DuckDB"""
 
@@ -77,6 +87,7 @@ class PricingRepository:
             self._create_items_table()
             self._create_provider_items_table()
             self._create_offers_table()
+            self._create_provider_tier_overrides_table()
         except Exception as e:
             print(f"Warning: Database initialization failed: {e}")
 
@@ -88,6 +99,9 @@ class PricingRepository:
         conn.execute("CREATE SEQUENCE IF NOT EXISTS provider_seq")
         conn.execute("CREATE SEQUENCE IF NOT EXISTS item_seq")
         conn.execute("CREATE SEQUENCE IF NOT EXISTS offer_seq")
+        
+        # Sync sequences with existing data
+        self._sync_sequences()
 
     def _create_providers_table(self):
         """Create providers table if it doesn't exist"""
@@ -96,6 +110,7 @@ class PricingRepository:
             provider_id INTEGER PRIMARY KEY,
             company_name VARCHAR NOT NULL,
             details TEXT,
+            tier_thresholds TEXT,
             status VARCHAR DEFAULT 'active',
             date_creation VARCHAR NOT NULL,
             date_last_update VARCHAR NOT NULL
@@ -103,6 +118,16 @@ class PricingRepository:
         """
         conn = self._get_connection()
         conn.execute(query)
+        
+        # Add tier_thresholds column if it doesn't exist (migration)
+        try:
+            columns = conn.execute("PRAGMA table_info(providers)").fetchall()
+            column_names = [col[1] for col in columns]
+            if 'tier_thresholds' not in column_names:
+                print("Adding tier_thresholds column to providers table")
+                conn.execute("ALTER TABLE providers ADD COLUMN tier_thresholds TEXT")
+        except Exception as e:
+            print(f"Migration warning: {e}")
 
     def _create_items_table(self):
         """Create items table if it doesn't exist"""
@@ -153,6 +178,40 @@ class PricingRepository:
         conn = self._get_connection()
         conn.execute(query)
 
+    def _create_provider_tier_overrides_table(self):
+        """Create provider_tier_overrides table if it doesn't exist"""
+        query = """
+        CREATE TABLE IF NOT EXISTS provider_tier_overrides (
+            provider_id INTEGER PRIMARY KEY,
+            manual_tier INTEGER NOT NULL,
+            notes TEXT,
+            date_creation VARCHAR NOT NULL,
+            date_last_update VARCHAR NOT NULL,
+            FOREIGN KEY (provider_id) REFERENCES providers(provider_id)
+        )
+        """
+        conn = self._get_connection()
+        conn.execute(query)
+    
+    def _sync_sequences(self):
+        """Sync sequences with existing max IDs in tables"""
+        conn = self._get_connection()
+        
+        # Sync provider_seq
+        max_provider = conn.execute("SELECT COALESCE(MAX(provider_id), 0) FROM providers").fetchone()[0]
+        conn.execute("DROP SEQUENCE IF EXISTS provider_seq")
+        conn.execute(f"CREATE SEQUENCE provider_seq START {max_provider + 1}")
+        
+        # Sync item_seq
+        max_item = conn.execute("SELECT COALESCE(MAX(item_id), 0) FROM items").fetchone()[0]
+        conn.execute("DROP SEQUENCE IF EXISTS item_seq")
+        conn.execute(f"CREATE SEQUENCE item_seq START {max_item + 1}")
+        
+        # Sync offer_seq
+        max_offer = conn.execute("SELECT COALESCE(MAX(offer_id), 0) FROM offers").fetchone()[0]
+        conn.execute("DROP SEQUENCE IF EXISTS offer_seq")
+        conn.execute(f"CREATE SEQUENCE offer_seq START {max_offer + 1}")
+
     def create_provider(
         self, company_name: str, details: str = "", status: str = "active"
     ) -> Provider:
@@ -164,10 +223,10 @@ class PricingRepository:
 
         conn.execute(
             """
-            INSERT INTO providers (provider_id, company_name, details, status, date_creation, date_last_update)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO providers (provider_id, company_name, details, status, date_creation, date_last_update, tier_thresholds)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-            [provider_id, company_name, details, status, now, now],
+            [provider_id, company_name, details, status, now, now, None],
         )
 
         return Provider(
@@ -177,13 +236,14 @@ class PricingRepository:
             status=status,
             date_creation=now,
             date_last_update=now,
+            tier_thresholds=None,
         )
 
     def get_provider(self, provider_id: int) -> Optional[Provider]:
         """Get a provider by ID"""
         conn = self._get_connection()
         result = conn.execute(
-            "SELECT * FROM providers WHERE provider_id = ?", [provider_id]
+            "SELECT provider_id, company_name, details, status, date_creation, date_last_update, tier_thresholds FROM providers WHERE provider_id = ?", [provider_id]
         ).fetchone()
 
         if result:
@@ -194,9 +254,34 @@ class PricingRepository:
         """Get all providers"""
         conn = self._get_connection()
         results = conn.execute(
-            "SELECT * FROM providers ORDER BY company_name"
+            "SELECT provider_id, company_name, details, status, date_creation, date_last_update, tier_thresholds FROM providers ORDER BY company_name"
         ).fetchall()
         return [Provider(*result) for result in results]
+
+    def get_all_providers_with_tier_counts(self) -> List[Dict[str, Any]]:
+        """Get all providers with their tier counts"""
+        conn = self._get_connection()
+        results = conn.execute(
+            "SELECT provider_id, company_name, details, status, date_creation, date_last_update, tier_thresholds FROM providers ORDER BY company_name"
+        ).fetchall()
+        
+        providers_with_counts = []
+        for result in results:
+            provider = Provider(*result)
+            tier_data = self.get_provider_tier_thresholds(provider.provider_id)
+            tier_count = len(tier_data.get("thresholds", {}))
+            
+            providers_with_counts.append({
+                "provider_id": provider.provider_id,
+                "company_name": provider.company_name,
+                "details": provider.details,
+                "status": provider.status,
+                "date_creation": provider.date_creation,
+                "date_last_update": provider.date_last_update,
+                "tier_count": tier_count
+            })
+        
+        return providers_with_counts
 
     def update_provider(
         self,
@@ -561,11 +646,17 @@ class PricingRepository:
         result = conn.execute("DELETE FROM offers WHERE offer_id = ?", [offer_id])
         return result.rowcount > 0
 
+    def delete_offers_for_item(self, item_id: int) -> int:
+        """Delete all offers for an item, returns count deleted"""
+        conn = self._get_connection()
+        result = conn.execute("DELETE FROM offers WHERE item_id = ?", [item_id])
+        return result.rowcount
+
     def get_providers_with_offers(self) -> List[Dict[str, Any]]:
         """Get all providers with their offers"""
         conn = self._get_connection()
         providers = conn.execute(
-            "SELECT * FROM providers ORDER BY company_name"
+            "SELECT provider_id, company_name, details, status, date_creation, date_last_update, tier_thresholds FROM providers ORDER BY company_name"
         ).fetchall()
 
         result = []
@@ -620,6 +711,197 @@ class PricingRepository:
             }
             for row in results
         ]
+
+    # Tier-based pricing methods
+    def set_provider_tier_thresholds(self, provider_id: int, thresholds: Dict[str, int], base_prices: Dict[str, float] = None):
+        """Set tier thresholds and base prices for a provider."""
+        conn = self._get_connection()
+        now = datetime.now().isoformat()
+        
+        import json
+        tier_data = {
+            "thresholds": thresholds,
+            "base_prices": base_prices or {}
+        }
+        conn.execute(
+            "UPDATE providers SET tier_thresholds = ?, date_last_update = ? WHERE provider_id = ?",
+            [json.dumps(tier_data), now, provider_id]
+        )
+
+    def get_provider_tier_thresholds(self, provider_id: int) -> Dict:
+        """Get tier thresholds and base prices for a provider."""
+        conn = self._get_connection()
+        result = conn.execute(
+            "SELECT tier_thresholds FROM providers WHERE provider_id = ?",
+            [provider_id]
+        ).fetchone()
+        
+        if result and result[0]:
+            import json
+            data = json.loads(result[0])
+            if isinstance(data, dict) and "thresholds" in data:
+                return data
+            return {"thresholds": data, "base_prices": {}}
+        return {"thresholds": {"1": 0}, "base_prices": {}}
+
+    def get_tier_for_credit_files(self, provider_id: int, total_credit_files: int) -> int:
+        """Determine tier based on total credit files."""
+        tier_data = self.get_provider_tier_thresholds(provider_id)
+        thresholds = tier_data.get("thresholds", {})
+        
+        tier_list = [(int(tier), threshold) for tier, threshold in thresholds.items()]
+        tier_list.sort(key=lambda x: x[1], reverse=True)
+        
+        for tier_num, threshold in tier_list:
+            if total_credit_files >= threshold:
+                return tier_num
+        
+        return 1
+
+    def get_price_for_item_at_tier(self, provider_id: int, item_id: int, tier_number: int) -> Optional[float]:
+        """Get price for an item at a specific tier with inheritance."""
+        conn = self._get_connection()
+        
+        result = conn.execute(
+            """
+            SELECT price_per_unit FROM offers
+            WHERE provider_id = ? AND item_id = ? AND tier_number = ? AND status = 'active'
+            LIMIT 1
+            """,
+            [provider_id, item_id, tier_number]
+        ).fetchone()
+        
+        if result:
+            return float(result[0])
+        
+        if tier_number > 1:
+            return self.get_price_for_item_at_tier(provider_id, item_id, tier_number - 1)
+        
+        return None
+
+    def set_provider_tier_override(self, provider_id: int, manual_tier: int, notes: str = ""):
+        """Set manual tier override for a provider."""
+        conn = self._get_connection()
+        now = datetime.now().isoformat()
+        
+        existing = conn.execute(
+            "SELECT provider_id FROM provider_tier_overrides WHERE provider_id = ?",
+            [provider_id]
+        ).fetchone()
+        
+        if existing:
+            conn.execute(
+                """
+                UPDATE provider_tier_overrides
+                SET manual_tier = ?, notes = ?, date_last_update = ?
+                WHERE provider_id = ?
+                """,
+                [manual_tier, notes, now, provider_id]
+            )
+        else:
+            conn.execute(
+                """
+                INSERT INTO provider_tier_overrides (provider_id, manual_tier, notes, date_creation, date_last_update)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                [provider_id, manual_tier, notes, now, now]
+            )
+
+    def get_provider_tier_override(self, provider_id: int) -> Optional[ProviderTierOverride]:
+        """Get manual tier override for a provider."""
+        conn = self._get_connection()
+        result = conn.execute(
+            "SELECT * FROM provider_tier_overrides WHERE provider_id = ?",
+            [provider_id]
+        ).fetchone()
+        
+        if result:
+            return ProviderTierOverride(*result)
+        return None
+
+    def clear_provider_tier_override(self, provider_id: int):
+        """Clear manual tier override for a provider."""
+        conn = self._get_connection()
+        conn.execute(
+            "DELETE FROM provider_tier_overrides WHERE provider_id = ?",
+            [provider_id]
+        )
+
+    def validate_equal_tiers(self, provider_id: int) -> Dict[str, Any]:
+        """Validate tier consistency for a provider."""
+        conn = self._get_connection()
+        results = conn.execute(
+            """
+            SELECT i.item_name, COUNT(DISTINCT o.tier_number) as tier_count
+            FROM offers o
+            JOIN items i ON o.item_id = i.item_id
+            WHERE o.provider_id = ? AND o.status = 'active'
+            GROUP BY i.item_name
+            """,
+            [provider_id]
+        ).fetchall()
+        
+        return {
+            "items": [{"item_name": row[0], "tier_count": row[1]} for row in results]
+        }
+
+    def get_provider_item_allocations(self) -> Dict[str, Any]:
+        """Calculate total allocations per provider-item across all products."""
+        conn = self._get_connection()
+        
+        try:
+            results = conn.execute("""
+                SELECT 
+                    p.product_id,
+                    p.name as product_name,
+                    p.proxy_quantity,
+                    a.provider_id,
+                    a.item_id,
+                    a.allocation_mode,
+                    a.allocation_value
+                FROM products p
+                JOIN product_item_allocations a ON p.product_id = a.product_id
+                WHERE p.status = 'active'
+            """).fetchall()
+        except Exception:
+            return {'provider_items': {}}
+        
+        provider_items = {}
+        
+        for row in results:
+            product_id = row[0]
+            product_name = row[1]
+            proxy_quantity = row[2]
+            provider_id = str(row[3])
+            item_id = str(row[4])
+            allocation_mode = row[5]
+            allocation_value = float(row[6])
+            
+            # Calculate effective units based on allocation mode
+            if allocation_mode == 'percentage':
+                # Normalize percentage: handle both 0-1 and 0-100 ranges
+                fraction = allocation_value / 100 if allocation_value > 1 else allocation_value
+                count = round(proxy_quantity * fraction)
+            else:  # units mode
+                count = int(allocation_value)
+            
+            if provider_id not in provider_items:
+                provider_items[provider_id] = {}
+            
+            if item_id not in provider_items[provider_id]:
+                provider_items[provider_id][item_id] = {
+                    'total': 0,
+                    'products': []
+                }
+            
+            provider_items[provider_id][item_id]['total'] += count
+            provider_items[provider_id][item_id]['products'].append({
+                'id': str(product_id),
+                'name': product_name,
+                'count': count
+            })
+        
+        return {'provider_items': provider_items}
 
     def close(self):
         """Close database connection"""

@@ -1,6 +1,37 @@
 /**
  * Table Renderer - Handles all rendering operations for tables and matrices
  */
+
+function findCurrentTier(total, thresholds) {
+  const tierKeys = Object.keys(thresholds).map(t => parseInt(t)).sort((a, b) => a - b);
+  
+  for (let i = 0; i < tierKeys.length; i++) {
+    const tier = tierKeys[i];
+    const bound = thresholds[tier];
+    if (total < bound) {
+      return { tierNumber: tier, aboveMax: false };
+    }
+  }
+  
+  const lastTier = tierKeys[tierKeys.length - 1];
+  return { tierNumber: lastTier, aboveMax: true };
+}
+
+function buildTooltipHTML(total, products, currentTier, aboveMax) {
+  const prefix = aboveMax ? `Above T${currentTier} • ` : '';
+  let html = `<div class="tier-tooltip">`;
+  html += `<div style="font-weight: 600; margin-bottom: 4px;">${prefix}Current: ${total.toLocaleString()} files</div>`;
+  
+  if (products && products.length > 0) {
+    products.forEach(p => {
+      html += `<div style="font-size: 10px; opacity: 0.9;">• ${p.name}: ${p.count.toLocaleString()}</div>`;
+    });
+  }
+  
+  html += `</div>`;
+  return html;
+}
+
 class TableRenderer {
   constructor() {
     this.data = {
@@ -41,7 +72,7 @@ class TableRenderer {
 
     if (this.data.providers.length === 0) {
       tbody.innerHTML =
-        '<tr><td colspan="3" class="text-center py-4 text-muted-foreground">No providers found</td></tr>';
+        '<tr><td colspan="4" class="text-center py-4 text-muted-foreground">No providers found</td></tr>';
       return;
     }
 
@@ -54,6 +85,7 @@ class TableRenderer {
   createProviderRow(provider) {
     const row = document.createElement("tr");
     row.className = "hover:bg-secondary/50";
+    const tierCount = provider.tier_count || 0;
     row.innerHTML = `
             <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">${provider.company_name}</td>
             <td class="px-4 py-3 whitespace-nowrap">
@@ -64,6 +96,9 @@ class TableRenderer {
                 }">
                     ${provider.status}
                 </span>
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap text-sm text-center">
+                <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">${tierCount}</span>
             </td>
             <td class="px-4 py-3 whitespace-nowrap text-sm">
                 <div class="flex items-center space-x-1">
@@ -128,100 +163,9 @@ class TableRenderer {
     return row;
   }
 
-  // Offers table rendering
-  renderOffers() {
-    const tbody = document.getElementById("offersTableBody");
-    if (!tbody) return;
-
-    tbody.innerHTML = "";
-
-    if (this.data.offers.length === 0) {
-      tbody.innerHTML =
-        '<tr><td colspan="3" class="text-center py-4 text-muted-foreground">No offers found</td></tr>';
-      return;
-    }
-
-    // Show only recent offers (first 5) in the compact view
-    const recentOffers = this.data.offers.slice(0, 5);
-
-    recentOffers.forEach((offer) => {
-      const row = this.createOfferRow(offer);
-      tbody.appendChild(row);
-    });
-  }
-
-  renderAllOffers() {
-    const tbody = document.getElementById("allOffersTableBody");
-    if (!tbody) return;
-
-    tbody.innerHTML = "";
-
-    if (this.data.offers.length === 0) {
-      tbody.innerHTML =
-        '<tr><td colspan="6" class="text-center py-4 text-muted-foreground">No offers found</td></tr>';
-      return;
-    }
-
-    this.data.offers.forEach((offer) => {
-      const row = this.createAllOfferRow(offer);
-      tbody.appendChild(row);
-    });
-  }
-
-  createOfferRow(offer) {
-    const row = document.createElement("tr");
-    row.className = "hover:bg-secondary/50";
-    row.innerHTML = `
-            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">${offer.item_name || "Unknown Item"}</td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm font-semibold text-green-600">$${offer.price_per_unit.toFixed(2)}</td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm">
-                <div class="flex items-center space-x-1">
-                    <button onclick="window.formHandler.populateOfferForm(${offer.offer_id})" class="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-full transition-colors" title="Edit Offer">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
-                    </button>
-                    <button onclick="window.formHandler.deleteOffer(${offer.offer_id}, this)" class="p-2 text-gray-500 hover:text-red-600 hover:bg-gray-100 rounded-full transition-colors" title="Delete Offer">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.134-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.067-2.09 1.02-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
-                    </button>
-                </div>
-            </td>
-        `;
-    return row;
-  }
-
-  createAllOfferRow(offer) {
-    const row = document.createElement("tr");
-    row.className = "hover:bg-secondary/50";
-    row.innerHTML = `
-            <td class="px-4 py-3 whitespace-nowrap text-sm">${offer.offer_id}</td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">${offer.item_name || "Unknown Item"}</td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm">${offer.provider_name || "Unknown Provider"}</td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm">&ge; ${offer.unit_range}</td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm font-semibold text-green-600">$${offer.price_per_unit.toFixed(2)}</td>
-            <td class="px-4 py-3 whitespace-nowrap">
-                <span class="px-2 py-1 text-xs rounded-full ${
-                  offer.status === "active"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-red-100 text-red-800"
-                }">
-                    ${offer.status}
-                </span>
-            </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm">
-                <div class="flex items-center space-x-1">
-                    <button onclick="window.formHandler.populateOfferForm(${offer.offer_id})" class="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-full transition-colors" title="Edit Offer">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
-                    </button>
-                    <button onclick="window.formHandler.deleteOffer(${offer.offer_id}, this)" class="p-2 text-gray-500 hover:text-red-600 hover:bg-gray-100 rounded-full transition-colors" title="Delete Offer">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.134-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.067-2.09 1.02-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
-                    </button>
-                </div>
-            </td>
-        `;
-    return row;
-  }
 
   // Relationship matrix rendering
-  renderRelationshipMatrix() {
+  async renderRelationshipMatrix() {
     const matrix = document.getElementById("relationshipMatrix");
     if (!matrix) return;
 
@@ -231,42 +175,198 @@ class TableRenderer {
       return;
     }
 
-    const html = this.createRelationshipMatrixHTML();
+    const html = await this.createRelationshipMatrixHTML();
     matrix.innerHTML = html;
   }
 
-  createRelationshipMatrixHTML() {
-    let html =
-      '<div class="overflow-x-auto"><table class="w-full border-collapse text-sm"><thead><tr><th class="border border-border px-2 py-1 bg-secondary font-medium">Item \ Provider</th>';
+  async createRelationshipMatrixHTML() {
+    const providerTierData = await this.fetchAllProviderTiers();
+    let allocations = {};
+    try {
+      allocations = await dataService.fetchProviderItemAllocations() || {};
+    } catch (error) {
+      console.warn('Could not load allocations:', error);
+    }
 
-    // Add provider headers
+    // Calculate total files per provider across ALL items and determine tier
+    const providerTotals = new Map();
+    const providerCurrentTiers = new Map();
+    const providersExceedingTiers = new Set();
+    
     this.data.providers.forEach((provider) => {
-      html += `<th class="border border-border px-2 py-1 bg-secondary text-center font-medium" title="${provider.company_name || ""}">${provider.company_name}</th>`;
+      const tierInfo = providerTierData[provider.provider_id] || {};
+      const thresholds = tierInfo.thresholds || {};
+      
+      let totalFiles = 0;
+      const itemBreakdown = [];
+      
+      // Sum up all files across all items for this provider
+      this.data.items.forEach((item) => {
+        const allocationData = allocations?.[provider.provider_id]?.[item.item_id];
+        const allocationTotal = allocationData?.total || 0;
+        const allocationProducts = allocationData?.products || [];
+        
+        if (allocationTotal > 0) {
+          totalFiles += allocationTotal;
+          itemBreakdown.push({
+            itemName: item.item_name,
+            total: allocationTotal,
+            products: allocationProducts
+          });
+        }
+      });
+      
+      providerTotals.set(provider.provider_id, {
+        total: totalFiles,
+        breakdown: itemBreakdown
+      });
+      
+      // Determine provider's tier based on TOTAL files
+      if (totalFiles > 0 && Object.keys(thresholds).length > 0) {
+        const tierResult = findCurrentTier(totalFiles, thresholds);
+        providerCurrentTiers.set(provider.provider_id, tierResult);
+        if (tierResult.aboveMax) {
+          providersExceedingTiers.add(provider.provider_id);
+        }
+      }
+    });
+    
+    let html =
+      '<div class="overflow-x-auto"><table class="border-collapse text-sm w-auto"><thead><tr><th class="border border-border px-4 py-2 bg-secondary font-medium whitespace-nowrap">Provider \ Item</th>';
+
+    // Add item headers as columns
+    this.data.items.forEach((item) => {
+      html += `<th class="border border-border px-4 py-2 bg-secondary text-center font-medium whitespace-nowrap">
+        <div class="font-semibold">${item.item_name}</div>
+      </th>`;
     });
     html += "</tr></thead><tbody>";
 
-    // Add item rows
-    this.data.items.forEach((item) => {
-      html += `<tr><td class="border border-border px-2 py-1 bg-secondary font-medium whitespace-nowrap">${item.item_name}</td>`;
+    // Add provider rows
+    this.data.providers.forEach((provider) => {
+      const tierInfo = providerTierData[provider.provider_id] || {};
+      const thresholds = tierInfo.thresholds || {};
+      const basePrices = tierInfo.base_prices || {};
+      
+      const tierKeys = Object.keys(thresholds).map(t => parseInt(t)).sort((a, b) => a - b);
+      const exceedsClass = providersExceedingTiers.has(provider.provider_id) ? ' provider-exceeds-tiers' : '';
+      
+      const providerTotal = providerTotals.get(provider.provider_id);
+      const currentTier = providerCurrentTiers.get(provider.provider_id);
+      
+      // Build tooltip content showing breakdown
+      let tooltipContent = '';
+      if (providerTotal && providerTotal.total > 0) {
+        tooltipContent = `<div class="tier-tooltip">`;
+        tooltipContent += `<div style="font-weight: 600; margin-bottom: 6px;">Total: ${providerTotal.total.toLocaleString()} files</div>`;
+        if (providerTotal.breakdown.length > 0) {
+          tooltipContent += '<div style="font-size: 11px; opacity: 0.95;">';
+          providerTotal.breakdown.forEach(item => {
+            tooltipContent += `<div style="margin-bottom: 2px;">• ${item.itemName}: ${item.total.toLocaleString()}</div>`;
+          });
+          tooltipContent += '</div>';
+        }
+        tooltipContent += `</div>`;
+      }
+      
+      let tierDisplay = '';
+      if (tierKeys.length > 0) {
+        tierDisplay = '<div class="flex flex-col gap-1">';
+        tierKeys.forEach(tier => {
+          const files = thresholds[tier];
+          const base = basePrices[tier];
+          const baseText = base ? ` • $${base.toFixed(2)}` : '';
+          
+          // Highlight current tier
+          const isCurrentTier = currentTier && tier === currentTier.tierNumber;
+          const tierClass = isCurrentTier ? ' current-tier' : '';
+          const tierTooltip = isCurrentTier ? tooltipContent : '';
+          
+          tierDisplay += `<div class="text-xs whitespace-nowrap px-2 py-1 rounded text-muted-foreground font-normal" style="position: relative;">
+            <span class="font-medium${tierClass}">T${tier}${tierTooltip}</span>: &lt;${files.toLocaleString()}${baseText}
+          </div>`;
+        });
+        tierDisplay += '</div>';
+      }
+      
+      html += `<tr class="hover:bg-secondary/20"><td class="border border-border p-0 bg-secondary/50 font-medium">
+        <div class="flex h-full">
+          <div class="flex items-center justify-center px-3 border-r border-border bg-secondary/30 min-w-[2rem]">
+            <div class="font-semibold${exceedsClass} whitespace-nowrap text-sm" style="writing-mode: vertical-rl; transform: rotate(180deg);">${provider.company_name}</div>
+          </div>
+          <div class="flex-1 px-3 py-2">
+            ${tierDisplay}
+          </div>
+        </div>
+      </td>`;
 
-      this.data.providers.forEach((provider) => {
+      this.data.items.forEach((item) => {
+        const hasRelationship = this.data.providerItems.some(
+          (pi) =>
+            pi.provider_id === provider.provider_id &&
+            pi.item_id === item.item_id,
+        );
+        
         const offers = this.data.offers.filter(
           (o) =>
             o.provider_id === provider.provider_id &&
             o.item_id === item.item_id,
         );
 
-        html += `<td class="border border-border px-2 py-1 text-center align-top">`;
+        const tierInfo = providerTierData[provider.provider_id] || {};
+        const providerTiers = Object.keys(tierInfo.thresholds || {}).map(t => parseInt(t));
+        const offerTiers = offers.map(o => o.tier_number);
+        const missingTiers = providerTiers.filter(t => !offerTiers.includes(t));
+        const hasMissingOffers = hasRelationship && missingTiers.length > 0;
+
+        const cellClass = hasMissingOffers ? 'border-l-4 border-l-orange-500 bg-orange-50/20' : '';
+        const cursorClass = hasMissingOffers ? 'cursor-pointer' : '';
+        const clickHandler = hasMissingOffers ? `onclick="window.formHandler.populateItemForm(${item.item_id})" title="Click to add missing tiers: ${missingTiers.join(', ')}"` : '';
+
+        // Get provider's overall tier (calculated from total across all items)
+        const providerTier = providerCurrentTiers.get(provider.provider_id);
+        const providerTotal = providerTotals.get(provider.provider_id);
+        
+        // Get allocation data for THIS specific item only
+        const itemAllocationData = allocations?.[provider.provider_id]?.[item.item_id];
+        const itemTotal = itemAllocationData?.total || 0;
+        const itemProducts = itemAllocationData?.products || [];
+        
+        html += `<td class="border border-border px-4 py-2 text-center align-top ${cellClass} ${cursorClass}" ${clickHandler}>`;
         if (offers.length > 0) {
-          html += '<ul class="list-none p-0 m-0">';
+          html += '<div class="flex flex-col gap-1">';
           offers.forEach((offer) => {
             const inactiveClass =
-              offer.status === "inactive" ? "text-gray-400 line-through" : "";
-            html += `<li class="text-xs whitespace-nowrap p-1 hover:bg-gray-100 rounded cursor-pointer ${inactiveClass}" onclick="window.formHandler.populateOfferForm(${offer.offer_id})">&ge;${offer.unit_range} - $${offer.price_per_unit.toFixed(2)}</li>`;
+              offer.status === "inactive" ? "text-gray-400 line-through" : "text-foreground";
+            
+            // Highlight if this offer tier matches provider's overall tier
+            const isCurrentTier = providerTier && offer.tier_number === providerTier.tierNumber;
+            const tierClass = isCurrentTier ? ' current-tier' : '';
+            
+            // Build tooltip for current tier showing THIS ITEM's products only
+            let tooltipHTML = '';
+            if (isCurrentTier && itemTotal > 0) {
+              tooltipHTML = buildTooltipHTML(itemTotal, itemProducts, providerTier.tierNumber, providerTier.aboveMax);
+            }
+            
+            html += `<div class="text-xs whitespace-nowrap px-2 py-1 hover:bg-accent rounded cursor-pointer ${inactiveClass}" onclick="event.stopPropagation(); window.formHandler.populateItemForm(${item.item_id})">
+              <span class="font-medium${tierClass}">T${offer.tier_number}${tooltipHTML}</span> • <span class="text-green-600 font-semibold">$${offer.price_per_unit.toFixed(2)}</span>
+            </div>`;
           });
-          html += "</ul>";
+          html += "</div>";
+          if (hasMissingOffers) {
+            html += `<div class="flex items-center justify-center gap-1 mt-2 px-2 py-1 bg-orange-100 rounded text-xs text-gray-900 font-bold">
+              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+              <span>T${missingTiers.join(', T')}</span>
+            </div>`;
+          }
+        } else if (hasRelationship) {
+          html += `<div class="flex items-center justify-center gap-1 px-2 py-1.5 bg-orange-100 rounded text-xs text-gray-900 font-bold">
+            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+            <span>No offers</span>
+          </div>`;
         } else {
-          html += "&nbsp;";
+          html += '<span class="text-muted-foreground text-xs">—</span>';
         }
         html += `</td>`;
       });
@@ -278,66 +378,27 @@ class TableRenderer {
     return html;
   }
 
-  // Modal relationship matrix rendering
-  renderRelationshipMatrixModal() {
-    const headerRow = document.getElementById("relationshipHeaderRow");
-    const tbody = document.getElementById("relationshipTableBody");
-
-    if (!headerRow || !tbody) return;
-
-    // Clear existing content
-    headerRow.innerHTML =
-      '<th class="border border-border px-4 py-2 text-left text-sm font-medium">Item \ Provider</th>';
-    tbody.innerHTML = "";
-
-    // Add provider headers
-    this.data.providers.forEach((provider) => {
-      const th = document.createElement("th");
-      th.className =
-        "border border-border px-4 py-2 text-center text-sm font-medium";
-      th.textContent = provider.company_name;
-      th.title = provider.company_name || "";
-      headerRow.appendChild(th);
-    });
-
-    // Add item rows
-    this.data.items.forEach((item) => {
-      const tr = document.createElement("tr");
-      const itemCell = document.createElement("td");
-      itemCell.className = "border border-border px-4 py-2 font-medium";
-      itemCell.textContent = item.item_name;
-      tr.appendChild(itemCell);
-
-      this.data.providers.forEach((provider) => {
-        const hasRelationship = this.data.providerItems.some(
-          (pi) =>
-            pi.provider_id === provider.provider_id &&
-            pi.item_id === item.item_id,
-        );
-
-        const td = document.createElement("td");
-        td.className = "border border-border px-4 py-2 text-center";
-        td.innerHTML = `
-                    <input type="checkbox"
-                        data-provider-id="${provider.provider_id}"
-                        data-item-id="${item.item_id}"
-                        ${hasRelationship ? "checked" : ""}
-                        class="relationship-checkbox h-5 w-5 text-purple-600 focus:ring-purple-500 border-gray-300 rounded">
-                `;
-        tr.appendChild(td);
-      });
-
-      tbody.appendChild(tr);
-    });
+  async fetchAllProviderTiers() {
+    const tierData = {};
+    await Promise.all(
+      this.data.providers.map(async (provider) => {
+        try {
+          const response = await fetch(`/api/providers/${provider.provider_id}/tier-thresholds`);
+          tierData[provider.provider_id] = await response.json();
+        } catch (error) {
+          console.warn(`Could not load tiers for provider ${provider.provider_id}:`, error);
+          tierData[provider.provider_id] = { thresholds: {}, base_prices: {} };
+        }
+      })
+    );
+    return tierData;
   }
 
   // Utility method to render all tables
-  renderAll() {
+  async renderAll() {
     this.renderProviders();
     this.renderItems();
-    this.renderOffers();
-    this.renderAllOffers();
-    this.renderRelationshipMatrix();
+    await this.renderRelationshipMatrix();
   }
 }
 

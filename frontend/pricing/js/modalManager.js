@@ -6,8 +6,6 @@ class ModalManager {
     this.modals = {
       provider: "providerModal",
       item: "itemModal",
-      offer: "offerModal",
-      relationship: "relationshipModal",
     };
     this.callbacks = {
       provider: null,
@@ -16,7 +14,6 @@ class ModalManager {
     this.editingStates = {
       providerId: null,
       itemId: null,
-      offerId: null,
     };
     this.init();
   }
@@ -33,12 +30,6 @@ class ModalManager {
       }
       if (event.target.id === this.modals.item) {
         this.closeItemModal();
-      }
-      if (event.target.id === this.modals.offer) {
-        this.closeOfferModal();
-      }
-      if (event.target.id === this.modals.relationship) {
-        this.closeRelationshipModal();
       }
     });
 
@@ -78,14 +69,16 @@ class ModalManager {
     this.resetProviderForm();
     this.editingStates.providerId = null;
     this.updateModalTitle("providerModalTitle", "Add Provider");
+    
+    window.tierManager.clearTiers();
+    window.tierManager.addTierRow(1, 0, 0);
+    
     this.showModal(this.modals.provider);
 
-    // Focus on first input
     setTimeout(() => {
       document.getElementById("companyName")?.focus();
     }, 100);
 
-    // Set callback for after modal closes
     if (callback) {
       this.callbacks.provider = callback;
     }
@@ -107,18 +100,18 @@ class ModalManager {
     this.editingStates.itemId = null;
     this.updateModalTitle("itemModalTitle", "Add Item");
 
-    // Populate provider select
     const allProviders = window.pricingApp.getProviders();
-    window.uiManager.updateItemProvidersSelect(allProviders);
+    if (window.offerManager) {
+      window.offerManager.setProviders(allProviders);
+      window.offerManager.reset();
+    }
 
     this.showModal(this.modals.item);
 
-    // Focus on first input
     setTimeout(() => {
       document.getElementById("itemName")?.focus();
     }, 100);
 
-    // Set callback for after modal closes
     if (callback) {
       this.callbacks.item = callback;
     }
@@ -127,39 +120,14 @@ class ModalManager {
   closeItemModal() {
     this.hideModal(this.modals.item);
 
-    // Execute callback if exists
+    if (window.offerManager) {
+      window.offerManager.reset();
+    }
+
     if (this.callbacks.item) {
       this.callbacks.item();
       this.callbacks.item = null;
     }
-  }
-
-  // Offer modal operations
-  showOfferModal() {
-    this.resetOfferForm();
-    this.editingStates.offerId = null;
-    this.updateModalTitle("offerModalTitle", "Add Offer");
-    document.getElementById("deleteOfferBtn").classList.add("hidden");
-    this.showModal(this.modals.offer);
-
-    // Focus on first input
-    setTimeout(() => {
-      document.getElementById("providerSelect")?.focus();
-    }, 100);
-  }
-
-  closeOfferModal() {
-    this.hideModal(this.modals.offer);
-    document.getElementById("deleteOfferBtn").classList.add("hidden");
-  }
-
-  // Relationship modal operations
-  showRelationshipModal() {
-    this.showModal(this.modals.relationship);
-  }
-
-  closeRelationshipModal() {
-    this.hideModal(this.modals.relationship);
   }
 
   // Edit mode operations
@@ -169,17 +137,19 @@ class ModalManager {
     this.showModal(this.modals.provider);
   }
 
-  editItem(itemId) {
+  async editItem(itemId) {
     this.editingStates.itemId = itemId;
     this.updateModalTitle("itemModalTitle", "Edit Item");
+    
+    const allProviders = window.pricingApp.getProviders();
+    if (window.offerManager) {
+      window.offerManager.setProviders(allProviders);
+      await window.offerManager.populateExistingOffers(itemId);
+    }
+    
     this.showModal(this.modals.item);
   }
 
-  editOffer(offerId) {
-    this.editingStates.offerId = offerId;
-    this.updateModalTitle("offerModalTitle", "Edit Offer");
-    this.showModal(this.modals.offer);
-  }
 
   // Form reset operations
   resetProviderForm() {
@@ -192,10 +162,6 @@ class ModalManager {
     if (form) form.reset();
   }
 
-  resetOfferForm() {
-    const form = document.getElementById("offerForm");
-    if (form) form.reset();
-  }
 
   // Helper functions
   updateModalTitle(titleId, title) {
@@ -214,9 +180,6 @@ class ModalManager {
     return this.editingStates.itemId;
   }
 
-  getEditingOfferId() {
-    return this.editingStates.offerId;
-  }
 
   // Setters for editing states
   setEditingProviderId(providerId) {
@@ -227,9 +190,6 @@ class ModalManager {
     this.editingStates.itemId = itemId;
   }
 
-  setEditingOfferId(offerId) {
-    this.editingStates.offerId = offerId;
-  }
 }
 
 // Create singleton instance

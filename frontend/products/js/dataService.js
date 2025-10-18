@@ -32,6 +32,12 @@ const dataService = {
         return await response.json();
     },
 
+    async loadProviders() {
+        const response = await fetch('/api/providers');
+        if (!response.ok) throw new Error('Failed to load providers');
+        return await response.json();
+    },
+
     async saveProduct(productData, productId) {
         const url = productId ? `/api/products/${productId}` : '/api/products';
         const method = productId ? 'PUT' : 'POST';
@@ -65,6 +71,14 @@ const dataService = {
         const response = await fetch(`/api/products/${productId}`);
         if (!response.ok) {
             throw new Error('Failed to load product');
+        }
+        return await response.json();
+    },
+
+    async getItemProviders(itemId) {
+        const response = await fetch(`/api/items/${itemId}/providers`);
+        if (!response.ok) {
+            throw new Error('Failed to load providers for item');
         }
         return await response.json();
     }

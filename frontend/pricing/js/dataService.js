@@ -10,10 +10,16 @@ class DataService {
     try {
       const response = await fetch(url, options);
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(
-          error.detail || `Request failed with status ${response.status}`,
-        );
+        let errorDetail = `Request failed with status ${response.status}`;
+        try {
+          const error = await response.json();
+          errorDetail = error.detail || JSON.stringify(error);
+        } catch (e) {
+          const text = await response.text();
+          errorDetail = text || errorDetail;
+        }
+        console.error(`API Error for ${url}:`, errorDetail);
+        throw new Error(errorDetail);
       }
 
       // Handle responses without a body
@@ -26,7 +32,7 @@ class DataService {
       console.log("API Response Data:", data);
       return data;
     } catch (error) {
-      console.error("API Error:", error);
+      console.error("API Error details:", error.message, error);
       throw error;
     }
   }
@@ -150,19 +156,20 @@ class DataService {
     });
   }
 
+  async deleteOffersForItem(itemId) {
+    return this.fetchWithErrorHandling(`${this.basePath}/items/${itemId}/offers`, {
+      method: "DELETE",
+    });
+  }
+
   // Provider-Item relationship operations
   async loadProviderItems() {
     return this.fetchWithErrorHandling(`${this.basePath}/provider-items`);
   }
 
-  async saveRelationships(relationships) {
-    return this.fetchWithErrorHandling(`${this.basePath}/provider-items/bulk`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ relationships }),
-    });
+  async fetchProviderItemAllocations() {
+    const data = await this.fetchWithErrorHandling(`${this.basePath}/providers/allocations`);
+    return data.provider_items;
   }
 }
 

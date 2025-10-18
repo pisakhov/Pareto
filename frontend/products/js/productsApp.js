@@ -39,15 +39,13 @@ class ProductsApp {
     }
 
     setupGlobalEventHandlers() {
-        const refreshButton = document.querySelector('button[onclick="loadData()"]');
+        const refreshButton = document.getElementById('refreshButton');
         if (refreshButton) {
-            refreshButton.removeAttribute('onclick');
             refreshButton.addEventListener('click', () => this.loadData());
         }
 
-        const addProductButton = document.querySelector('button[onclick="showProductModal()"]');
+        const addProductButton = document.getElementById('addProductButton');
         if (addProductButton) {
-            addProductButton.removeAttribute('onclick');
             addProductButton.addEventListener('click', () => this.components.modalManager.showProductModal());
         }
 
@@ -86,7 +84,7 @@ class ProductsApp {
     async loadData() {
         try {
             console.log('DEBUG: Starting to load data...');
-            const [products, items] = await Promise.all([
+            const [products, items, providers] = await Promise.all([
                 this.components.dataService.loadProducts().then(products => {
                     console.log('DEBUG: Products loaded in app:', products);
                     return products;
@@ -95,14 +93,19 @@ class ProductsApp {
                     console.log('DEBUG: Items loaded in app:', items);
                     return items;
                 }),
+                this.components.dataService.loadProviders().then(providers => {
+                    console.log('DEBUG: Providers loaded in app:', providers);
+                    return providers;
+                }),
             ]);
             this.data.products = products;
             this.data.items = items;
+            this.data.providers = providers;
 
             console.log('DEBUG: Data assigned to app state:', this.data);
             this.renderAll();
             this.updateCounts();
-            this.updateSelects();
+            this.initializeItemManager();
 
         } catch (error) {
             console.error('DEBUG: Error loading data:', error);
@@ -119,8 +122,11 @@ class ProductsApp {
         this.components.uiManager.updateCounts(this.data.products);
     }
 
-    updateSelects() {
-        this.components.uiManager.updateItemSelect(this.data.items);
+    initializeItemManager() {
+        if (window.itemManager) {
+            window.itemManager.setItems(this.data.items);
+            window.itemManager.setProviders(this.data.providers);
+        }
     }
 
     async refreshData() {

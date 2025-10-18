@@ -1,12 +1,15 @@
 from fastapi import APIRouter, Request, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
+from typing import Dict
 import os
 import sys
 
 # Add parent directory to path to import db module
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 from db.pricing_repository import get_pricing_repo
+from db.optimization_repository import get_optimization_repo
 
 router = APIRouter()
 
@@ -96,3 +99,35 @@ async def calculate_optimization(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Pydantic models for multi-product optimization
+class OptimizationRequest(BaseModel):
+    product_quantities: Dict[int, int]
+
+
+@router.get("/api/optimization/products")
+async def get_optimization_products():
+    """Get all active products for optimization dashboard."""
+    try:
+        repo = get_optimization_repo()
+        products = repo.get_all_active_products()
+        return JSONResponse(content=products)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/optimization/cost")
+async def calculate_current_cost(request: OptimizationRequest):
+    """Calculate current cost based on product quantities and allocations."""
+    repo = get_optimization_repo()
+    result = repo.calculate_current_cost(request.product_quantities)
+    return JSONResponse(content=result)
+
+
+@router.post("/api/optimization/tier-status")
+async def get_tier_status(request: OptimizationRequest):
+    """Get tier status for all providers based on product quantities."""
+    repo = get_optimization_repo()
+    tier_status = repo.get_provider_tier_status(request.product_quantities)
+    return JSONResponse(content=tier_status)

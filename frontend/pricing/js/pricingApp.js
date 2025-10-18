@@ -60,9 +60,6 @@ class PricingApp {
 
         // Setup action buttons
         this.setupActionButtons();
-
-        // Setup relationship modal rendering
-        this.setupRelationshipModal();
     }
 
     setupActionButtons() {
@@ -79,55 +76,10 @@ class PricingApp {
             itemButton.removeAttribute('onclick');
             itemButton.addEventListener('click', () => this.components.modalManager.showItemModal());
         }
-
-        // Offer button
-        const offerButton = document.querySelector('button[onclick="showOfferModal()"]');
-        if (offerButton) {
-            offerButton.removeAttribute('onclick');
-            offerButton.addEventListener('click', () => this.showOfferModal());
-        }
-
-        // Relationship button
-        const relationshipButton = document.querySelector('button[onclick="showRelationshipModal()"]');
-        if (relationshipButton) {
-            relationshipButton.removeAttribute('onclick');
-            relationshipButton.addEventListener('click', () => this.showRelationshipModal());
-        }
-
-        // Relationship modal save button
-        const saveRelationshipsButton = document.querySelector('button[onclick="saveRelationships()"]');
-        if (saveRelationshipsButton) {
-            saveRelationshipsButton.removeAttribute('onclick');
-            saveRelationshipsButton.addEventListener('click', () => this.components.formHandler.saveRelationships());
-        }
-    }
-
-    setupRelationshipModal() {
-        const relationshipButton = document.querySelector('button[onclick="showRelationshipModal()"]');
-        if (relationshipButton) {
-            relationshipButton.addEventListener('click', () => {
-                this.components.tableRenderer.renderRelationshipMatrixModal();
-                this.components.modalManager.showRelationshipModal();
-            });
-        }
     }
 
     setupModalRelationships() {
-        // Setup provider select change handler to update selects
-        const providerSelect = document.getElementById('providerSelect');
-        if (providerSelect) {
-            providerSelect.addEventListener('change', () => {
-                this.updateSelects();
-            });
-        }
-
-        // Setup item select change handler to update selects
-        const itemSelect = document.getElementById('itemSelect');
-        if (itemSelect) {
-            itemSelect.addEventListener('change', () => {
-                this.updateSelects();
-            });
-        }
+        // No longer needed for offer modal
     }
 
     // Data loading
@@ -140,12 +92,10 @@ class PricingApp {
                 this.loadOffers()
             ]);
 
-            this.updateSelects();
             this.updateCounts();
-            this.renderAll();
+            await this.renderAll();
         } catch (error) {
             console.error('Error loading data:', error);
-            // Only show notification for critical errors, not for network issues
             if (error.message && !error.message.includes('Failed to fetch')) {
                 this.components.uiManager.showNotification('Error loading data: ' + error.message, 'error');
             }
@@ -192,34 +142,17 @@ class PricingApp {
         }
     }
 
-    // UI updates
-    updateSelects() {
-        this.components.uiManager.updateProviderSelect(this.data.providers);
-        this.components.uiManager.updateItemSelect(this.data.items);
-    }
 
     updateCounts() {
         this.components.uiManager.updateCounts(
             this.data.providers,
-            this.data.items,
-            this.data.offers
+            this.data.items
         );
     }
 
-    renderAll() {
+    async renderAll() {
         this.components.tableRenderer.setData(this.data);
-        this.components.tableRenderer.renderAll();
-    }
-
-    // Modal operations
-    showOfferModal() {
-        this.updateSelects();
-        this.components.modalManager.showOfferModal();
-    }
-
-    showRelationshipModal() {
-        this.components.tableRenderer.renderRelationshipMatrixModal();
-        this.components.modalManager.showRelationshipModal();
+        await this.components.tableRenderer.renderAll();
     }
 
     // Data update methods (called by form handler after successful operations)
