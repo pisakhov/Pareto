@@ -6,6 +6,7 @@ class ProductsApp {
         this.data = {
             products: [],
             items: [],
+            pricing: {},
         };
         this.components = {};
         this.init();
@@ -84,7 +85,7 @@ class ProductsApp {
     async loadData() {
         try {
             console.log('DEBUG: Starting to load data...');
-            const [products, items, providers] = await Promise.all([
+            const [products, items, providers, pricing] = await Promise.all([
                 this.components.dataService.loadProducts().then(products => {
                     console.log('DEBUG: Products loaded in app:', products);
                     return products;
@@ -97,10 +98,12 @@ class ProductsApp {
                     console.log('DEBUG: Providers loaded in app:', providers);
                     return providers;
                 }),
+                this.components.dataService.loadProductsPricing(),
             ]);
             this.data.products = products;
             this.data.items = items;
             this.data.providers = providers;
+            this.data.pricing = pricing;
 
             console.log('DEBUG: Data assigned to app state:', this.data);
             this.renderAll();

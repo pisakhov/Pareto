@@ -5,6 +5,7 @@ class TableRenderer {
     constructor() {
         this.products = [];
         this.filteredProducts = [];
+        this._popoverInit = false;
     }
 
     setData(data) {
@@ -50,6 +51,7 @@ class TableRenderer {
             const card = this.createProductCard(product);
             grid.appendChild(card);
         });
+        this.ensurePopoverListeners();
     }
 
     createProductCard(product) {
@@ -91,13 +93,21 @@ class TableRenderer {
                         </div>
                     </div>
                     ${product.proxy_quantity > 0 ? `
-                        <div class="flex items-center text-sm">
-                            <svg class="w-4 h-4 mr-1 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                            </svg>
-                            <span class="text-muted-foreground">Est. Files:</span>
-                            <span class="ml-1 font-semibold text-blue-600">${product.proxy_quantity.toLocaleString()}</span>
-                        </div>
+                        <details class="text-sm">
+                            <summary class="flex items-center cursor-pointer hover:text-blue-600 transition-colors list-none">
+                                <svg class="w-4 h-4 mr-1 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                </svg>
+                                <span class="text-muted-foreground">Est. Files:</span>
+                                <span class="ml-1 font-semibold text-blue-600">${product.proxy_quantity.toLocaleString()}</span>
+                                <svg class="w-3 h-3 ml-1 text-muted-foreground transition-transform details-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </summary>
+                            <div class="mt-2 ml-5 pl-3 border-l-2 border-blue-200 space-y-1">
+                                ${this.getItemBreakdown(product)}
+                            </div>
+                        </details>
                     ` : ''}
                 </div>
                 
@@ -132,6 +142,69 @@ class TableRenderer {
         return card;
     }
 
+    getItemBreakdown(product) {
+        if (!product.item_ids || product.item_ids.length === 0) {
+            return '<div class="text-xs text-muted-foreground">No items assigned</div>';
+        }
+
+        const pricing = window.productsApp?.data?.pricing || {};
+        const productPricing = pricing[product.product_id] || {};
+
+        const providers = {};
+        product.item_ids.forEach(itemId => {
+            const itemData = (window.productsApp?.data?.items || []).find(i => i.item_id === itemId);
+            const itemName = itemData ? itemData.item_name : `Item #${itemId}`;
+            const itemPricing = productPricing[itemId];
+            const list = Array.isArray(itemPricing) ? itemPricing : (itemPricing ? [itemPricing] : []);
+            list.forEach(pd => {
+                const pid = String(pd.provider_id);
+                const base = Number(pd.base_price ?? pd.final_price ?? 0);
+                const mult = Number(pd.multiplier ?? 1);
+                const final = Number(pd.final_price ?? base * mult);
+                if (!providers[pid]) providers[pid] = { name: pd.provider_name || `Provider ${pid}`, items: [], subtotal: 0 };
+                providers[pid].items.push({ id: itemId, name: itemName, base, final, tier: pd.tier, mult });
+                providers[pid].subtotal += final;
+            });
+        });
+
+        let perFileTotal = 0;
+        const groupHtml = Object.values(providers).map(group => {
+            perFileTotal += group.subtotal;
+            const rows = group.items.map(it => {
+                const isMult = it.mult !== 1;
+                const isPremium = it.mult > 1;
+                const change = `${isPremium ? '+' : '-'}${Math.abs((it.mult - 1) * 100).toFixed(0)}%`;
+                const dotClass = isPremium ? 'bg-amber-500' : 'bg-green-500';
+                const popId = `pp-${product.product_id}-${group.name.replace(/\s+/g,'-')}-${it.id}`;
+                const pop = isMult ? `
+                    <span class=\"relative inline-flex items-center ml-1\" data-popover-root>
+                        <button type=\"button\" class=\"inline-block w-1.5 h-1.5 rounded-full ${dotClass}\" aria-label=\"Pricing adjustment\" onclick=\"window.tableRenderer.togglePopover('${popId}')\"></button>
+                        <div id=\"${popId}\" class=\"price-popover hidden absolute z-50 mt-2 right-0 w-44 rounded-md border border-border bg-card shadow p-2 text-[11px]\">
+                            <div class=\"flex items-center justify-between\"><span class=\"text-muted-foreground\">Base</span><span class=\"font-medium\">$${this.formatPrice(it.base)}</span></div>
+                            <div class=\"flex items-center justify-between\"><span class=\"text-muted-foreground\">Multiplier</span><span class=\"font-medium ${isPremium ? 'text-amber-700' : 'text-green-700'}\">×${it.mult.toFixed(2)}</span></div>
+                            <div class=\"flex items-center justify-between\"><span class=\"text-muted-foreground\">Change</span><span class=\"font-medium ${isPremium ? 'text-amber-700' : 'text-green-700'}\">${change}</span></div>
+                        </div>
+                    </span>` : '';
+                return `<div class=\"text-xs text-muted-foreground flex items-start\">\n                    <svg class=\"w-3 h-3 mr-1 mt-0.5 flex-shrink-0\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\">\n                        <path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M9 5l7 7-7 7\" />\n                    </svg>\n                    <span class=\"flex-1\">${this.escapeHtml(it.name)}</span>\n                    <div class=\"ml-auto text-right flex items-center\">\n                        <span class=\"font-semibold text-green-600\">$${this.formatPrice(it.final)}</span>\n                        <span class=\"text-xs text-muted-foreground ml-1\">(T${it.tier})</span>
+                        ${pop}
+                    </div>\n                </div>`;
+            }).join('');
+            return `<div class=\"mb-2\">\n                <div class=\"flex items-center justify-between font-medium text-foreground mb-1\">\n                    <span>${this.escapeHtml(group.name)}</span>\n                    <span class=\"text-sm\">$${this.formatPrice(group.subtotal)}</span>\n                </div>\n                <div class=\"space-y-1\">${rows}</div>\n            </div>`;
+        }).join('');
+
+        const files = Number(product.proxy_quantity || 0);
+        const grandTotal = files > 0 ? perFileTotal * files : perFileTotal;
+
+        const totalRow = grandTotal > 0 
+            ? `<div class="text-xs flex items-center justify-between pt-2 mt-2 border-t border-blue-200">
+                    <span class="font-medium text-foreground">Total</span>
+                    <span class="font-semibold text-green-700">$${grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+               </div>`
+            : '';
+
+        return groupHtml + totalRow;
+    }
+
     escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
@@ -150,5 +223,35 @@ class TableRenderer {
         if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
         
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    formatPrice(value) {
+        const n = Number(value);
+        if (!isFinite(n)) return '0.00';
+        const needsThree = Math.abs(n * 100 - Math.round(n * 100)) > 1e-8 || n < 0.1;
+        return needsThree ? n.toFixed(3) : n.toFixed(2);
+    }
+
+    ensurePopoverListeners() {
+        if (this._popoverInit) return;
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('[data-popover-root]')) this.closeAllPopovers();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') this.closeAllPopovers();
+        });
+        this._popoverInit = true;
+    }
+
+    togglePopover(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const hidden = el.classList.contains('hidden');
+        this.closeAllPopovers();
+        if (hidden) el.classList.remove('hidden');
+    }
+
+    closeAllPopovers() {
+        document.querySelectorAll('.price-popover').forEach(el => el.classList.add('hidden'));
     }
 }

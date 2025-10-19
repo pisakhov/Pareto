@@ -127,6 +127,96 @@ async def create_product(product: ProductCreate):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+
+
+@router.get("/api/products/pricing-details")
+async def get_products_pricing_details():
+    """Get pricing details for all products including per-item rates."""
+    try:
+        products_repo = get_products_repo()
+        pricing_repo = get_pricing_repo()
+        
+        products = products_repo.get_all_products()
+        result = {}
+        
+        for product in products:
+            allocations = products_repo.get_allocations_for_product(product.product_id)
+            price_multipliers = products_repo.get_price_multipliers_for_product(product.product_id)
+            
+            product_pricing = {}
+            
+            # For each item in this product
+            for item_id, item_data in allocations.items():
+                item_prices = []
+                
+                # For each provider allocation
+                providers_list = item_data.get('providers', [])
+                for provider_alloc in providers_list:
+                    provider_id = provider_alloc.get('provider_id')
+                    
+                    # Get provider's tier thresholds
+                    provider = pricing_repo.get_provider(provider_id)
+                    if not provider:
+                        continue
+                    
+                    tier_data = pricing_repo.get_provider_tier_thresholds(provider_id)
+                    thresholds = tier_data.get('thresholds', {})
+                    
+                    # Calculate provider's current tier based on total allocations
+                    allocations_data = pricing_repo.get_provider_item_allocations()
+                    provider_items = allocations_data.get('provider_items', {})
+                    total_files = 0
+                    if str(provider_id) in provider_items:
+                        for item_data in provider_items[str(provider_id)].values():
+                            total_files += item_data.get('total', 0)
+                    
+                    # Determine current tier
+                    current_tier = 1
+                    if total_files > 0 and thresholds:
+                        tier_keys = sorted([int(k) for k in thresholds.keys()])
+                        for tier in tier_keys:
+                            if total_files < thresholds[str(tier)]:
+                                current_tier = tier
+                                break
+                            current_tier = tier  # Above max
+                    
+                    # Get the offer price for this provider/item/tier
+                    base_price = pricing_repo.get_price_for_item_at_tier(provider_id, item_id, current_tier)
+                    if base_price:
+                        
+                        # Apply multiplier if exists
+                        multiplier = 1.0
+                        if price_multipliers:
+                            m = price_multipliers.get(item_id) or price_multipliers.get(str(item_id))
+                            if m is not None:
+                                if isinstance(m, dict) and 'multiplier' in m:
+                                    multiplier = float(m['multiplier'])
+                                else:
+                                    multiplier = float(m)
+                        final_price = base_price * multiplier
+                        item_prices.append({
+                            'provider_id': provider_id,
+                            'provider_name': provider.company_name,
+                            'tier': current_tier,
+                            'base_price': base_price,
+                            'multiplier': multiplier,
+                            'final_price': final_price
+                        })
+                
+                if item_prices:
+                    # Use the first provider's price (or you could average, min, max, etc.)
+                    product_pricing[str(item_id)] = item_prices[0] if len(item_prices) == 1 else item_prices
+            
+            result[str(product.product_id)] = product_pricing
+        
+        return JSONResponse(content=result)
+    except Exception as e:
+        log(f"ERROR in get_products_pricing_details: {str(e)}", "error")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/api/products/{product_id}")
 async def get_product(product_id: int):
     """Get a specific product."""
@@ -189,6 +279,11 @@ async def update_product(product_id: int, product: ProductUpdate):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+
+
+
 
 
 @router.delete("/api/products/{product_id}")

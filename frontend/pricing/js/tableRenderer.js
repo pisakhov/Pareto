@@ -198,7 +198,7 @@ class TableRenderer {
       const thresholds = tierInfo.thresholds || {};
       
       let totalFiles = 0;
-      const itemBreakdown = [];
+      const productMap = new Map();
       
       // Sum up all files across all items for this provider
       this.data.items.forEach((item) => {
@@ -208,17 +208,27 @@ class TableRenderer {
         
         if (allocationTotal > 0) {
           totalFiles += allocationTotal;
-          itemBreakdown.push({
-            itemName: item.item_name,
-            total: allocationTotal,
-            products: allocationProducts
+          
+          // Aggregate products across all items
+          allocationProducts.forEach(product => {
+            if (productMap.has(product.name)) {
+              productMap.set(product.name, productMap.get(product.name) + product.count);
+            } else {
+              productMap.set(product.name, product.count);
+            }
           });
         }
       });
       
+      // Convert map to array
+      const productBreakdown = Array.from(productMap.entries()).map(([name, count]) => ({
+        name,
+        count
+      }));
+      
       providerTotals.set(provider.provider_id, {
         total: totalFiles,
-        breakdown: itemBreakdown
+        breakdown: productBreakdown
       });
       
       // Determine provider's tier based on TOTAL files
@@ -261,8 +271,8 @@ class TableRenderer {
         tooltipContent += `<div style="font-weight: 600; margin-bottom: 6px;">Total: ${providerTotal.total.toLocaleString()} files</div>`;
         if (providerTotal.breakdown.length > 0) {
           tooltipContent += '<div style="font-size: 11px; opacity: 0.95;">';
-          providerTotal.breakdown.forEach(item => {
-            tooltipContent += `<div style="margin-bottom: 2px;">• ${item.itemName}: ${item.total.toLocaleString()}</div>`;
+          providerTotal.breakdown.forEach(product => {
+            tooltipContent += `<div style="margin-bottom: 2px;">• ${product.name}: ${product.count.toLocaleString()}</div>`;
           });
           tooltipContent += '</div>';
         }
@@ -291,8 +301,8 @@ class TableRenderer {
       
       html += `<tr class="hover:bg-secondary/20"><td class="border border-border p-0 bg-secondary/50 font-medium">
         <div class="flex h-full">
-          <div class="flex items-center justify-center px-3 border-r border-border bg-secondary/30 min-w-[2rem]">
-            <div class="font-semibold${exceedsClass} whitespace-nowrap text-sm" style="writing-mode: vertical-rl; transform: rotate(180deg);">${provider.company_name}</div>
+          <div class="flex items-center justify-center px-3 border-r border-border bg-secondary/30 min-w-[2rem]${exceedsClass}">
+            <div class="font-semibold whitespace-nowrap text-sm" style="writing-mode: vertical-rl; transform: rotate(180deg);">${provider.company_name}</div>
           </div>
           <div class="flex-1 px-3 py-2">
             ${tierDisplay}

@@ -81,5 +81,11 @@ const dataService = {
             throw new Error('Failed to load providers for item');
         }
         return await response.json();
-    }
+    },
+
+    async loadProductsPricing() {
+        const response = await fetch('/api/products/pricing-details');
+        if (!response.ok) throw new Error('Failed to load products pricing');
+        return await response.json();
+    },
 };

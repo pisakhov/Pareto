@@ -106,7 +106,7 @@ class ResultsRenderer {
             </div>
           </td>
           <td class="px-4 py-3 whitespace-nowrap text-sm text-muted-foreground">
-            ≥ ${offer.unit_range.toLocaleString()}
+            ≥ ${offer.tier_number.toLocaleString()}
           </td>
           <td class="px-4 py-3 whitespace-nowrap text-sm text-foreground">
             $${offer.price_per_unit.toFixed(2)}

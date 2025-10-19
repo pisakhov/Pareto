@@ -286,7 +286,7 @@ function renderAllOffers() {
             <td class="px-4 py-3 whitespace-nowrap text-sm">${offer.offer_id}</td>
             <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">${offer.item_name || "Unknown Item"}</td>
             <td class="px-4 py-3 whitespace-nowrap text-sm">${offer.provider_name || "Unknown Provider"}</td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm">&ge; ${offer.unit_range}</td>
+            <td class="px-4 py-3 whitespace-nowrap text-sm">&ge; ${offer.tier_number}</td>
             <td class="px-4 py-3 whitespace-nowrap text-sm font-semibold text-green-600">$${offer.price_per_unit.toFixed(2)}</td>
             <td class="px-4 py-3 whitespace-nowrap text-sm">
                 <button onclick="editOffer(${offer.offer_id})"
@@ -745,7 +745,7 @@ async function handleOfferSubmit(event) {
   const data = {
     item_id: parseInt(formData.get("item_id")),
     provider_id: parseInt(formData.get("provider_id")),
-    unit_range: parseInt(formData.get("unit_range")),
+    tier_number: parseInt(formData.get("tier_number")),
     price_per_unit: parseFloat(formData.get("price_per_unit")),
     status: formData.get("status"),
   };
@@ -828,7 +828,7 @@ async function editOffer(offerId) {
     document.getElementById("offerId").value = offer.offer_id;
     document.getElementById("itemSelect").value = offer.item_id;
     document.getElementById("providerSelect").value = offer.provider_id;
-    document.getElementById("unitRange").value = offer.unit_range;
+    document.getElementById("unitRange").value = offer.tier_number;
     document.getElementById("pricePerUnit").value = offer.price_per_unit;
     document.getElementById("offerStatus").value = offer.status;
 

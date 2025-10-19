@@ -115,6 +115,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Visual indicators highlight when manual overrides are active
 - Tier badges on provider cards show at-a-glance tier status
 
+### Added - 2025-10-19
+
+#### Products Card Accordion Total & Multiplier Fix
+- frontend/products/js/tableRenderer.js
+  - Appends a Total row at the bottom of each product's item breakdown accordion.
+  - Sums per-item final_price and multiplies by product Est. Files (proxy_quantity).
+  - Displays currency-formatted grand total.
+  - Implements Option C UI for multipliers: shows Base price and Final price with a premium/discount pill and tier tag.
+  - Groups item pricing by provider in accordion with per-provider subtotal and grand total.
+  - Reverted to Option C popover: tiny colored dot next to price opens details (Base, Multiplier, % Change). Per-item only.
+  - Price formatting now shows 3 decimals when needed (e.g., 0.05 × 0.90 → $0.045), otherwise 2 decimals.
+
+### Changed - 2025-10-19
+
+#### Tier-Exceeding Indicator Visual Update
+**Updated visual indicator for providers exceeding maximum tier with improved tooltip**
+
+**Frontend Changes:**
+- `frontend/base.html` (lines 143-185)
+  - Changed tier-exceeding icon from star (★) to warning triangle (⚠)
+  - Added hover tooltip explaining "Exceeding maximum tier - using highest tier pricing"
+  - Implemented tooltip with same visual style as existing .tier-tooltip
+  - Added clip-path arrow pointing to icon for better UX
+  - Maintained amber/orange color (#f59e0b) for visual consistency
+
+**Technical Details:**
+- Tooltip appears on hover using CSS pseudo-elements (::before for tooltip, ::after for icon)
+- Smooth transitions with opacity and transform animations
+- Z-index 50 ensures tooltip visibility above other elements
+- Pointer-events: none prevents interference with hover interactions
+
+**User Experience:**
+- Clear warning triangle icon draws attention to tier-exceeding status
+- Informative tooltip appears on hover explaining the situation
+- Consistent with existing tier tooltip styling and behavior
+- No layout shifts in the pricing relationship matrix
+
 ### Fixed - 2025-10-17
 
 #### Product Sequence Sync

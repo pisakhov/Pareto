@@ -44,7 +44,7 @@ class Offer:
     offer_id: int
     item_id: int
     provider_id: int
-    unit_range: int
+    tier_number: int
     price_per_unit: float
     status: str
     date_creation: str
@@ -166,7 +166,7 @@ class PricingRepository:
             offer_id INTEGER PRIMARY KEY,
             item_id INTEGER NOT NULL,
             provider_id INTEGER NOT NULL,
-            unit_range INTEGER NOT NULL,
+            tier_number INTEGER NOT NULL,
             price_per_unit DECIMAL(10,2) NOT NULL,
             status VARCHAR DEFAULT 'active',
             date_creation VARCHAR NOT NULL,
@@ -516,7 +516,7 @@ class PricingRepository:
         self,
         item_id: int,
         provider_id: int,
-        unit_range: int,
+        tier_number: int,
         price_per_unit: float,
         status: str = "active",
     ) -> Optional[Offer]:
@@ -532,14 +532,14 @@ class PricingRepository:
 
         conn.execute(
             """
-            INSERT INTO offers (offer_id, item_id, provider_id, unit_range, price_per_unit, status, date_creation, date_last_update)
+            INSERT INTO offers (offer_id, item_id, provider_id, tier_number, price_per_unit, status, date_creation, date_last_update)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
             [
                 offer_id,
                 item_id,
                 provider_id,
-                unit_range,
+                tier_number,
                 price_per_unit,
                 status,
                 now,
@@ -551,7 +551,7 @@ class PricingRepository:
             offer_id=offer_id,
             item_id=item_id,
             provider_id=provider_id,
-            unit_range=unit_range,
+            tier_number=tier_number,
             price_per_unit=price_per_unit,
             status=status,
             date_creation=now,
@@ -577,7 +577,7 @@ class PricingRepository:
             FROM offers o
             JOIN providers p ON o.provider_id = p.provider_id
             JOIN items i ON o.item_id = i.item_id
-            ORDER BY p.company_name, i.item_name, o.unit_range
+            ORDER BY p.company_name, i.item_name, o.tier_number
         """).fetchall()
 
         return [
@@ -585,7 +585,7 @@ class PricingRepository:
                 "offer_id": row[0],
                 "item_id": row[1],
                 "provider_id": row[2],
-                "unit_range": row[3],
+                "tier_number": row[3],
                 "price_per_unit": float(row[4]),
                 "status": row[5],
                 "date_creation": row[6],
@@ -600,7 +600,7 @@ class PricingRepository:
         """Get all offers for a specific provider"""
         conn = self._get_connection()
         results = conn.execute(
-            "SELECT * FROM offers WHERE provider_id = ? ORDER BY unit_range",
+            "SELECT * FROM offers WHERE provider_id = ? ORDER BY tier_number",
             [provider_id],
         ).fetchall()
 
@@ -609,7 +609,7 @@ class PricingRepository:
     def update_offer(
         self,
         offer_id: int,
-        unit_range: int = None,
+        tier_number: int = None,
         price_per_unit: float = None,
         status: str = None,
     ) -> bool:
@@ -623,7 +623,7 @@ class PricingRepository:
             return False
 
         # Use new values or keep current ones
-        unit_range = unit_range if unit_range is not None else current.unit_range
+        tier_number = tier_number if tier_number is not None else current.tier_number
         price_per_unit = (
             price_per_unit if price_per_unit is not None else current.price_per_unit
         )
@@ -632,10 +632,10 @@ class PricingRepository:
         conn.execute(
             """
             UPDATE offers
-            SET unit_range = ?, price_per_unit = ?, status = ?, date_last_update = ?
+            SET tier_number = ?, price_per_unit = ?, status = ?, date_last_update = ?
             WHERE offer_id = ?
         """,
-            [unit_range, price_per_unit, status, now, offer_id],
+            [tier_number, price_per_unit, status, now, offer_id],
         )
 
         return True
@@ -679,7 +679,7 @@ class PricingRepository:
                 o.offer_id,
                 o.item_id,
                 o.provider_id,
-                o.unit_range,
+                o.tier_number,
                 o.price_per_unit,
                 o.status,
                 p.company_name as provider_name,
@@ -691,7 +691,7 @@ class PricingRepository:
               AND o.status = 'active'
               AND p.status = 'active'
               AND i.status = 'active'
-              AND o.unit_range <= ?
+              AND o.tier_number <= ?
             ORDER BY o.price_per_unit ASC
         """,
             [item_id, quantity],
@@ -702,7 +702,7 @@ class PricingRepository:
                 "offer_id": row[0],
                 "item_id": row[1],
                 "provider_id": row[2],
-                "unit_range": row[3],
+                "tier_number": row[3],
                 "price_per_unit": float(row[4]),
                 "status": row[5],
                 "provider_name": row[6],

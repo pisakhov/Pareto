@@ -175,8 +175,8 @@ async def get_offers():
     repo = get_pricing_repo()
     offers = repo.get_all_offers()
     for offer in offers:
-        if "unit_range" in offer:
-            offer["tier_number"] = offer.pop("unit_range")
+        if "tier_number" in offer:
+            offer["tier_number"] = offer.pop("tier_number")
     return JSONResponse(content=offers)
 
 
@@ -190,7 +190,7 @@ async def get_offers_by_provider(provider_id: int):
             {
                 "offer_id": o.offer_id,
                 "provider_id": o.provider_id,
-                "tier_number": o.unit_range,
+                "tier_number": o.tier_number,
                 "price_per_unit": float(o.price_per_unit),
                 "status": o.status,
                 "date_creation": o.date_creation,
@@ -208,7 +208,7 @@ async def create_offer(offer: OfferCreate):
     new_offer = repo.create_offer(
         item_id=offer.item_id,
         provider_id=offer.provider_id,
-        unit_range=offer.tier_number,
+        tier_number=offer.tier_number,
         price_per_unit=offer.price_per_unit,
         status=offer.status,
     )
@@ -219,7 +219,7 @@ async def create_offer(offer: OfferCreate):
             "offer_id": new_offer.offer_id,
             "item_id": new_offer.item_id,
             "provider_id": new_offer.provider_id,
-            "tier_number": new_offer.unit_range,
+            "tier_number": new_offer.tier_number,
             "price_per_unit": new_offer.price_per_unit,
             "status": new_offer.status,
             "date_creation": new_offer.date_creation,
@@ -234,7 +234,7 @@ async def update_offer(offer_id: int, offer: OfferUpdate):
     repo = get_pricing_repo()
     success = repo.update_offer(
         offer_id=offer_id,
-        unit_range=offer.tier_number,
+        tier_number=offer.tier_number,
         price_per_unit=offer.price_per_unit,
         status=offer.status,
     )
@@ -255,7 +255,7 @@ async def get_offer(offer_id: int):
             "offer_id": offer.offer_id,
             "item_id": offer.item_id,
             "provider_id": offer.provider_id,
-            "tier_number": offer.unit_range,
+            "tier_number": offer.tier_number,
             "price_per_unit": float(offer.price_per_unit),
             "status": offer.status,
             "date_creation": offer.date_creation,
