@@ -18,7 +18,7 @@ class ComparisonView {
         await this.loadItemsAndProviders();
         await this.loadItemProviders();
         await this.loadCurrentAllocations();
-        await this.calculate();
+        await this.fetchBaseAndCompare();
         this.render();
         this.setupEventHandlers();
     }
@@ -69,24 +69,32 @@ class ComparisonView {
         this.optimizedAllocations = {};
     }
 
-    async calculate() {
-        // Initialize optimized allocations from base if empty
-        if (!this.optimizedAllocations || Object.keys(this.optimizedAllocations).length === 0) {
-            const base = this.currentResult?.allocation_details || {};
-            this.optimizedAllocations = Object.fromEntries(Object.entries(base).map(([pid, pdata]) => {
-                const items = Object.entries(pdata.items || {}).reduce((acc, [iid, idata]) => {
-                    const mode = (idata.allocations && idata.allocations[0]?.mode) || 'percentage';
-                    acc[iid] = {
-                        item_name: idata.item_name,
-                        mode,
-                        allocations: (idata.allocations || []).map(a => ({ provider_id: a.provider_id, value: a.value }))
-                    };
-                    return acc;
-                }, {});
-                return [pid, { product_name: pdata.product_name, items }];
-            }));
-        }
+    async fetchBaseAndCompare() {
+        // 1) Fetch base (current) cost and allocation details
+        const baseRes = await fetch('/api/optimization/cost', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ product_quantities: this.quantities })
+        });
+        if (!baseRes.ok) throw new Error('Failed to load base cost');
+        this.currentResult = await baseRes.json();
 
+        // 2) Mirror base allocations into editable optimized structure
+        const base = this.currentResult?.allocation_details || {};
+        this.optimizedAllocations = Object.fromEntries(Object.entries(base).map(([pid, pdata]) => {
+            const items = Object.entries(pdata.items || {}).reduce((acc, [iid, idata]) => {
+                const mode = (idata.allocations && idata.allocations[0]?.mode) || 'percentage';
+                acc[iid] = {
+                    item_name: idata.item_name,
+                    mode,
+                    allocations: (idata.allocations || []).map(a => ({ provider_id: a.provider_id, value: a.value }))
+                };
+                return acc;
+            }, {});
+            return [pid, { product_name: pdata.product_name, items }];
+        }));
+
+        // 3) Compare using mirrored allocations to get optimized result and delta
         const response = await fetch('/api/optimization/compare', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -95,39 +103,10 @@ class ComparisonView {
                 optimized_allocations: this.optimizedAllocations
             })
         });
-
-        if (!response.ok) throw new Error('Calculation failed');
-
+        if (!response.ok) throw new Error('Comparison failed');
         const data = await response.json();
-        this.currentResult = data.current;
         this.optimizedResult = data.optimized;
         this.delta = data.delta;
-        this.currentAllocations = data.current.allocations;
-        
-        // Initialize optimized allocations with base if missing
-        Object.keys(this.currentAllocations).forEach(itemIdStr => {
-            const itemId = parseInt(itemIdStr);
-            if (!this.optimizedAllocations[itemId]) {
-                this.optimizedAllocations[itemId] = this.currentAllocations[itemId];
-            }
-        });
-        
-        // If optimized result is empty, recalc once with initialized allocations
-        if (!Object.keys(this.optimizedResult.provider_breakdown || {}).length) {
-            const response2 = await fetch('/api/optimization/compare', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    product_quantities: this.quantities,
-                    optimized_allocations: this.optimizedAllocations
-                })
-            });
-            if (response2.ok) {
-                const data2 = await response2.json();
-                this.optimizedResult = data2.optimized;
-                this.delta = data2.delta;
-            }
-        }
     }
 
     render() {
@@ -390,7 +369,19 @@ class ComparisonView {
         }
 
         try {
-            await this.calculate();
+            // Only compare (current stays same)
+            const response = await fetch('/api/optimization/compare', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    product_quantities: this.quantities,
+                    optimized_allocations: this.optimizedAllocations
+                })
+            });
+            if (!response.ok) throw new Error('Comparison failed');
+            const data = await response.json();
+            this.optimizedResult = data.optimized;
+            this.delta = data.delta;
             this.updateOptimizedDisplay();
         } catch (error) {
             console.error('Recalculation failed:', error);
