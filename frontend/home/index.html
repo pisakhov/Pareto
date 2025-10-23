@@ -9,66 +9,14 @@
         <p class="text-xl text-muted-foreground mb-8">Visualize and optimize provider allocations across products</p>
     </div>
 
-    <!-- Provider Tier Summary -->
-    <div class="bg-card rounded-lg border border-border p-6 mb-8">
-        <div id="tierSummary">
-            <div class="flex items-center justify-center py-8">
-                <div class="animate-pulse text-muted-foreground">Loading tier information...</div>
-            </div>
-        </div>
+    <!-- Loading State -->
+    <div id="loadingState" class="text-center py-12">
+        <div class="animate-pulse text-muted-foreground">Loading optimization data...</div>
     </div>
 
-    <!-- Product Quantities Setup -->
-    <div class="bg-card rounded-lg border border-border p-6 mb-8">
-        <div class="flex items-center justify-between mb-2">
-            <h2 class="text-xl font-semibold">Product Quantities</h2>
-            <button id="calculateBtn"
-                    class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 h-10 px-4 py-2 bg-[#023047] text-white hover:bg-[#023047]/90">
-                <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                </svg>
-                Calculate Cost
-            </button>
-        </div>
-        <p class="text-sm text-muted-foreground mb-4">Adjust estimated file quantities per product. Values pre-filled from product configurations.</p>
-        <div id="productQuantities" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <p class="text-muted-foreground col-span-full text-center py-8">Loading products...</p>
-        </div>
-    </div>
-
-    <!-- Cost Summary -->
-    <div id="costSummary" class="hidden bg-card rounded-lg border border-border p-6 mb-8">
-        <h2 class="text-xl font-semibold mb-4">Cost Summary</h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="bg-secondary/20 rounded-lg p-4">
-                <div class="text-sm text-muted-foreground">Total Cost</div>
-                <div id="totalCost" class="text-2xl font-bold text-foreground">$0.00</div>
-            </div>
-            <div class="bg-secondary/20 rounded-lg p-4">
-                <div class="text-sm text-muted-foreground">Total Credit Files</div>
-                <div id="totalCreditFiles" class="text-2xl font-bold text-foreground">0</div>
-            </div>
-            <div class="bg-secondary/20 rounded-lg p-4">
-                <div class="text-sm text-muted-foreground">Providers Used</div>
-                <div id="providerCount" class="text-2xl font-bold text-foreground">0</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Provider Tier Status -->
-    <div id="tierStatusPanel" class="hidden bg-card rounded-lg border border-border p-6 mb-8">
-        <h2 class="text-xl font-semibold mb-4">Provider Tier Status</h2>
-        <div id="tierStatusList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <!-- Tier status cards will be rendered here -->
-        </div>
-    </div>
-
-    <!-- Provider Allocation View -->
-    <div id="allocationView" class="hidden space-y-6">
-        <h2 class="text-xl font-semibold">Provider Allocation Breakdown</h2>
-        <div id="providerBreakdown" class="space-y-4">
-            <!-- Provider cards will be rendered here -->
-        </div>
+    <!-- Comparison Container -->
+    <div id="comparisonContainer" class="hidden mb-8">
+        <!-- Two-column comparison will be rendered here by comparisonView.js -->
     </div>
 
     <!-- Empty State -->
@@ -82,8 +30,6 @@
 </div>
 
 <!-- Component Scripts -->
-<script src="/static/home/js/quantityManager.js"></script>
-<script src="/static/home/js/tierStatusManager.js"></script>
-<script src="/static/home/js/allocationVisualizer.js"></script>
+<script src="/static/home/js/comparisonView.js"></script>
 <script src="/static/home/js/optimizationApp.js"></script>
 {% endblock %}

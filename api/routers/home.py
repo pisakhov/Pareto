@@ -131,3 +131,37 @@ async def get_tier_status(request: OptimizationRequest):
     repo = get_optimization_repo()
     tier_status = repo.get_provider_tier_status(request.product_quantities)
     return JSONResponse(content=tier_status)
+
+
+class CompareRequest(BaseModel):
+    product_quantities: Dict[int, int]
+    optimized_allocations: Dict
+
+
+@router.post("/api/optimization/compare")
+async def compare_allocations(request: CompareRequest):
+    """Compare current vs optimized allocations."""
+    repo = get_optimization_repo()
+    
+    current_allocations = repo.get_current_allocations(request.product_quantities)
+    current_result = repo.calculate_cost_with_allocations(
+        request.product_quantities,
+        current_allocations
+    )
+    
+    optimized_result = repo.calculate_cost_with_allocations(
+        request.product_quantities,
+        request.optimized_allocations
+    )
+    
+    delta_amount = optimized_result['total_cost'] - current_result['total_cost']
+    delta_percent = (delta_amount / current_result['total_cost'] * 100) if current_result['total_cost'] > 0 else 0
+    
+    return JSONResponse(content={
+        'current': current_result,
+        'optimized': optimized_result,
+        'delta': {
+            'amount': round(delta_amount, 2),
+            'percent': round(delta_percent, 2)
+        }
+    })

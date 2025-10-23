@@ -1,0 +1,203 @@
+═══════════════════════════════════════════════════════════════════════════════════
+INTERACTION EXAMPLE: How Users Will Use The Two-Column UI
+═══════════════════════════════════════════════════════════════════════════════════
+
+
+BEFORE: User Lands on Page After Clicking "Calculate"
+───────────────────────────────────────────────────────────────────────────────────
+
+┌──────────────────────────────┬──────────────────────────────────────────────┐
+│   CURRENT STRATEGY           │   OPTIMIZED STRATEGY                         │
+│                              │   [Auto-Optimize] 🎯                         │
+├──────────────────────────────┼──────────────────────────────────────────────┤
+│   💵 $4,120,000              │   💵 $4,120,000                              │
+│                              │   (No changes yet)                           │
+├──────────────────────────────┼──────────────────────────────────────────────┤
+│   Item Allocations:          │   Item Allocations:                          │
+│                              │                                              │
+│   FICO  → Equifax            │   FICO  → [Equifax     ▼]                   │
+│   FACT  → Equifax            │   FACT  → [Equifax     ▼]                   │
+│   FICO2 → TransUnion         │   FICO2 → [TransUnion  ▼]                   │
+│   ISPL  → Equifax            │   ISPL  → [Equifax     ▼]                   │
+│                              │                                              │
+├──────────────────────────────┼──────────────────────────────────────────────┤
+│   Providers Used:            │   Providers Used:                            │
+│   • Equifax    T5            │   • Equifax    T5                            │
+│   • TransUnion T4            │   • TransUnion T4                            │
+└──────────────────────────────┴──────────────────────────────────────────────┘
+
+USER SEES: Same cost on both sides. Optimized is copy of current.
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+
+USER ACTION 1: Clicks "Auto-Optimize" Button
+───────────────────────────────────────────────────────────────────────────────────
+
+┌──────────────────────────────┬──────────────────────────────────────────────┐
+│   CURRENT STRATEGY           │   OPTIMIZED STRATEGY                         │
+│                              │   [Auto-Optimize] 🎯 (loading...)           │
+├──────────────────────────────┼──────────────────────────────────────────────┤
+│   💵 $4,120,000              │   🔄 Calculating...                          │
+│                              │                                              │
+└──────────────────────────────┴──────────────────────────────────────────────┘
+
+SYSTEM: Calls algorithm, finds best provider for each item
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+
+AFTER AUTO-OPTIMIZE: Best Allocation Found
+───────────────────────────────────────────────────────────────────────────────────
+
+┌──────────────────────────────┬──────────────────────────────────────────────┐
+│   CURRENT STRATEGY           │   OPTIMIZED STRATEGY  ✨                     │
+│                              │   [Auto-Optimize] 🎯                         │
+├──────────────────────────────┼──────────────────────────────────────────────┤
+│   💵 $4,120,000              │   💵 $3,640,000                              │
+│                              │   💚 ↓ $480,000 (-11.6%)                     │
+├──────────────────────────────┼──────────────────────────────────────────────┤
+│   Item Allocations:          │   Item Allocations:                          │
+│                              │                                              │
+│   FICO  → Equifax            │   FICO  → [Equifax     ▼]                   │
+│   FACT  → Equifax            │   FACT  → [Equifax     ▼]                   │
+│   FICO2 → TransUnion         │   FICO2 → [Equifax     ▼] ← Changed!        │
+│   ISPL  → Equifax            │   ISPL  → [Equifax     ▼]                   │
+│                              │                                              │
+├──────────────────────────────┼──────────────────────────────────────────────┤
+│   Providers Used:            │   Providers Used:                            │
+│   • Equifax    T5            │   • Equifax    T5 ✓                          │
+│   • TransUnion T4            │                                              │
+└──────────────────────────────┴──────────────────────────────────────────────┘
+
+USER SEES: 
+- Cost dropped by $480k (11.6%)!
+- FICO2 moved from TransUnion → Equifax
+- Only using one provider now (Equifax T5)
+- Green border on optimized column, green savings text
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+
+USER ACTION 2: Manually Changes FICO from Equifax → Experian
+───────────────────────────────────────────────────────────────────────────────────
+
+User clicks dropdown next to FICO, selects "Experian"
+
+┌──────────────────────────────┬──────────────────────────────────────────────┐
+│   CURRENT STRATEGY           │   OPTIMIZED STRATEGY                         │
+│                              │   [Auto-Optimize] 🎯                         │
+├──────────────────────────────┼──────────────────────────────────────────────┤
+│   💵 $4,120,000              │   🔄 Recalculating...                        │
+│                              │                                              │
+├──────────────────────────────┼──────────────────────────────────────────────┤
+│   Item Allocations:          │   Item Allocations:                          │
+│                              │                                              │
+│   FICO  → Equifax            │   FICO  → [Experian    ▼] ← Just changed!   │
+│   FACT  → Equifax            │   FACT  → [Equifax     ▼]                   │
+│   FICO2 → TransUnion         │   FICO2 → [Equifax     ▼]                   │
+│   ISPL  → Equifax            │   ISPL  → [Equifax     ▼]                   │
+└──────────────────────────────┴──────────────────────────────────────────────┘
+
+SYSTEM: Instant fetch to recalculate with new allocation
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+
+AFTER MANUAL CHANGE: New Cost Calculated
+───────────────────────────────────────────────────────────────────────────────────
+
+┌──────────────────────────────┬──────────────────────────────────────────────┐
+│   CURRENT STRATEGY           │   OPTIMIZED STRATEGY                         │
+│                              │   [Auto-Optimize] 🎯                         │
+├──────────────────────────────┼──────────────────────────────────────────────┤
+│   💵 $4,120,000              │   💵 $3,890,000                              │
+│                              │   💚 ↓ $230,000 (-5.6%)                      │
+├──────────────────────────────┼──────────────────────────────────────────────┤
+│   Item Allocations:          │   Item Allocations:                          │
+│                              │                                              │
+│   FICO  → Equifax            │   FICO  → [Experian    ▼]                   │
+│   FACT  → Equifax            │   FACT  → [Equifax     ▼]                   │
+│   FICO2 → TransUnion         │   FICO2 → [Equifax     ▼]                   │
+│   ISPL  → Equifax            │   ISPL  → [Equifax     ▼]                   │
+│                              │                                              │
+├──────────────────────────────┼──────────────────────────────────────────────┤
+│   Providers Used:            │   Providers Used:                            │
+│   • Equifax    T5            │   • Equifax    T5 ✓                          │
+│   • TransUnion T4            │   • Experian   T4                            │
+└──────────────────────────────┴──────────────────────────────────────────────┘
+
+USER SEES:
+- Cost now $3,890k (still saves $230k vs current)
+- But not as good as auto-optimize ($3,640k)
+- Using 2 providers now (Equifax + Experian)
+- Cost number animated smoothly from $3,640k → $3,890k
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+
+
+USER ACTION 3: Changes FICO back to Equifax, tries something bad
+───────────────────────────────────────────────────────────────────────────────────
+
+User changes FACT from Equifax → TransUnion
+
+AFTER RECALCULATION:
+
+┌──────────────────────────────┬──────────────────────────────────────────────┐
+│   CURRENT STRATEGY           │   OPTIMIZED STRATEGY                         │
+│                              │   [Auto-Optimize] 🎯                         │
+├──────────────────────────────┼──────────────────────────────────────────────┤
+│   💵 $4,120,000              │   💵 $4,450,000                              │
+│                              │   🔴 ↑ $330,000 (+8.0%)                      │
+├──────────────────────────────┼──────────────────────────────────────────────┤
+│   Item Allocations:          │   Item Allocations:                          │
+│                              │                                              │
+│   FICO  → Equifax            │   FICO  → [Equifax     ▼]                   │
+│   FACT  → Equifax            │   FACT  → [TransUnion  ▼] ← Bad choice!     │
+│   FICO2 → TransUnion         │   FICO2 → [Equifax     ▼]                   │
+│   ISPL  → Equifax            │   ISPL  → [Equifax     ▼]                   │
+└──────────────────────────────┴──────────────────────────────────────────────┘
+
+USER SEES:
+- Cost INCREASED to $4,450k (costs MORE than current!)
+- Red border on optimized column
+- Red ↑ arrow showing increase
+- Clear feedback: this is worse
+
+
+═══════════════════════════════════════════════════════════════════════════════════
+KEY TAKEAWAYS
+═══════════════════════════════════════════════════════════════════════════════════
+
+1. LEFT COLUMN (Current)
+   - Always shows current production allocations
+   - Read-only, no interaction
+   - Reference point for comparison
+
+2. RIGHT COLUMN (Optimized)
+   - Starts as copy of current
+   - Has dropdowns to change providers
+   - Recalculates instantly on change
+   - Shows green/red delta vs current
+
+3. AUTO-OPTIMIZE BUTTON
+   - Runs algorithm to find best allocation
+   - Sets all dropdowns automatically
+   - Usually finds lowest cost
+
+4. VISUAL FEEDBACK
+   - Green border + ↓ = savings
+   - Red border + ↑ = more expensive
+   - Smooth animations on cost changes
+   - Clear cost delta and percentage
+
+5. USER FREEDOM
+   - Can accept auto-optimize
+   - Or manually tweak any allocation
+   - Instant feedback on every change
+   - Easy to explore different strategies

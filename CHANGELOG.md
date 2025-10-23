@@ -7,59 +7,123 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planned - 2025-01-XX
+### Added - 2025-01-23
 
-#### Scenario Optimization UI Design
-**Designed side-by-side scenario comparison interface for pricing optimization**
+#### Simple Two-Column Optimization UI
+**Implemented streamlined Current vs Optimized comparison interface**
 
 **Problem Identified:**
-- Current homepage shows single calculation result, difficult to understand
-- No way to explore alternative provider allocation strategies
-- Unclear how tier changes affect overall pricing
-- Product quantities fixed, but provider allocations can vary
+- Current homepage shows single messy calculation result
+- No way to explore alternative provider allocations
+- Unclear how tier changes affect pricing
+- Product quantities are fixed, provider allocations can vary
 
-**Proposed Solution:**
-- Side-by-side scenario comparison (up to 3 scenarios visible)
-- Allocation matrix editor (item × provider checkboxes per scenario)
-- Real-time tier calculation and cost impact preview
-- Visual indicators for best scenario, cost deltas, and risk warnings
+**Simplified Solution (UAT Compliant):**
+- Two-column layout: Current (read-only) vs Optimized (interactive)
+- Provider dropdowns for each item in optimized column
+- Instant recalculation on dropdown change
+- Auto-optimize button for algorithm-suggested allocation
+- Clean, minimal design with no storage/scenarios/modals
 
 **Documentation Created:**
-- `SCENARIO_OPTIMIZATION_DESIGN.md` - Complete technical design document
-  - High-level architecture and UI mockups
-  - Data structures and API endpoint specifications
-  - Frontend component breakdown
-  - User workflow and visual design guidelines
-- `SCENARIO_UI_MOCKUP.txt` - ASCII mockups showing exact layout
-  - Main dashboard with scenario tabs
-  - Side-by-side comparison cards
-  - Allocation matrix editor modal
-  - Responsive breakpoints (mobile/tablet/desktop)
-- `SCENARIO_BENEFITS_SUMMARY.md` - Executive summary and roadmap
-  - Core benefits and use cases
-  - 3-phase implementation plan (MVP → Enhanced UX → Advanced Features)
-  - Technical approach with LOC estimates
-  - Success metrics and recommendations
+- `SIMPLE_OPTIMIZATION_DESIGN.md` - Streamlined technical design
+  - Two-column concept with left (current) vs right (optimized)
+  - Single component architecture (~300 lines)
+  - Auto-optimization greedy algorithm
+  - Real-time recalculation on provider change
+- `TWO_COLUMN_MOCKUP.txt` - Clean ASCII mockup
+  - Current strategy (fixed) vs Optimized strategy (editable)
+  - Provider dropdowns per item
+  - Cost delta display with green/red indicators
+  - Mobile-responsive stacked layout
+- `INTERACTION_EXAMPLE.txt` - Step-by-step user interaction flow
+  - Shows before/after states for each action
+  - Auto-optimize button usage
+  - Manual provider changes
+  - Visual feedback examples
+- `QUICK_START.md` - Quick reference guide
+  - What you're getting summary
+  - Implementation checklist
+  - UAT compliance verification
 
 **Key Features:**
-- Scenario management: create, clone, edit, delete scenarios
-- Allocation editor: toggle item-provider pairs with real-time cost updates
-- Comparison view: cost metrics, tier indicators, provider usage side-by-side
-- Optimization insights: best scenario highlighting, savings calculations
-- Risk awareness: single-provider dependency warnings
+- Two columns side-by-side: Current vs Optimized
+- Each item has provider dropdown (optimized side only)
+- Change dropdown → instant cost recalculation
+- "Auto-Optimize" button applies algorithmic best allocation
+- Green border when optimized saves money
+- Cost delta with percentage and arrow (↓ savings, ↑ increase)
+- Provider tier badges with color coding
+- Smooth cost animation on changes
 
-**Implementation Phases:**
-- Phase 1 (2 weeks): MVP with side-by-side comparison and allocation editor
-- Phase 2 (1 week): Enhanced UX with real-time previews and localStorage
-- Phase 3 (2+ weeks): Auto-optimization, constraints, database persistence
+**Technical Implementation:**
+- Backend: 1 new endpoint (`POST /api/optimization/compare`)
+- Backend: 1 new repository method (`compare_allocations()`)
+- Frontend: 1 new component (`comparisonView.js` ~300 lines)
+- Frontend: Updated HTML layout (two-column grid)
+- No storage, no database changes, no persistence
+
+**Design Principles (UAT Compliant):**
+- Minimal: Just two columns, no complexity
+- Clear: Current (fixed) vs Optimized (editable)
+- Fast: Instant recalculation
+- Sleek: Clean grid, no clutter
+- Functional: Dropdowns only, no matrices
 
 **Technical Estimates:**
-- Backend: ~150 lines (new endpoint + repository method)
-- Frontend: ~1,000 lines (4 new components + HTML updates)
-- Database: Optional scenarios table for Phase 3
+- Backend: ~100 lines
+- Frontend: ~400 lines
+- Total: ~500 lines
+- Timeline: ~1 week
 
-**Next Step:**
-- Awaiting approval to proceed with Phase 1 MVP implementation
+**Implementation Details:**
+
+**Backend Changes:**
+- `db/optimization_repository.py`
+  - Added `get_current_allocations()` method to retrieve current item-provider mappings
+  - Added `calculate_cost_with_allocations()` method to calculate cost with custom allocations
+  - ~150 lines of new code
+
+- `api/routers/home.py`
+  - Added `CompareRequest` Pydantic model for request validation
+  - Added `POST /api/optimization/compare` endpoint
+  - Returns current vs optimized results with delta calculations
+  - ~35 lines of new code
+
+**Frontend Changes:**
+- `frontend/home/js/comparisonView.js` - NEW FILE
+  - Two-column comparison view component
+  - Renders current (read-only) and optimized (interactive) strategies
+  - Provider dropdowns for each item with instant recalculation
+  - Green/red border and delta display based on savings/costs
+  - Tier badges with color coding
+  - ~285 lines
+
+- `frontend/home/index.html`
+  - Replaced old cost summary, tier status, and allocation views
+  - Added single `comparisonContainer` div for two-column layout
+  - Updated script includes to use comparisonView.js
+  - Removed tierStatusManager.js and allocationVisualizer.js includes
+
+- `frontend/home/js/optimizationApp.js`
+  - Simplified `calculate()` method to use comparisonView
+  - Removed old `displayResults()` method
+  - Removed tier status and allocation visualizer integrations
+  - ~30 lines removed, ~10 lines modified
+
+**Files Modified:**
+- db/optimization_repository.py
+- api/routers/home.py
+- frontend/home/index.html
+- frontend/home/js/optimizationApp.js
+
+**Files Created:**
+- frontend/home/js/comparisonView.js
+
+**Status:**
+- ✅ Backend implementation complete
+- ✅ Frontend implementation complete
+- ⏳ Ready for testing
 
 ### Added - 2025-01-XX
 

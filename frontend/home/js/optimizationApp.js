@@ -8,87 +8,34 @@ class OptimizationApp {
 
     async init() {
         console.log('Optimization dashboard loaded');
-        console.log('Available globals:', {
-            quantityManager: typeof quantityManager,
-            tierStatusManager: typeof tierStatusManager,
-            allocationVisualizer: typeof allocationVisualizer,
-            window_allocationVisualizer: typeof window.allocationVisualizer
-        });
-        await quantityManager.loadProducts();
-        this.setupEventHandlers();
+        await this.loadComparison();
     }
 
-    setupEventHandlers() {
-        const calculateBtn = document.getElementById('calculateBtn');
-        if (calculateBtn) {
-            calculateBtn.addEventListener('click', () => this.calculate());
-        }
-    }
-
-    async calculate() {
-        const quantities = quantityManager.getQuantities();
+    async loadComparison() {
+        const loadingState = document.getElementById('loadingState');
         
-        if (Object.keys(quantities).length === 0) {
-            this.showNotification('Please set at least one product quantity', 'error');
-            return;
-        }
-
-        const calculateBtn = document.getElementById('calculateBtn');
-        const originalText = calculateBtn.innerHTML;
-        calculateBtn.disabled = true;
-        calculateBtn.innerHTML = '<span class="animate-pulse">Calculating...</span>';
-
         try {
-            const [costResponse, tierStatusData] = await Promise.all([
-                fetch('/api/optimization/cost', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ product_quantities: quantities })
-                }),
-                tierStatusManager.fetchTierStatus(quantities)
-            ]);
-
-            if (!costResponse.ok) throw new Error('Calculation failed');
-
-            const result = await costResponse.json();
-            this.displayResults(result, tierStatusData);
+            await window.comparisonView.init();
+            window.comparisonView.show();
+            
+            if (loadingState) {
+                loadingState.classList.add('hidden');
+            }
         } catch (error) {
-            console.error('Error calculating cost:', error);
-            this.showNotification('Failed to calculate cost', 'error');
-        } finally {
-            calculateBtn.disabled = false;
-            calculateBtn.innerHTML = originalText;
+            console.error('Error loading comparison:', error);
+            this.showNotification('Failed to load optimization data', 'error');
+            
+            if (loadingState) {
+                loadingState.innerHTML = `
+                    <div class="text-center py-12">
+                        <p class="text-red-600 mb-2">Failed to load data</p>
+                        <p class="text-sm text-muted-foreground">${error.message}</p>
+                    </div>
+                `;
+            }
         }
     }
 
-    displayResults(result, tierStatusData) {
-        document.getElementById('emptyState').classList.add('hidden');
-        
-        const costSummary = document.getElementById('costSummary');
-        costSummary.classList.remove('hidden');
-        
-        document.getElementById('totalCost').textContent = `$${result.total_cost.toFixed(2)}`;
-        
-        const totalCreditFiles = result.total_credit_files || Object.values(result.provider_breakdown).reduce((sum, provider) => sum + provider.total_units, 0);
-        document.getElementById('totalCreditFiles').textContent = totalCreditFiles;
-        document.getElementById('providerCount').textContent = Object.keys(result.provider_breakdown).length;
-        
-        tierStatusManager.renderTierStatus(tierStatusData);
-        
-        const allocationView = document.getElementById('allocationView');
-        allocationView.classList.remove('hidden');
-        
-        console.log('About to render allocation, checking:', {
-            window_allocationVisualizer: typeof window.allocationVisualizer,
-            allocationVisualizer: typeof allocationVisualizer
-        });
-        
-        if (window.allocationVisualizer) {
-            window.allocationVisualizer.renderProviderBreakdown(result.provider_breakdown);
-        } else {
-            console.error('allocationVisualizer not loaded');
-        }
-    }
 
     showNotification(message, type = 'info') {
         const notification = document.createElement('div');

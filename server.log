@@ -1,0 +1,9 @@
+INFO:     Will watch for changes in these directories: ['/Users/rodionpisakhov/Library/CloudStorage/GoogleDrive-pisakhov@gmail.com/My Drive/Github/Pareto']
+INFO:     Uvicorn running on http://0.0.0.0:5001 (Press CTRL+C to quit)
+INFO:     Started reloader process [49139] using StatReload
+Starting Pareto web application...
+Server will be available at: http://localhost:5000
+API documentation available at: http://localhost:5000/docs
+INFO:     Started server process [49157]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
