@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Planned - 2025-01-XX
+
+#### Scenario Optimization UI Design
+**Designed side-by-side scenario comparison interface for pricing optimization**
+
+**Problem Identified:**
+- Current homepage shows single calculation result, difficult to understand
+- No way to explore alternative provider allocation strategies
+- Unclear how tier changes affect overall pricing
+- Product quantities fixed, but provider allocations can vary
+
+**Proposed Solution:**
+- Side-by-side scenario comparison (up to 3 scenarios visible)
+- Allocation matrix editor (item × provider checkboxes per scenario)
+- Real-time tier calculation and cost impact preview
+- Visual indicators for best scenario, cost deltas, and risk warnings
+
+**Documentation Created:**
+- `SCENARIO_OPTIMIZATION_DESIGN.md` - Complete technical design document
+  - High-level architecture and UI mockups
+  - Data structures and API endpoint specifications
+  - Frontend component breakdown
+  - User workflow and visual design guidelines
+- `SCENARIO_UI_MOCKUP.txt` - ASCII mockups showing exact layout
+  - Main dashboard with scenario tabs
+  - Side-by-side comparison cards
+  - Allocation matrix editor modal
+  - Responsive breakpoints (mobile/tablet/desktop)
+- `SCENARIO_BENEFITS_SUMMARY.md` - Executive summary and roadmap
+  - Core benefits and use cases
+  - 3-phase implementation plan (MVP → Enhanced UX → Advanced Features)
+  - Technical approach with LOC estimates
+  - Success metrics and recommendations
+
+**Key Features:**
+- Scenario management: create, clone, edit, delete scenarios
+- Allocation editor: toggle item-provider pairs with real-time cost updates
+- Comparison view: cost metrics, tier indicators, provider usage side-by-side
+- Optimization insights: best scenario highlighting, savings calculations
+- Risk awareness: single-provider dependency warnings
+
+**Implementation Phases:**
+- Phase 1 (2 weeks): MVP with side-by-side comparison and allocation editor
+- Phase 2 (1 week): Enhanced UX with real-time previews and localStorage
+- Phase 3 (2+ weeks): Auto-optimization, constraints, database persistence
+
+**Technical Estimates:**
+- Backend: ~150 lines (new endpoint + repository method)
+- Frontend: ~1,000 lines (4 new components + HTML updates)
+- Database: Optional scenarios table for Phase 3
+
+**Next Step:**
+- Awaiting approval to proceed with Phase 1 MVP implementation
+
 ### Added - 2025-01-XX
 
 #### Tier-Based Pricing System
