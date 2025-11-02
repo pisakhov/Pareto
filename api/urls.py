@@ -21,5 +21,3 @@ def setup_static_files(app):
     # Mount static files
     if os.path.exists(frontend_dir):
         app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
-    else:
-        print(f"Warning: Frontend directory not found at {frontend_dir}")

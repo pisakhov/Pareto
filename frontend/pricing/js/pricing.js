@@ -1,6 +1,5 @@
 // Pricing Management JavaScript
 document.addEventListener("DOMContentLoaded", function () {
-  console.log("Pricing management page loaded");
 
   initializePricingPage();
   loadData();

@@ -7,7 +7,6 @@ class OptimizationApp {
     }
 
     async init() {
-        console.log('Optimization dashboard loaded');
         await this.loadComparison();
     }
 

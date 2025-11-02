@@ -45,10 +45,6 @@ async def health_check():
 
 # Development server
 if __name__ == "__main__":
-    print("Starting Pareto web application...")
-    print("Server will be available at: http://localhost:5000")
-    print("API documentation available at: http://localhost:5000/docs")
-
     uvicorn.run(
         "run_web:app",
         host="0.0.0.0",

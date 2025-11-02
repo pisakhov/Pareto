@@ -13,7 +13,6 @@ class ProductsApp {
     }
 
     async init() {
-        console.log('Product management page loaded');
 
         this.initializeComponents();
         this.setupGlobalEventHandlers();
@@ -84,18 +83,14 @@ class ProductsApp {
 
     async loadData() {
         try {
-            console.log('DEBUG: Starting to load data...');
             const [products, items, providers, pricing] = await Promise.all([
                 this.components.dataService.loadProducts().then(products => {
-                    console.log('DEBUG: Products loaded in app:', products);
                     return products;
                 }),
                 this.components.dataService.loadItems().then(items => {
-                    console.log('DEBUG: Items loaded in app:', items);
                     return items;
                 }),
                 this.components.dataService.loadProviders().then(providers => {
-                    console.log('DEBUG: Providers loaded in app:', providers);
                     return providers;
                 }),
                 this.components.dataService.loadProductsPricing(),
@@ -105,7 +100,6 @@ class ProductsApp {
             this.data.providers = providers;
             this.data.pricing = pricing;
 
-            console.log('DEBUG: Data assigned to app state:', this.data);
             this.renderAll();
             this.updateCounts();
             this.initializeItemManager();

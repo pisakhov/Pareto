@@ -1,0 +1,66 @@
+<!-- Provider Grid -->
+<div class="grid grid-cols-1 gap-6 mb-8">
+    <div class="bg-card border rounded-lg">
+        <div class="p-4 border-b bg-secondary/50">
+            <h2 class="text-xl font-bold">Provider Grid</h2>
+            <p class="text-sm text-muted-foreground">Compare tier pricing and item availability across all providers</p>
+        </div>
+        <div class="p-4 overflow-x-auto">
+            <div id="relationshipMatrix" class="min-w-full">
+                <!-- Relationship matrix will be rendered here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Two-Section Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <!-- Providers Section -->
+    <div class="bg-card border rounded-lg">
+        <div class="p-4 border-b bg-secondary/50">
+            <h2 class="text-lg font-semibold flex items-center justify-between">
+                Providers
+                <span class="text-xs bg-[#023047]/10 text-[#023047] px-2 py-1 rounded-full" id="providerCount">0</span>
+            </h2>
+        </div>
+        <div class="overflow-x-auto max-h-96">
+            <table class="w-full" role="table" aria-label="Providers list">
+                <thead class="bg-secondary">
+                    <tr>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-secondary-foreground uppercase tracking-wider" scope="col">Name</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-secondary-foreground uppercase tracking-wider" scope="col">Status</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-secondary-foreground uppercase tracking-wider" scope="col">Tiers</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-secondary-foreground uppercase tracking-wider" scope="col">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="providersTableBody" class="bg-card divide-y divide-border">
+                    <!-- Providers will be loaded here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Items Section -->
+    <div class="bg-card border rounded-lg">
+        <div class="p-4 border-b bg-secondary/50">
+            <h2 class="text-lg font-semibold flex items-center justify-between">
+                Items
+                <span class="text-xs bg-slate-600/10 text-slate-600 px-2 py-1 rounded-full" id="itemCount">0</span>
+            </h2>
+        </div>
+        <div class="overflow-x-auto max-h-96">
+            <table class="w-full" role="table" aria-label="Items list">
+                <thead class="bg-secondary">
+                    <tr>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-secondary-foreground uppercase tracking-wider" scope="col">Name</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-secondary-foreground uppercase tracking-wider" scope="col">Providers</th>
+                        <th class="px-4 py-2 text-left text-xs font-medium text-secondary-foreground uppercase tracking-wider" scope="col">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="itemsTableBody" class="bg-card divide-y divide-border">
+                    <!-- Items will be loaded here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

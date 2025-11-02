@@ -92,4 +92,3 @@ const allocationVisualizer = {
 };
 
 window.allocationVisualizer = allocationVisualizer;
-console.log('✓ allocationVisualizer loaded and assigned to window');

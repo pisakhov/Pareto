@@ -9,18 +9,6 @@ class DataService {
   async fetchWithErrorHandling(url, options = {}) {
     try {
       const response = await fetch(url, options);
-      if (!response.ok) {
-        let errorDetail = `Request failed with status ${response.status}`;
-        try {
-          const error = await response.json();
-          errorDetail = error.detail || JSON.stringify(error);
-        } catch (e) {
-          const text = await response.text();
-          errorDetail = text || errorDetail;
-        }
-        console.error(`API Error for ${url}:`, errorDetail);
-        throw new Error(errorDetail);
-      }
 
       // Handle responses without a body
       const contentLength = response.headers.get("Content-Length");
@@ -28,8 +16,25 @@ class DataService {
         return null;
       }
 
-      const data = await response.json();
-      console.log("API Response Data:", data);
+      // Read the response body once
+      let data;
+      try {
+        data = await response.json();
+      } catch (e) {
+        data = await response.text();
+      }
+
+      if (!response.ok) {
+        let errorDetail = `Request failed with status ${response.status}`;
+        if (data && typeof data === 'object' && data.detail) {
+          errorDetail = data.detail;
+        } else if (data && typeof data === 'string') {
+          errorDetail = data;
+        }
+        console.error(`API Error for ${url}:`, errorDetail);
+        throw new Error(errorDetail);
+      }
+
       return data;
     } catch (error) {
       console.error("API Error details:", error.message, error);
@@ -170,6 +175,202 @@ class DataService {
   async fetchProviderItemAllocations() {
     const data = await this.fetchWithErrorHandling(`${this.basePath}/providers/allocations`);
     return data.provider_items;
+  }
+
+  // =====================================
+  // NEW SCHEMA ENTITY OPERATIONS
+  // =====================================
+
+  // Process operations
+  async loadProcesses() {
+    return this.fetchWithErrorHandling(`${this.basePath}/processes`);
+  }
+
+  async getProcess(processId) {
+    return this.fetchWithErrorHandling(`${this.basePath}/processes/${processId}`);
+  }
+
+  async createProcess(processData) {
+    return this.fetchWithErrorHandling(`${this.basePath}/processes`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(processData),
+    });
+  }
+
+  async updateProcess(processId, processData) {
+    return this.fetchWithErrorHandling(`${this.basePath}/processes/${processId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(processData),
+    });
+  }
+
+  async deleteProcess(processId) {
+    return this.fetchWithErrorHandling(`${this.basePath}/processes/${processId}`, {
+      method: "DELETE",
+    });
+  }
+
+  // Process Graph operations
+  async loadProcessGraph() {
+    const result = await this.fetchWithErrorHandling(`${this.basePath}/process-graph`);
+    return result;
+  }
+
+  async addProcessEdge(fromProcessId, toProcessId) {
+    return this.fetchWithErrorHandling(`${this.basePath}/process-graph?from_process_id=${fromProcessId}&to_process_id=${toProcessId}`, {
+      method: "POST",
+    });
+  }
+
+  async removeProcessEdge(fromProcessId, toProcessId) {
+    return this.fetchWithErrorHandling(`${this.basePath}/process-graph?from_process_id=${fromProcessId}&to_process_id=${toProcessId}`, {
+      method: "DELETE",
+    });
+  }
+
+  // Forecast operations
+  async loadForecasts() {
+    return this.fetchWithErrorHandling(`${this.basePath}/forecasts`);
+  }
+
+  async getForecastsForProduct(productId) {
+    return this.fetchWithErrorHandling(
+      `${this.basePath}/forecasts/product/${productId}`,
+    );
+  }
+
+  async createForecast(forecastData) {
+    return this.fetchWithErrorHandling(`${this.basePath}/forecasts`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(forecastData),
+    });
+  }
+
+  async updateForecast(forecastId, forecastData) {
+    return this.fetchWithErrorHandling(`${this.basePath}/forecasts/${forecastId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(forecastData),
+    });
+  }
+
+  async deleteForecast(forecastId) {
+    return this.fetchWithErrorHandling(`${this.basePath}/forecasts/${forecastId}`, {
+      method: "DELETE",
+    });
+  }
+
+  // Actual operations
+  async loadActuals() {
+    return this.fetchWithErrorHandling(`${this.basePath}/actuals`);
+  }
+
+  async getActualsForProduct(productId) {
+    return this.fetchWithErrorHandling(
+      `${this.basePath}/actuals/product/${productId}`,
+    );
+  }
+
+  async createActual(actualData) {
+    return this.fetchWithErrorHandling(`${this.basePath}/actuals`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(actualData),
+    });
+  }
+
+  async updateActual(actualId, actualData) {
+    return this.fetchWithErrorHandling(`${this.basePath}/actuals/${actualId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(actualData),
+    });
+  }
+
+  async deleteActual(actualId) {
+    return this.fetchWithErrorHandling(`${this.basePath}/actuals/${actualId}`, {
+      method: "DELETE",
+    });
+  }
+
+  // Contract operations
+  async loadContracts() {
+    return this.fetchWithErrorHandling(`${this.basePath}/contracts`);
+  }
+
+  async getContractsForProvider(providerId) {
+    return this.fetchWithErrorHandling(
+      `${this.basePath}/contracts/provider/${providerId}`,
+    );
+  }
+
+  async createContract(contractData) {
+    return this.fetchWithErrorHandling(`${this.basePath}/contracts`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(contractData),
+    });
+  }
+
+  async updateContract(contractId, contractData) {
+    return this.fetchWithErrorHandling(`${this.basePath}/contracts/${contractId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(contractData),
+    });
+  }
+
+  async deleteContract(contractId) {
+    return this.fetchWithErrorHandling(`${this.basePath}/contracts/${contractId}`, {
+      method: "DELETE",
+    });
+  }
+
+  async addContractRule(contractId, ruleData) {
+    return this.fetchWithErrorHandling(
+      `${this.basePath}/contracts/${contractId}/rules`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(ruleData),
+      },
+    );
+  }
+
+  async getContractRules(contractId) {
+    return this.fetchWithErrorHandling(
+      `${this.basePath}/contracts/${contractId}/rules`,
+    );
+  }
+
+  async deleteContractRule(contractId, ruleType) {
+    return this.fetchWithErrorHandling(
+      `${this.basePath}/contracts/${contractId}/rules/${ruleType}`,
+      {
+        method: "DELETE",
+      },
+    );
   }
 }
 

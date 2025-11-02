@@ -180,6 +180,69 @@
             opacity: 1;
             visibility: visible;
         }
+
+        /* Process Navigation Graph Styles */
+        .process-nav-node {
+            transition: all 0.2s ease-in-out;
+        }
+
+        .process-nav-node:hover {
+            fill: #f1f5f9;
+        }
+
+        /* Animated connection lines */
+        @keyframes dash-move {
+          from {
+            stroke-dashoffset: 0;
+          }
+          to {
+            stroke-dashoffset: -20;
+          }
+        }
+
+        .animated-connection {
+          animation: dash-move 1s linear infinite;
+        }
+
+        .temp-connection {
+          pointer-events: none;
+          opacity: 0.8;
+        }
+
+        /* Connection hit area hover effect */
+        .connection-hit-area:hover + .animated-connection {
+          stroke: #10b981;
+          stroke-width: 3;
+        }
+
+        /* Smooth transitions for nodes and ports */
+        .process-node {
+          transition: all 0.2s ease-in-out;
+        }
+
+        .connection-port {
+          transition: all 0.15s ease-in-out;
+        }
+
+        /* Subtle pulse animation for new nodes/ports */
+        @keyframes subtle-pulse {
+          0%, 100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.8;
+          }
+        }
+
+        .port-pulse {
+          animation: subtle-pulse 2s ease-in-out infinite;
+        }
+
+        /* Connection mode button hover effect */
+        #connectionModeBtn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
     </style>
 </head>
 <body class="bg-background text-foreground min-h-screen flex flex-col">

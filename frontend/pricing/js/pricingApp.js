@@ -14,7 +14,6 @@ class PricingApp {
     }
 
     async init() {
-        console.log('Pricing management page loaded');
 
         // Initialize components
         this.initializeComponents();

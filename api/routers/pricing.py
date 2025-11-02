@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -8,7 +8,7 @@ import sys
 
 # Add parent directory to path to import db module
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
-from db.pricing_repository import get_pricing_repo
+from db.crud import get_crud
 
 router = APIRouter()
 
@@ -37,6 +37,7 @@ class ProviderUpdate(BaseModel):
 class OfferCreate(BaseModel):
     item_id: int
     provider_id: int
+    process_id: int
     tier_number: int
     price_per_unit: float
     status: Optional[str] = "active"
@@ -59,121 +60,125 @@ class TierOverrideCreate(BaseModel):
 
 @router.get("/pricing", response_class=HTMLResponse)
 async def pricing_page(request: Request):
-    """Render the pricing page."""
-    return templates.TemplateResponse("pricing/index.html", {"request": request})
+    """Redirect to the first process or show processes list if none exist."""
+    crud = get_crud()
+    processes = crud.get_all_processes()
+
+    # If there are processes, redirect to the first one
+    if processes and len(processes) > 0:
+        from fastapi.responses import RedirectResponse
+        first_process_id = processes[0]["process_id"]
+        return RedirectResponse(url=f"/pricing/{first_process_id}", status_code=302)
+
+    # If no processes, show the processes list (with empty state)
+    return templates.TemplateResponse("pricing/processes.html", {"request": request, "processes": processes})
+
+
+@router.get("/pricing/{process_id}", response_class=HTMLResponse)
+async def pricing_process_detail(request: Request, process_id: int):
+    """Render pricing page for specific process."""
+    crud = get_crud()
+
+    # Get process details
+    process = crud.get_process(process_id)
+    if not process:
+        raise HTTPException(status_code=404, detail="Process not found")
+
+    # Get all processes for navigation
+    processes = crud.get_all_processes()
+
+    return templates.TemplateResponse(
+        "pricing/index.html",
+        {
+            "request": request,
+            "current_process": process,
+            "processes": processes
+        }
+    )
 
 
 # Provider endpoints
 @router.get("/api/providers")
 async def get_providers():
     """Get all providers."""
-    try:
-        repo = get_pricing_repo()
-        providers = repo.get_all_providers_with_tier_counts()
-        return JSONResponse(content=providers)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    crud = get_crud()
+    providers = crud.get_all_providers_with_tier_counts()
+    return JSONResponse(content=providers)
+
+
+@router.get("/api/providers/allocations")
+async def get_provider_allocations():
+    """Get all provider item allocations."""
+    crud = get_crud()
+    allocations = crud.get_all_allocations()
+    return JSONResponse(content=allocations)
 
 
 @router.post("/api/providers")
 async def create_provider(provider: ProviderCreate):
     """Create a new provider."""
-    try:
-        repo = get_pricing_repo()
-        new_provider = repo.create_provider(
-            company_name=provider.company_name,
-            details=provider.details,
-            status=provider.status,
-        )
-        return JSONResponse(
-            content={
-                "provider_id": new_provider.provider_id,
-                "company_name": new_provider.company_name,
-                "details": new_provider.details,
-                "status": new_provider.status,
-                "date_creation": new_provider.date_creation,
-                "date_last_update": new_provider.date_last_update,
-            }
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/api/providers/allocations")
-async def get_provider_allocations():
-    """Get total allocations per provider-item across all products.
-    
-    Returns allocation totals and per-product breakdown for tier highlighting.
-    """
-    try:
-        repo = get_pricing_repo()
-        allocations = repo.get_provider_item_allocations()
-        return JSONResponse(content=allocations)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    crud = get_crud()
+    new_provider = crud.create_provider(
+        company_name=provider.company_name,
+        details=provider.details,
+        status=provider.status,
+    )
+    return JSONResponse(
+        content={
+            "provider_id": new_provider.provider_id,
+            "company_name": new_provider.company_name,
+            "details": new_provider.details,
+            "status": new_provider.status,
+            "date_creation": new_provider.date_creation,
+            "date_last_update": new_provider.date_last_update,
+        }
+    )
 
 
 @router.get("/api/providers/{provider_id}")
 async def get_provider(provider_id: int):
     """Get a specific provider."""
-    try:
-        repo = get_pricing_repo()
-        provider = repo.get_provider(provider_id)
-        if not provider:
-            raise HTTPException(status_code=404, detail="Provider not found")
-        return JSONResponse(
-            content={
-                "provider_id": provider.provider_id,
-                "company_name": provider.company_name,
-                "details": provider.details,
-                "status": provider.status,
-                "date_creation": provider.date_creation,
-                "date_last_update": provider.date_last_update,
-            }
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    crud = get_crud()
+    provider = crud.get_provider(provider_id)
+    return JSONResponse(
+        content={
+            "provider_id": provider.provider_id,
+            "company_name": provider.company_name,
+            "details": provider.details,
+            "status": provider.status,
+            "date_creation": provider.date_creation,
+            "date_last_update": provider.date_last_update,
+        }
+    )
 
 
 @router.put("/api/providers/{provider_id}")
 async def update_provider(provider_id: int, provider: ProviderUpdate):
     """Update a provider."""
-    try:
-        repo = get_pricing_repo()
-        success = repo.update_provider(
-            provider_id=provider_id,
-            company_name=provider.company_name,
-            details=provider.details,
-            status=provider.status,
-        )
-        if not success:
-            raise HTTPException(status_code=404, detail="Provider not found")
-        return JSONResponse(content={"message": "Provider updated successfully"})
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    crud = get_crud()
+    crud.update_provider(
+        provider_id=provider_id,
+        company_name=provider.company_name,
+        details=provider.details,
+        status=provider.status,
+    )
+    return JSONResponse(content={"message": "Provider updated successfully"})
 
 
 @router.delete("/api/providers/{provider_id}")
 async def delete_provider(provider_id: int):
     """Delete a provider."""
-    try:
-        repo = get_pricing_repo()
-        repo.delete_provider(provider_id)
-        return JSONResponse(content={"message": "Provider deleted successfully"})
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    crud = get_crud()
+    crud.delete_provider(provider_id)
+    return JSONResponse(content={"message": "Provider deleted successfully"})
 
 
 # Offer endpoints
 @router.get("/api/offers")
 async def get_offers():
     """Get all offers with provider information."""
-    repo = get_pricing_repo()
-    offers = repo.get_all_offers()
+    crud = get_crud()
+    offers = crud.get_all_offers()
     for offer in offers:
         if "tier_number" in offer:
             offer["tier_number"] = offer.pop("tier_number")
@@ -183,8 +188,8 @@ async def get_offers():
 @router.get("/api/offers/provider/{provider_id}")
 async def get_offers_by_provider(provider_id: int):
     """Get all offers for a specific provider."""
-    repo = get_pricing_repo()
-    offers = repo.get_offers_by_provider(provider_id)
+    crud = get_crud()
+    offers = crud.get_offers_by_provider(provider_id)
     return JSONResponse(
         content=[
             {
@@ -204,21 +209,21 @@ async def get_offers_by_provider(provider_id: int):
 @router.post("/api/offers")
 async def create_offer(offer: OfferCreate):
     """Create a new offer."""
-    repo = get_pricing_repo()
-    new_offer = repo.create_offer(
+    crud = get_crud()
+    new_offer = crud.create_offer(
         item_id=offer.item_id,
         provider_id=offer.provider_id,
+        process_id=offer.process_id,
         tier_number=offer.tier_number,
         price_per_unit=offer.price_per_unit,
         status=offer.status,
     )
-    if not new_offer:
-        raise HTTPException(status_code=400, detail="Provider or Item not found")
     return JSONResponse(
         content={
             "offer_id": new_offer.offer_id,
             "item_id": new_offer.item_id,
             "provider_id": new_offer.provider_id,
+            "process_id": new_offer.process_id,
             "tier_number": new_offer.tier_number,
             "price_per_unit": new_offer.price_per_unit,
             "status": new_offer.status,
@@ -231,25 +236,21 @@ async def create_offer(offer: OfferCreate):
 @router.put("/api/offers/{offer_id}")
 async def update_offer(offer_id: int, offer: OfferUpdate):
     """Update an offer."""
-    repo = get_pricing_repo()
-    success = repo.update_offer(
+    crud = get_crud()
+    crud.update_offer(
         offer_id=offer_id,
         tier_number=offer.tier_number,
         price_per_unit=offer.price_per_unit,
         status=offer.status,
     )
-    if not success:
-        raise HTTPException(status_code=404, detail="Offer not found")
     return JSONResponse(content={"message": "Offer updated successfully"})
 
 
 @router.get("/api/offers/{offer_id}")
 async def get_offer(offer_id: int):
     """Get a specific offer."""
-    repo = get_pricing_repo()
-    offer = repo.get_offer(offer_id)
-    if not offer:
-        raise HTTPException(status_code=404, detail="Offer not found")
+    crud = get_crud()
+    offer = crud.get_offer(offer_id)
     return JSONResponse(
         content={
             "offer_id": offer.offer_id,
@@ -267,34 +268,17 @@ async def get_offer(offer_id: int):
 @router.delete("/api/offers/{offer_id}")
 async def delete_offer(offer_id: int):
     """Delete an offer."""
-    try:
-        repo = get_pricing_repo()
-        repo.delete_offer(offer_id)
-        return JSONResponse(content={"message": "Offer deleted successfully"})
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    crud = get_crud()
+    crud.delete_offer(offer_id)
+    return JSONResponse(content={"message": "Offer deleted successfully"})
 
 
 @router.delete("/api/items/{item_id}/offers")
 async def delete_offers_for_item(item_id: int):
     """Delete all offers for an item."""
-    try:
-        repo = get_pricing_repo()
-        count = repo.delete_offers_for_item(item_id)
-        return JSONResponse(content={"message": f"{count} offers deleted successfully"})
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/api/pricing/data")
-async def get_pricing_data():
-    """Get all pricing data for the management interface."""
-    try:
-        repo = get_pricing_repo()
-        providers_with_offers = repo.get_providers_with_offers()
-        return JSONResponse(content=providers_with_offers)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    crud = get_crud()
+    count = crud.delete_offers_for_item(item_id)
+    return JSONResponse(content={"message": f"{count} offers deleted successfully"})
 
 
 # Item management endpoints
@@ -315,192 +299,151 @@ class ItemUpdate(BaseModel):
 @router.get("/api/items")
 async def get_items():
     """Get all items."""
-    try:
-        repo = get_pricing_repo()
-        items = repo.get_all_items()
-        return JSONResponse(
-            content=[
-                {
-                    "item_id": i.item_id,
-                    "item_name": i.item_name,
-                    "description": i.description,
-                    "status": i.status,
-                    "date_creation": i.date_creation,
-                    "date_last_update": i.date_last_update,
-                }
-                for i in items
-            ]
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    crud = get_crud()
+    items = crud.get_all_items()
+    return JSONResponse(
+        content=[
+            {
+                "item_id": i[0],
+                "item_name": i[1],
+                "description": i[2],
+                "status": i[3],
+                "date_creation": i[4],
+                "date_last_update": i[5],
+            }
+            for i in items
+        ]
+    )
 
 
 @router.post("/api/items")
 async def create_item(item: ItemCreate):
     """Create a new item and associate providers."""
-    try:
-        repo = get_pricing_repo()
+    crud = get_crud()
 
-        # Create the item first
-        new_item = repo.create_item(
-            item_name=item.item_name, description=item.description, status=item.status
-        )
+    new_item = crud.create_item(
+        item_name=item.item_name, description=item.description, status=item.status
+    )
 
-        # If provider_ids are provided, set the relationships
-        if item.provider_ids is not None:
-            repo.set_providers_for_item(new_item.item_id, item.provider_ids)
+    if item.provider_ids is not None:
+        crud.set_providers_for_item(new_item.item_id, item.provider_ids)
 
-        return JSONResponse(
-            content={
-                "item_id": new_item.item_id,
-                "item_name": new_item.item_name,
-                "description": new_item.description,
-                "status": new_item.status,
-                "date_creation": new_item.date_creation,
-                "date_last_update": new_item.date_last_update,
-            }
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return JSONResponse(
+        content={
+            "item_id": new_item.item_id,
+            "item_name": new_item.item_name,
+            "description": new_item.description,
+            "status": new_item.status,
+            "date_creation": new_item.date_creation,
+            "date_last_update": new_item.date_last_update,
+        }
+    )
 
 
 @router.get("/api/items/{item_id}")
 async def get_item(item_id: int):
     """Get a specific item."""
-    try:
-        repo = get_pricing_repo()
-        item = repo.get_item(item_id)
-        if not item:
-            raise HTTPException(status_code=404, detail="Item not found")
-        return JSONResponse(
-            content={
-                "item_id": item.item_id,
-                "item_name": item.item_name,
-                "description": item.description,
-                "status": item.status,
-                "date_creation": item.date_creation,
-                "date_last_update": item.date_last_update,
-            }
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    crud = get_crud()
+    item = crud.get_item(item_id)
+    return JSONResponse(
+        content={
+            "item_id": item.item_id,
+            "item_name": item.item_name,
+            "description": item.description,
+            "status": item.status,
+            "date_creation": item.date_creation,
+            "date_last_update": item.date_last_update,
+        }
+    )
 
 
 @router.get("/api/items/{item_id}/providers")
 async def get_item_providers(item_id: int):
     """Get all providers for a specific item with full details."""
-    try:
-        repo = get_pricing_repo()
-        provider_ids = repo.get_providers_for_item(item_id)
-        
-        # Get full provider details
-        providers = []
-        for provider_id in provider_ids:
-            provider = repo.get_provider(provider_id)
-            if provider and provider.status == 'active':
-                providers.append({
-                    'provider_id': provider.provider_id,
-                    'company_name': provider.company_name,
-                    'status': provider.status
-                })
-        
-        return JSONResponse(content=providers)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    crud = get_crud()
+    provider_ids = crud.get_providers_for_item(item_id)
+
+    providers = []
+    for provider_id in provider_ids:
+        provider = crud.get_provider(provider_id)
+        if provider and provider.status == 'active':
+            providers.append({
+                'provider_id': provider.provider_id,
+                'company_name': provider.company_name,
+                'status': provider.status
+            })
+
+    return JSONResponse(content=providers)
 
 
 @router.put("/api/items/{item_id}")
 async def update_item(item_id: int, item: ItemUpdate):
     """Update an item and its provider associations."""
-    try:
-        repo = get_pricing_repo()
+    crud = get_crud()
 
-        # Update item details
-        success = repo.update_item(
-            item_id=item_id,
-            item_name=item.item_name,
-            description=item.description,
-            status=item.status,
-        )
+    crud.update_item(
+        item_id=item_id,
+        item_name=item.item_name,
+        description=item.description,
+        status=item.status,
+    )
 
-        if not success:
-            raise HTTPException(status_code=404, detail="Item not found")
+    if item.provider_ids is not None:
+        crud.set_providers_for_item(item_id, item.provider_ids)
 
-        # If provider_ids are provided, update the relationships
-        if item.provider_ids is not None:
-            repo.set_providers_for_item(item_id, item.provider_ids)
-
-        return JSONResponse(content={"message": "Item updated successfully"})
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return JSONResponse(content={"message": "Item updated successfully"})
 
 
 @router.delete("/api/items/{item_id}")
 async def delete_item(item_id: int):
     """Delete an item."""
-    try:
-        repo = get_pricing_repo()
-        repo.delete_item(item_id)
-        return JSONResponse(content={"message": "Item deleted successfully"})
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    crud = get_crud()
+    crud.delete_item(item_id)
+    return JSONResponse(content={"message": "Item deleted successfully"})
 
 
 # Provider-Item relationship endpoints
 @router.get("/api/provider-items")
 async def get_provider_items():
     """Get all provider-item relationships."""
-    try:
-        repo = get_pricing_repo()
-        relationships = repo.get_provider_item_relationships()
-        return JSONResponse(
-            content=[
-                {
-                    "provider_id": r.provider_id,
-                    "item_id": r.item_id,
-                    "date_creation": r.date_creation,
-                }
-                for r in relationships
-            ]
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    crud = get_crud()
+    relationships = crud.get_provider_item_relationships()
+    return JSONResponse(
+        content=[
+            {
+                "provider_id": r[0],
+                "item_id": r[1],
+                "date_creation": r[2],
+            }
+            for r in relationships
+        ]
+    )
 
 
 # Tier-based pricing endpoints
 @router.get("/api/providers/{provider_id}/tier-thresholds")
 async def get_tier_thresholds(provider_id: int):
     """Get tier thresholds and base prices for a provider."""
-    repo = get_pricing_repo()
-    provider = repo.get_provider(provider_id)
-    if not provider:
-        raise HTTPException(status_code=404, detail="Provider not found")
-    tier_data = repo.get_provider_tier_thresholds(provider_id)
+    crud = get_crud()
+    tier_data = crud.get_provider_tier_thresholds(provider_id)
     return JSONResponse(content=tier_data)
 
 
 @router.put("/api/providers/{provider_id}/tier-thresholds")
 async def update_tier_thresholds(provider_id: int, data: Dict):
     """Update tier thresholds and base prices for a provider."""
-    repo = get_pricing_repo()
-    provider = repo.get_provider(provider_id)
-    if not provider:
-        raise HTTPException(status_code=404, detail="Provider not found")
+    crud = get_crud()
     thresholds = data.get("thresholds", {})
     base_prices = data.get("base_prices", {})
-    repo.set_provider_tier_thresholds(provider_id, thresholds, base_prices)
+    crud.set_provider_tier_thresholds(provider_id, thresholds, base_prices)
     return JSONResponse(content={"message": "Tier thresholds updated successfully"})
 
 
 @router.get("/api/providers/{provider_id}/tier-override")
 async def get_tier_override(provider_id: int):
     """Get manual tier override for a provider."""
-    repo = get_pricing_repo()
-    override = repo.get_provider_tier_override(provider_id)
+    crud = get_crud()
+    override = crud.get_provider_tier_override(provider_id)
     if not override:
         return JSONResponse(content={"override": None})
     return JSONResponse(
@@ -519,17 +462,342 @@ async def get_tier_override(provider_id: int):
 @router.post("/api/providers/{provider_id}/tier-override")
 async def create_tier_override(provider_id: int, data: TierOverrideCreate):
     """Set manual tier override for a provider."""
-    repo = get_pricing_repo()
-    provider = repo.get_provider(provider_id)
-    if not provider:
-        raise HTTPException(status_code=404, detail="Provider not found")
-    repo.set_provider_tier_override(provider_id, data.manual_tier, data.notes)
+    crud = get_crud()
+    crud.set_provider_tier_override(provider_id, data.manual_tier, data.notes)
     return JSONResponse(content={"message": "Tier override set successfully"})
 
 
 @router.delete("/api/providers/{provider_id}/tier-override")
 async def delete_tier_override(provider_id: int):
     """Clear manual tier override for a provider."""
-    repo = get_pricing_repo()
-    repo.clear_provider_tier_override(provider_id)
+    crud = get_crud()
+    crud.clear_provider_tier_override(provider_id)
     return JSONResponse(content={"message": "Tier override cleared successfully"})
+
+
+# =====================================
+# NEW SCHEMA ENTITY ENDPOINTS
+# =====================================
+
+# Process management endpoints
+class ProcessCreate(BaseModel):
+    process_name: str
+    description: Optional[str] = ""
+    status: Optional[str] = "active"
+
+
+class ProcessUpdate(BaseModel):
+    process_name: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+
+
+@router.get("/api/processes")
+async def get_processes():
+    """Get all processes."""
+    crud = get_crud()
+    processes = crud.get_all_processes()
+    return JSONResponse(content=processes)
+
+
+@router.post("/api/processes")
+async def create_process(process: ProcessCreate):
+    """Create a new process."""
+    crud = get_crud()
+    new_process = crud.create_process(
+        process_name=process.process_name,
+        description=process.description,
+        status=process.status,
+    )
+    return JSONResponse(status_code=201, content=new_process)
+
+
+@router.get("/api/processes/{process_id}")
+async def get_process(process_id: int):
+    """Get a specific process."""
+    crud = get_crud()
+    process = crud.get_process(process_id)
+    return JSONResponse(content=process)
+
+
+@router.put("/api/processes/{process_id}")
+async def update_process(process_id: int, process: ProcessUpdate):
+    """Update a process."""
+    crud = get_crud()
+    crud.update_process(
+        process_id=process_id,
+        process_name=process.process_name,
+        description=process.description,
+        status=process.status,
+    )
+    return JSONResponse(content={"message": "Process updated successfully"})
+
+
+@router.delete("/api/processes/{process_id}")
+async def delete_process(process_id: int):
+    """Delete a process."""
+    crud = get_crud()
+    crud.delete_process(process_id)
+    return JSONResponse(content={"message": "Process deleted successfully"})
+
+
+# Process graph endpoints
+@router.get("/api/process-graph")
+async def get_process_graph():
+    """Get all process graph connections."""
+    crud = get_crud()
+    connections = crud.get_process_graph()
+    # Convert tuples to objects for JavaScript
+    result = [
+        {"from_process_id": conn[0], "to_process_id": conn[1]}
+        for conn in connections
+    ]
+    return JSONResponse(content=result)
+
+
+@router.post("/api/process-graph")
+async def add_process_edge(
+    from_process_id: int = Query(..., description="Source process ID"),
+    to_process_id: int = Query(..., description="Target process ID")
+):
+    """Add a connection between processes."""
+    crud = get_crud()
+    success = crud.add_process_graph_edge(from_process_id, to_process_id)
+    if success:
+        return JSONResponse(content={"message": "Connection added successfully"})
+    return JSONResponse(content={"error": "Failed to add connection"}, status_code=400)
+
+
+@router.delete("/api/process-graph")
+async def remove_process_edge(
+    from_process_id: int = Query(..., description="Source process ID"),
+    to_process_id: int = Query(..., description="Target process ID")
+):
+    """Remove a connection between processes."""
+    crud = get_crud()
+    crud.remove_process_graph_edge(from_process_id, to_process_id)
+    # DELETE is idempotent - always return success even if connection didn't exist
+    return JSONResponse(content={"message": "Connection removed successfully"})
+
+
+# Forecast management endpoints
+class ForecastCreate(BaseModel):
+    product_id: int
+    year: int
+    month: int
+    forecast_units: int
+
+
+class ForecastUpdate(BaseModel):
+    forecast_units: Optional[int] = None
+
+
+@router.get("/api/forecasts")
+async def get_forecasts():
+    """Get all forecasts."""
+    crud = get_crud()
+    forecasts = crud.get_all_forecasts()
+    return JSONResponse(content=forecasts)
+
+
+@router.get("/api/forecasts/product/{product_id}")
+async def get_forecasts_for_product(product_id: int):
+    """Get forecasts for a specific product."""
+    crud = get_crud()
+    forecasts = crud.get_forecasts_for_product(product_id)
+    return JSONResponse(content=forecasts)
+
+
+@router.post("/api/forecasts")
+async def create_forecast(forecast: ForecastCreate):
+    """Create a new forecast."""
+    crud = get_crud()
+    new_forecast = crud.create_forecast(
+        product_id=forecast.product_id,
+        year=forecast.year,
+        month=forecast.month,
+        forecast_units=forecast.forecast_units,
+    )
+    return JSONResponse(content=new_forecast)
+
+
+@router.put("/api/forecasts/{forecast_id}")
+async def update_forecast(forecast_id: int, forecast: ForecastUpdate):
+    """Update a forecast."""
+    crud = get_crud()
+    crud.update_forecast(
+        forecast_id=forecast_id,
+        forecast_units=forecast.forecast_units,
+    )
+    return JSONResponse(content={"message": "Forecast updated successfully"})
+
+
+@router.delete("/api/forecasts/{forecast_id}")
+async def delete_forecast(forecast_id: int):
+    """Delete a forecast."""
+    crud = get_crud()
+    crud.delete_forecast(forecast_id)
+    return JSONResponse(content={"message": "Forecast deleted successfully"})
+
+
+# Actual management endpoints
+class ActualCreate(BaseModel):
+    product_id: int
+    year: int
+    month: int
+    actual_units: int
+
+
+class ActualUpdate(BaseModel):
+    actual_units: Optional[int] = None
+
+
+@router.get("/api/actuals")
+async def get_actuals():
+    """Get all actuals."""
+    crud = get_crud()
+    actuals = crud.get_all_actuals()
+    return JSONResponse(content=actuals)
+
+
+@router.get("/api/actuals/product/{product_id}")
+async def get_actuals_for_product(product_id: int):
+    """Get actuals for a specific product."""
+    crud = get_crud()
+    actuals = crud.get_actuals_for_product(product_id)
+    return JSONResponse(content=actuals)
+
+
+@router.post("/api/actuals")
+async def create_actual(actual: ActualCreate):
+    """Create a new actual."""
+    crud = get_crud()
+    new_actual = crud.create_actual(
+        product_id=actual.product_id,
+        year=actual.year,
+        month=actual.month,
+        actual_units=actual.actual_units,
+    )
+    return JSONResponse(content=new_actual)
+
+
+@router.put("/api/actuals/{actual_id}")
+async def update_actual(actual_id: int, actual: ActualUpdate):
+    """Update an actual."""
+    crud = get_crud()
+    crud.update_actual(
+        actual_id=actual_id,
+        actual_units=actual.actual_units,
+    )
+    return JSONResponse(content={"message": "Actual updated successfully"})
+
+
+@router.delete("/api/actuals/{actual_id}")
+async def delete_actual(actual_id: int):
+    """Delete an actual."""
+    crud = get_crud()
+    crud.delete_actual(actual_id)
+    return JSONResponse(content={"message": "Actual deleted successfully"})
+
+
+# Contract management endpoints
+class ContractCreate(BaseModel):
+    provider_id: int
+    contract_name: str
+    min_monthly_volume: Optional[float] = None
+    min_monthly_cost: Optional[float] = None
+    status: Optional[str] = "active"
+
+
+class ContractUpdate(BaseModel):
+    contract_name: Optional[str] = None
+    min_monthly_volume: Optional[float] = None
+    min_monthly_cost: Optional[float] = None
+    status: Optional[str] = None
+
+
+class ContractRuleCreate(BaseModel):
+    rule_type: str
+    rule_value: Optional[float] = None
+    rule_config: Optional[str] = None
+
+
+@router.get("/api/contracts")
+async def get_contracts():
+    """Get all contracts."""
+    crud = get_crud()
+    contracts = crud.get_all_contracts()
+    return JSONResponse(content=contracts)
+
+
+@router.get("/api/contracts/provider/{provider_id}")
+async def get_contracts_for_provider(provider_id: int):
+    """Get contracts for a specific provider."""
+    crud = get_crud()
+    contracts = crud.get_contracts_for_provider(provider_id)
+    return JSONResponse(content=contracts)
+
+
+@router.post("/api/contracts")
+async def create_contract(contract: ContractCreate):
+    """Create a new contract."""
+    crud = get_crud()
+    new_contract = crud.create_contract(
+        provider_id=contract.provider_id,
+        contract_name=contract.contract_name,
+        min_monthly_volume=contract.min_monthly_volume,
+        min_monthly_cost=contract.min_monthly_cost,
+        status=contract.status,
+    )
+    return JSONResponse(content=new_contract)
+
+
+@router.put("/api/contracts/{contract_id}")
+async def update_contract(contract_id: int, contract: ContractUpdate):
+    """Update a contract."""
+    crud = get_crud()
+    crud.update_contract(
+        contract_id=contract_id,
+        contract_name=contract.contract_name,
+        min_monthly_volume=contract.min_monthly_volume,
+        min_monthly_cost=contract.min_monthly_cost,
+        status=contract.status,
+    )
+    return JSONResponse(content={"message": "Contract updated successfully"})
+
+
+@router.delete("/api/contracts/{contract_id}")
+async def delete_contract(contract_id: int):
+    """Delete a contract."""
+    crud = get_crud()
+    crud.delete_contract(contract_id)
+    return JSONResponse(content={"message": "Contract deleted successfully"})
+
+
+@router.post("/api/contracts/{contract_id}/rules")
+async def add_contract_rule(contract_id: int, rule: ContractRuleCreate):
+    """Add a rule to a contract."""
+    crud = get_crud()
+    crud.add_contract_rule(
+        contract_id=contract_id,
+        rule_type=rule.rule_type,
+        rule_value=rule.rule_value,
+        rule_config=rule.rule_config,
+    )
+    return JSONResponse(content={"message": "Contract rule added successfully"})
+
+
+@router.get("/api/contracts/{contract_id}/rules")
+async def get_contract_rules(contract_id: int):
+    """Get all rules for a contract."""
+    crud = get_crud()
+    rules = crud.get_contract_rules(contract_id)
+    return JSONResponse(content=rules)
+
+
+@router.delete("/api/contracts/{contract_id}/rules/{rule_type}")
+async def delete_contract_rule(contract_id: int, rule_type: str):
+    """Delete a rule from a contract."""
+    crud = get_crud()
+    crud.delete_contract_rule(contract_id, rule_type)
+    return JSONResponse(content={"message": "Contract rule deleted successfully"})

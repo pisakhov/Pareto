@@ -1,6 +1,5 @@
 // Pareto Home Page JavaScript
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Pareto home page loaded');
 
     // Simple welcome page initialization
     initializeWelcomePage();
