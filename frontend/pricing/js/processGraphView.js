@@ -10,8 +10,13 @@ class ProcessGraphView {
   }
 
   async init() {
+    console.log('🎨 ProcessGraphView - init() called');
     await this.loadData();
+    console.log('🎨 ProcessGraphView - data loaded, processes:', this.processes.length, 'connections:', this.connections.length);
+    this.autoLayout();
+    console.log('🎨 ProcessGraphView - autoLayout complete');
     this.render();
+    console.log('🎨 ProcessGraphView - render complete');
   }
 
   async loadData() {
@@ -31,17 +36,102 @@ class ProcessGraphView {
     }
   }
 
+  autoLayout() {
+    const nodeMap = new Map();
+    const levels = new Map();
+    const visited = new Set();
+
+    this.processes.forEach(p => {
+      nodeMap.set(p.process_id, {
+        process: p,
+        inputs: [],
+        outputs: []
+      });
+    });
+
+    this.connections.forEach(conn => {
+      if (nodeMap.has(conn.from_process_id) && nodeMap.has(conn.to_process_id)) {
+        nodeMap.get(conn.from_process_id).outputs.push(conn.to_process_id);
+        nodeMap.get(conn.to_process_id).inputs.push(conn.from_process_id);
+      }
+    });
+
+    const roots = [];
+    nodeMap.forEach((node, id) => {
+      if (node.inputs.length === 0) {
+        roots.push(id);
+      }
+    });
+
+    if (roots.length === 0 && this.processes.length > 0) {
+      roots.push(this.processes[0].process_id);
+    }
+
+    const queue = [...roots];
+    roots.forEach(id => levels.set(id, 0));
+
+    while (queue.length > 0) {
+      const currentId = queue.shift();
+      if (visited.has(currentId)) continue;
+      visited.add(currentId);
+
+      const currentLevel = levels.get(currentId) || 0;
+      const node = nodeMap.get(currentId);
+
+      node.outputs.forEach(outputId => {
+        if (!levels.has(outputId) || levels.get(outputId) < currentLevel + 1) {
+          levels.set(outputId, currentLevel + 1);
+          queue.push(outputId);
+        }
+      });
+    }
+
+    const levelGroups = new Map();
+    levels.forEach((level, id) => {
+      if (!levelGroups.has(level)) {
+        levelGroups.set(level, []);
+      }
+      levelGroups.get(level).push(id);
+    });
+
+    // Canvas-relative positioning (assuming 1043x200 canvas)
+    const canvasWidth = 1043;
+    const canvasHeight = 200;
+    const marginX = 40;
+    const marginY = 30;
+    const levelWidth = 250;
+    const nodeSpacing = 60;
+
+    levelGroups.forEach((nodeIds, level) => {
+      nodeIds.forEach((nodeId, index) => {
+        const process = this.processes.find(p => p.process_id === nodeId);
+        if (process) {
+          const x = marginX + (level * levelWidth);
+          const y = marginY + (index * nodeSpacing);
+          console.log('🎨 ProcessGraphView - autoLayout positioning:', process.process_name, 'at', x, y);
+          process.x = x;
+          process.y = y;
+        }
+      });
+    });
+  }
+
   render() {
+    console.log('🎨 ProcessGraphView - render() called');
     const navGraph = document.getElementById('processGraphNav');
+    console.log('🎨 ProcessGraphView - navGraph element:', navGraph);
     if (!navGraph) {
+      console.log('🎨 ProcessGraphView - navGraph not found, returning early');
       return;
     }
 
     const canvas = navGraph.querySelector('svg');
     const nodesLayer = navGraph.querySelector('#nodesLayerNav');
     const connectionsLayer = navGraph.querySelector('#connectionsLayerNav');
+    console.log('🎨 ProcessGraphView - canvas:', canvas, 'nodesLayer:', nodesLayer, 'connectionsLayer:', connectionsLayer);
 
     if (!nodesLayer || !connectionsLayer) {
+      console.log('🎨 ProcessGraphView - nodesLayer or connectionsLayer not found, returning early');
       return;
     }
 
@@ -50,8 +140,11 @@ class ProcessGraphView {
     connectionsLayer.innerHTML = '';
 
     if (this.processes.length === 0) {
+      console.log('🎨 ProcessGraphView - no processes to render, returning early');
       return;
     }
+
+    console.log('🎨 ProcessGraphView - rendering', this.processes.length, 'processes');
 
     // Create a map of process_id to process data
     const processMap = {};
@@ -64,27 +157,29 @@ class ProcessGraphView {
     const margin = 40;
     const canvasWidth = canvas.clientWidth || 800;
     const canvasHeight = canvas.clientHeight || 200;
-
-    // Calculate positions using a grid-based layout
-    const positions = this.calculateLayout(this.processes, this.connections, canvasWidth, canvasHeight, margin, nodeWidth, nodeHeight);
+    console.log('🎨 ProcessGraphView - canvas dimensions:', canvasWidth, 'x', canvasHeight);
 
     // Get current process ID from URL
     const currentProcessId = this.getCurrentProcessId();
+    console.log('🎨 ProcessGraphView - currentProcessId from URL:', currentProcessId);
 
-    // Render nodes
-    Object.keys(positions).forEach(processId => {
-      const process = processMap[processId];
-      if (!process) return;
-
-      const pos = positions[processId];
+    // Render nodes using positions from autoLayout
+    console.log('🎨 ProcessGraphView - starting node render loop');
+    this.processes.forEach((process, idx) => {
+      console.log('🎨 ProcessGraphView - rendering process', idx + 1, '/', this.processes.length, ':', process.process_name, 'at position:', process.x, process.y);
       const nodeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
       nodeGroup.setAttribute('data-process-id', process.process_id);
       nodeGroup.style.cursor = 'pointer';
 
+      // Use positions from autoLayout or calculate fallback
+      const x = process.x || (canvasWidth - nodeWidth) / 2;
+      const y = process.y || (canvasHeight - nodeHeight) / 2;
+      console.log('🎨 ProcessGraphView - using coordinates:', x, y);
+
       // Node background
       const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      rect.setAttribute('x', pos.x);
-      rect.setAttribute('y', pos.y);
+      rect.setAttribute('x', x);
+      rect.setAttribute('y', y);
       rect.setAttribute('width', nodeWidth);
       rect.setAttribute('height', nodeHeight);
       rect.setAttribute('rx', '8');
@@ -105,8 +200,8 @@ class ProcessGraphView {
 
       // Process name text
       const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      text.setAttribute('x', pos.x + nodeWidth / 2);
-      text.setAttribute('y', pos.y + nodeHeight / 2 + 5);
+      text.setAttribute('x', x + nodeWidth / 2);
+      text.setAttribute('y', y + nodeHeight / 2 + 5);
       text.setAttribute('text-anchor', 'middle');
       text.setAttribute('font-size', '14');
       text.setAttribute('font-weight', '500');
@@ -123,21 +218,28 @@ class ProcessGraphView {
 
       nodesLayer.appendChild(nodeGroup);
     });
+    console.log('🎨 ProcessGraphView - node render loop complete');
 
     // Render connections
+    console.log('🎨 ProcessGraphView - starting connection render loop, total connections:', this.connections.length);
     this.connections.forEach((conn, index) => {
-      const fromPos = positions[conn.from_process_id];
-      const toPos = positions[conn.to_process_id];
+      const fromProcess = this.processes.find(p => p.process_id === conn.from_process_id);
+      const toProcess = this.processes.find(p => p.process_id === conn.to_process_id);
 
-      if (!fromPos || !toPos) {
+      if (!fromProcess || !toProcess) {
+        console.log('🎨 ProcessGraphView - skipping connection', index, 'missing processes');
         return;
       }
 
-      // Calculate connection points
-      const fromX = fromPos.x + nodeWidth;
-      const fromY = fromPos.y + nodeHeight / 2;
-      const toX = toPos.x;
-      const toY = toPos.y + nodeHeight / 2;
+      console.log('🎨 ProcessGraphView - rendering connection', index + 1, '/', this.connections.length, 'from', fromProcess.process_name, 'to', toProcess.process_name);
+
+      // Use positions from autoLayout
+      const fromX = (fromProcess.x || (canvasWidth - nodeWidth) / 2) + nodeWidth;
+      const fromY = (fromProcess.y || (canvasHeight - nodeHeight) / 2) + nodeHeight / 2;
+      const toX = (toProcess.x || (canvasWidth - nodeWidth) / 2);
+      const toY = (toProcess.y || (canvasHeight - nodeHeight) / 2) + nodeHeight / 2;
+
+      console.log('🎨 ProcessGraphView - connection points from:', fromX, fromY, 'to:', toX, toY);
 
       // Create curved path for better visuals
       const midX = (fromX + toX) / 2;
@@ -151,80 +253,8 @@ class ProcessGraphView {
       path.setAttribute('marker-end', 'url(#arrowhead-nav)');
       connectionsLayer.appendChild(path);
     });
+    console.log('🎨 ProcessGraphView - connection render loop complete');
 
-  }
-
-  calculateLayout(processes, connections, canvasWidth, canvasHeight, margin, nodeWidth, nodeHeight) {
-    const positions = {};
-    const canvasCenterX = canvasWidth / 2;
-    const canvasCenterY = canvasHeight / 2;
-
-    if (processes.length === 0) return positions;
-
-    // Find roots (nodes with no incoming connections)
-    const incomingCount = {};
-    processes.forEach(p => incomingCount[p.process_id] = 0);
-    connections.forEach(conn => {
-      if (incomingCount[conn.to_process_id] !== undefined) {
-        incomingCount[conn.to_process_id]++;
-      }
-    });
-    const roots = processes.filter(p => incomingCount[p.process_id] === 0);
-
-    // If no roots found, use first process as root
-    const rootNodes = roots.length > 0 ? roots : [processes[0]];
-
-    // Hierarchical layout
-    const levels = {};
-    const visited = new Set();
-
-    function assignLevel(nodeId, level) {
-      if (visited.has(nodeId)) return;
-      visited.add(nodeId);
-
-      if (!levels[level]) levels[level] = [];
-      levels[level].push(nodeId);
-
-      // Find children
-      connections.forEach(conn => {
-        if (conn.from_process_id === nodeId) {
-          assignLevel(conn.to_process_id, level + 1);
-        }
-      });
-    }
-
-    // Assign levels starting from roots
-    rootNodes.forEach(root => {
-      assignLevel(root.process_id, 0);
-    });
-
-    // Position nodes
-    const levelsCount = Object.keys(levels).length;
-    const levelHeight = (canvasHeight - 2 * margin - nodeHeight) / Math.max(1, levelsCount - 1);
-
-    Object.keys(levels).forEach(levelStr => {
-      const level = parseInt(levelStr);
-      const nodesAtLevel = levels[level];
-      const levelWidth = canvasWidth - 2 * margin;
-      const nodeSpacing = levelWidth / (nodesAtLevel.length + 1);
-
-      nodesAtLevel.forEach((processId, index) => {
-        const x = margin + nodeSpacing * (index + 1) - nodeWidth / 2;
-        const y = margin + level * levelHeight;
-        positions[processId] = { x, y };
-      });
-    });
-
-    // Handle any unvisited nodes (disconnected)
-    processes.forEach(process => {
-      if (!positions[process.process_id]) {
-        const x = canvasCenterX - nodeWidth / 2;
-        const y = canvasCenterY - nodeHeight / 2;
-        positions[process.process_id] = { x, y };
-      }
-    });
-
-    return positions;
   }
 
   getCurrentProcessId() {
