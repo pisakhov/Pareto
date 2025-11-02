@@ -185,29 +185,22 @@ class FormHandler {
   }
 
 
-  // Delete operations
-  async deleteProvider(providerId, button) {
-    if (
-      !confirm(
-        "Are you sure you want to delete this provider? This will also delete all associated offers.",
-      )
-    ) {
+  // Generic delete operation
+  async deleteEntity(entityId, button, entityType, deleteFn, confirmMessage, successMessage) {
+    if (!confirm(confirmMessage)) {
       return;
     }
 
     this.setButtonLoading(button, "Deleting...");
 
     try {
-      await this.dataService.deleteProvider(providerId);
-      this.uiManager.showNotification(
-        "Provider deleted successfully",
-        "success",
-      );
+      await deleteFn(entityId);
+      this.uiManager.showNotification(successMessage, "success");
       await this.loadAllData();
     } catch (error) {
-      console.error("Error deleting provider:", error);
+      console.error(`Error deleting ${entityType}:`, error);
       this.uiManager.showNotification(
-        "Failed to delete provider: " + error.message,
+        `Failed to delete ${entityType}: ${error.message}`,
         "error",
       );
     } finally {
@@ -215,30 +208,27 @@ class FormHandler {
     }
   }
 
+  // Delete operations
+  async deleteProvider(providerId, button) {
+    return this.deleteEntity(
+      providerId,
+      button,
+      "provider",
+      this.dataService.deleteProvider.bind(this.dataService),
+      "Are you sure you want to delete this provider? This will also delete all associated offers.",
+      "Provider deleted successfully"
+    );
+  }
+
   async deleteItem(itemId, button) {
-    if (
-      !confirm(
-        "Are you sure you want to delete this item? This will also delete all associated offers and relationships.",
-      )
-    ) {
-      return;
-    }
-
-    this.setButtonLoading(button, "Deleting...");
-
-    try {
-      await this.dataService.deleteItem(itemId);
-      this.uiManager.showNotification("Item deleted successfully", "success");
-      await this.loadAllData();
-    } catch (error) {
-      console.error("Error deleting item:", error);
-      this.uiManager.showNotification(
-        "Failed to delete item: " + error.message,
-        "error",
-      );
-    } finally {
-      this.restoreButton(button, "Delete");
-    }
+    return this.deleteEntity(
+      itemId,
+      button,
+      "item",
+      this.dataService.deleteItem.bind(this.dataService),
+      "Are you sure you want to delete this item? This will also delete all associated offers and relationships.",
+      "Item deleted successfully"
+    );
   }
 
   // Helper functions

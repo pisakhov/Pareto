@@ -155,12 +155,6 @@ class ProcessGraphView {
   }
 
   calculateLayout(processes, connections, canvasWidth, canvasHeight, margin, nodeWidth, nodeHeight) {
-      processCount: processes.length,
-      connectionCount: connections.length,
-      canvasWidth,
-      canvasHeight
-    });
-
     const positions = {};
     const canvasCenterX = canvasWidth / 2;
     const canvasCenterY = canvasHeight / 2;

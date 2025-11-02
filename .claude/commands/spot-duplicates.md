@@ -1,6 +1,6 @@
 # Spot Duplicates
 
-Scan the repository to identify duplicate code patterns and generate a concise report.
+Scan the repository file-by-file to identify duplicate code patterns with visual indicators.
 
 ## Usage
 
@@ -10,32 +10,44 @@ spot-duplicates
 
 ## What it does
 
-Analyzes the codebase to find:
+Performs file-by-file analysis to find:
 
-1. **Duplicate Functions**: Functions with identical or nearly identical logic
-2. **Duplicate Code Blocks**: Repeated code segments (5+ lines)
-3. **Similar Logic**: Functions with same structure but different variable names
-4. **Repeated Patterns**: Common boilerplate or template code
+1. **Duplicate Functions**: Functions with identical or similar logic within the same file
+2. **Duplicate Classes**: Similar class structures
+3. **Duplicate Code Blocks**: Repeated code segments (5+ lines) within files
+4. **Repeated Patterns**: Common boilerplate code
 
 ## Report Format
 
-Generates a markdown report with:
+Scans each file individually and displays:
 
-- **Location**: File path and line numbers
-- **Code Snippet**: The duplicated code
-- **Occurrences**: Where else it appears
-- **Suggestion**: Refactoring recommendation
+- **File Path**: Location of the file
+- **Status Icon**:
+  - ✅ **Clean** - No duplicates found in this file
+  - ⚠️ **Issues Found** - Duplicates detected with reason
+- **Details**: Specific duplicates found with line numbers
+- **Suggestion**: Refactoring recommendation to remove unnecessary code
 
 ## What it scans
 
 - Python files (*.py)
 - JavaScript files (*.js)
+- TypeScript files (*.ts)
 - HTML files (*.html)
 - CSS files (*.css)
 
+## Indicators
+
+- ✅ **V (Clean)**: File has no duplicate code
+- ❌ **X (Duplicates)**: File contains duplicate code with reasons:
+  - Same function defined multiple times
+  - Repeated code blocks (5+ lines)
+  - Similar class methods
+  - Identical code patterns
+
 ## Notes
 
-- Read-only analysis - no modifications made
-- Ignores imports and comments
-- Flags similarity threshold: 80%+ match
-- Reports exact duplicates and near-duplicates separately
+- No bash commands used - pure code analysis
+- Compares code within each file, not across files
+- Ignores imports, comments, and whitespace
+- Focus: identifying unnecessary code for cleanup

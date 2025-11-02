@@ -215,11 +215,14 @@ class UIManager {
     return true;
   }
 
-  validateNumber(value, min = null, max = null, fieldName = "Value") {
-    const num = parseFloat(value);
+  validateNumericValue(value, min = null, max = null, fieldName = "Value", requireInteger = false) {
+    const num = requireInteger ? parseInt(value) : parseFloat(value);
 
     if (isNaN(num)) {
-      this.showNotification(`${fieldName} must be a valid number`, "error");
+      this.showNotification(
+        `${fieldName} must be a valid ${requireInteger ? "integer" : "number"}`,
+        "error"
+      );
       return false;
     }
 
@@ -239,28 +242,12 @@ class UIManager {
     return true;
   }
 
+  validateNumber(value, min = null, max = null, fieldName = "Value") {
+    return this.validateNumericValue(value, min, max, fieldName, false);
+  }
+
   validateInteger(value, min = null, max = null, fieldName = "Value") {
-    const num = parseInt(value);
-
-    if (isNaN(num)) {
-      this.showNotification(`${fieldName} must be a valid integer`, "error");
-      return false;
-    }
-
-    if (min !== null && num < min) {
-      this.showNotification(`${fieldName} must be at least ${min}`, "error");
-      return false;
-    }
-
-    if (max !== null && num > max) {
-      this.showNotification(
-        `${fieldName} must be no more than ${max}`,
-        "error",
-      );
-      return false;
-    }
-
-    return true;
+    return this.validateNumericValue(value, min, max, fieldName, true);
   }
 
   // Utility to confirm actions

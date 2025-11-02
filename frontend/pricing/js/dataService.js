@@ -42,47 +42,56 @@ class DataService {
     }
   }
 
-  // Provider operations
-  async loadProviders() {
-    return this.fetchWithErrorHandling(`${this.basePath}/providers`);
-  }
-
-  async getProvider(providerId) {
-    return this.fetchWithErrorHandling(
-      `${this.basePath}/providers/${providerId}`,
-    );
-  }
-
-  async createProvider(providerData) {
-    return this.fetchWithErrorHandling(`${this.basePath}/providers`, {
+  // Generic CRUD operations
+  async create(entityType, data) {
+    return this.fetchWithErrorHandling(`${this.basePath}/${entityType}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(providerData),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
     });
   }
 
+  async update(entityType, id, data) {
+    return this.fetchWithErrorHandling(`${this.basePath}/${entityType}/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+  }
+
+  async delete(entityType, id) {
+    return this.fetchWithErrorHandling(`${this.basePath}/${entityType}/${id}`, {
+      method: "DELETE",
+    });
+  }
+
+  async get(entityType, id) {
+    return this.fetchWithErrorHandling(`${this.basePath}/${entityType}/${id}`);
+  }
+
+  async load(entityType) {
+    return this.fetchWithErrorHandling(`${this.basePath}/${entityType}`);
+  }
+
+  // Provider operations
+  async loadProviders() {
+    return this.load("providers");
+  }
+
+  async getProvider(providerId) {
+    return this.get("providers", providerId);
+  }
+
+  async createProvider(providerData) {
+    return this.create("providers", providerData);
+  }
+
   async updateProvider(providerId, providerData) {
-    return this.fetchWithErrorHandling(
-      `${this.basePath}/providers/${providerId}`,
-      {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(providerData),
-      },
-    );
+    return this.update("providers", providerId, providerData);
   }
 
   async deleteProvider(providerId) {
-    return this.fetchWithErrorHandling(
-      `${this.basePath}/providers/${providerId}`,
-      {
-        method: "DELETE",
-      },
-    );
+    return this.delete("providers", providerId);
   }
 
   // Item operations
@@ -93,72 +102,44 @@ class DataService {
   }
 
   async loadItems() {
-    return this.fetchWithErrorHandling(`${this.basePath}/items`);
+    return this.load("items");
   }
 
   async getItem(itemId) {
-    return this.fetchWithErrorHandling(`${this.basePath}/items/${itemId}`);
+    return this.get("items", itemId);
   }
 
   async createItem(itemData) {
-    return this.fetchWithErrorHandling(`${this.basePath}/items`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(itemData),
-    });
+    return this.create("items", itemData);
   }
 
   async updateItem(itemId, itemData) {
-    return this.fetchWithErrorHandling(`${this.basePath}/items/${itemId}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(itemData),
-    });
+    return this.update("items", itemId, itemData);
   }
 
   async deleteItem(itemId) {
-    return this.fetchWithErrorHandling(`${this.basePath}/items/${itemId}`, {
-      method: "DELETE",
-    });
+    return this.delete("items", itemId);
   }
 
   // Offer operations
   async loadOffers() {
-    return this.fetchWithErrorHandling(`${this.basePath}/offers`);
+    return this.load("offers");
   }
 
   async getOffer(offerId) {
-    return this.fetchWithErrorHandling(`${this.basePath}/offers/${offerId}`);
+    return this.get("offers", offerId);
   }
 
   async createOffer(offerData) {
-    return this.fetchWithErrorHandling(`${this.basePath}/offers`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(offerData),
-    });
+    return this.create("offers", offerData);
   }
 
   async updateOffer(offerId, offerData) {
-    return this.fetchWithErrorHandling(`${this.basePath}/offers/${offerId}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(offerData),
-    });
+    return this.update("offers", offerId, offerData);
   }
 
   async deleteOffer(offerId) {
-    return this.fetchWithErrorHandling(`${this.basePath}/offers/${offerId}`, {
-      method: "DELETE",
-    });
+    return this.delete("offers", offerId);
   }
 
   async deleteOffersForItem(itemId) {
@@ -183,37 +164,23 @@ class DataService {
 
   // Process operations
   async loadProcesses() {
-    return this.fetchWithErrorHandling(`${this.basePath}/processes`);
+    return this.load("processes");
   }
 
   async getProcess(processId) {
-    return this.fetchWithErrorHandling(`${this.basePath}/processes/${processId}`);
+    return this.get("processes", processId);
   }
 
   async createProcess(processData) {
-    return this.fetchWithErrorHandling(`${this.basePath}/processes`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(processData),
-    });
+    return this.create("processes", processData);
   }
 
   async updateProcess(processId, processData) {
-    return this.fetchWithErrorHandling(`${this.basePath}/processes/${processId}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(processData),
-    });
+    return this.update("processes", processId, processData);
   }
 
   async deleteProcess(processId) {
-    return this.fetchWithErrorHandling(`${this.basePath}/processes/${processId}`, {
-      method: "DELETE",
-    });
+    return this.delete("processes", processId);
   }
 
   // Process Graph operations
@@ -236,7 +203,7 @@ class DataService {
 
   // Forecast operations
   async loadForecasts() {
-    return this.fetchWithErrorHandling(`${this.basePath}/forecasts`);
+    return this.load("forecasts");
   }
 
   async getForecastsForProduct(productId) {
@@ -246,34 +213,20 @@ class DataService {
   }
 
   async createForecast(forecastData) {
-    return this.fetchWithErrorHandling(`${this.basePath}/forecasts`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(forecastData),
-    });
+    return this.create("forecasts", forecastData);
   }
 
   async updateForecast(forecastId, forecastData) {
-    return this.fetchWithErrorHandling(`${this.basePath}/forecasts/${forecastId}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(forecastData),
-    });
+    return this.update("forecasts", forecastId, forecastData);
   }
 
   async deleteForecast(forecastId) {
-    return this.fetchWithErrorHandling(`${this.basePath}/forecasts/${forecastId}`, {
-      method: "DELETE",
-    });
+    return this.delete("forecasts", forecastId);
   }
 
   // Actual operations
   async loadActuals() {
-    return this.fetchWithErrorHandling(`${this.basePath}/actuals`);
+    return this.load("actuals");
   }
 
   async getActualsForProduct(productId) {
@@ -283,34 +236,20 @@ class DataService {
   }
 
   async createActual(actualData) {
-    return this.fetchWithErrorHandling(`${this.basePath}/actuals`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(actualData),
-    });
+    return this.create("actuals", actualData);
   }
 
   async updateActual(actualId, actualData) {
-    return this.fetchWithErrorHandling(`${this.basePath}/actuals/${actualId}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(actualData),
-    });
+    return this.update("actuals", actualId, actualData);
   }
 
   async deleteActual(actualId) {
-    return this.fetchWithErrorHandling(`${this.basePath}/actuals/${actualId}`, {
-      method: "DELETE",
-    });
+    return this.delete("actuals", actualId);
   }
 
   // Contract operations
   async loadContracts() {
-    return this.fetchWithErrorHandling(`${this.basePath}/contracts`);
+    return this.load("contracts");
   }
 
   async getContractsForProvider(providerId) {
@@ -320,29 +259,15 @@ class DataService {
   }
 
   async createContract(contractData) {
-    return this.fetchWithErrorHandling(`${this.basePath}/contracts`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(contractData),
-    });
+    return this.create("contracts", contractData);
   }
 
   async updateContract(contractId, contractData) {
-    return this.fetchWithErrorHandling(`${this.basePath}/contracts/${contractId}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(contractData),
-    });
+    return this.update("contracts", contractId, contractData);
   }
 
   async deleteContract(contractId) {
-    return this.fetchWithErrorHandling(`${this.basePath}/contracts/${contractId}`, {
-      method: "DELETE",
-    });
+    return this.delete("contracts", contractId);
   }
 
   async addContractRule(contractId, ruleData) {
