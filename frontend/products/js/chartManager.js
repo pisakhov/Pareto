@@ -1,0 +1,221 @@
+/**
+ * Chart Manager - Handles forecasting vs actuals visualization
+ */
+window.chartManager = (function() {
+    let chart = null;
+
+    // Initialize the chart
+    function initChart() {
+        const ctx = document.getElementById('forecastActualsChart');
+        if (!ctx) return;
+
+        const chartConfig = {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: 'Forecast',
+                        data: [],
+                        borderColor: 'rgb(34, 197, 94)',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    },
+                    {
+                        label: 'Actuals',
+                        data: [],
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += new Intl.NumberFormat('en-US').format(context.parsed.y);
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        },
+                        ticks: {
+                            callback: function(value) {
+                                return new Intl.NumberFormat('en-US', {
+                                    notation: 'compact',
+                                    compactDisplay: 'short'
+                                }).format(value);
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    }
+                },
+                interaction: {
+                    mode: 'nearest',
+                    axis: 'x',
+                    intersect: false
+                }
+            }
+        };
+
+        chart = new Chart(ctx, chartConfig);
+    }
+
+    // Generate time series labels from all data
+    function generateTimeSeriesLabels() {
+        if (!window.forecastManager) return [];
+
+        const labels = [];
+        const forecastMap = new Map();
+        const actualMap = new Map();
+
+        // Build maps of year-month to value
+        window.forecastManager.forecasts.forEach(f => {
+            const key = `${f.year}-${f.month.toString().padStart(2, '0')}`;
+            forecastMap.set(key, f.forecast_units);
+        });
+
+        window.forecastManager.actuals.forEach(a => {
+            const key = `${a.year}-${a.month.toString().padStart(2, '0')}`;
+            actualMap.set(key, a.actual_units);
+        });
+
+        // Get all unique dates and sort them
+        const allDates = new Set([...forecastMap.keys(), ...actualMap.keys()]);
+        const sortedDates = Array.from(allDates).sort();
+
+        // Generate labels
+        sortedDates.forEach(date => {
+            const [year, month] = date.split('-');
+            const dateObj = new Date(parseInt(year), parseInt(month) - 1, 1);
+            labels.push(dateObj.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }));
+        });
+
+        return labels;
+    }
+
+    // Build time series data
+    function buildTimeSeriesData() {
+        if (!window.forecastManager) {
+            return { labels: [], forecastData: [], actualData: [] };
+        }
+
+        // Get all forecast and actual entries across all years
+        const forecastMap = new Map();
+        const actualMap = new Map();
+
+        // Build maps of year-month to value
+        window.forecastManager.forecasts.forEach(f => {
+            const key = `${f.year}-${f.month.toString().padStart(2, '0')}`;
+            forecastMap.set(key, f.forecast_units);
+        });
+
+        window.forecastManager.actuals.forEach(a => {
+            const key = `${a.year}-${a.month.toString().padStart(2, '0')}`;
+            actualMap.set(key, a.actual_units);
+        });
+
+        // Get all unique dates and sort them chronologically
+        const allDates = new Set([...forecastMap.keys(), ...actualMap.keys()]);
+        const sortedDates = Array.from(allDates).sort();
+
+        // Generate labels and data arrays
+        const labels = [];
+        const forecastData = [];
+        const actualData = [];
+
+        sortedDates.forEach(date => {
+            const [year, month] = date.split('-');
+            const dateObj = new Date(parseInt(year), parseInt(month) - 1, 1);
+            labels.push(dateObj.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }));
+
+            forecastData.push(forecastMap.get(date) || null);
+            actualData.push(actualMap.get(date) || null);
+        });
+
+        return { labels, forecastData, actualData };
+    }
+
+    // Update chart with forecast data
+    function updateForecastData(forecastData) {
+        if (!chart) return;
+        chart.data.datasets[0].data = forecastData;
+        chart.update('none');
+    }
+
+    // Update chart with actual data
+    function updateActualData(actualData) {
+        if (!chart) return;
+        chart.data.datasets[1].data = actualData;
+        chart.update('none');
+    }
+
+    // Update chart with both forecast and actual data
+    function updateChartData(forecastData, actualData) {
+        if (!chart) return;
+        chart.data.datasets[0].data = forecastData;
+        chart.data.datasets[1].data = actualData;
+        chart.update('none');
+    }
+
+    // Refresh chart with current data from forecastManager
+    function refreshChart() {
+        if (!chart) return;
+
+        const { labels, forecastData, actualData } = buildTimeSeriesData();
+
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = forecastData;
+        chart.data.datasets[1].data = actualData;
+
+        chart.update('none');
+    }
+
+    // Initialize chart on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(initChart, 100);
+    });
+
+    // Return public API
+    return {
+        initChart: initChart,
+        updateForecastData: updateForecastData,
+        updateActualData: updateActualData,
+        updateChartData: updateChartData,
+        refreshChart: refreshChart,
+        buildTimeSeriesData: buildTimeSeriesData
+    };
+})();

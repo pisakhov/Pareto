@@ -6,7 +6,6 @@ class ForecastManager {
         this.forecasts = [];
         this.actuals = [];
         this.currentForecastYear = new Date().getFullYear();
-        this.currentActualYear = new Date().getFullYear();
 
         this.monthNames = [
             'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -18,7 +17,6 @@ class ForecastManager {
         this.forecasts = [];
         this.actuals = [];
         this.currentForecastYear = new Date().getFullYear();
-        this.currentActualYear = new Date().getFullYear();
         this.renderTimelines();
     }
 
@@ -41,6 +39,11 @@ class ForecastManager {
         this.renderTimelines();
     }
 
+    removeForecastForMonth(year, month) {
+        this.forecasts = this.forecasts.filter(f => !(f.year === year && f.month === month));
+        this.renderTimelines();
+    }
+
     addActual(year, month, actualUnits) {
         const id = `actual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         this.actuals.push({
@@ -60,6 +63,11 @@ class ForecastManager {
         this.renderTimelines();
     }
 
+    removeActualForMonth(year, month) {
+        this.actuals = this.actuals.filter(a => !(a.year === year && a.month === month));
+        this.renderTimelines();
+    }
+
     advanceToNextMonth(type) {
         if (type === 'forecast') {
             let nextMonth = this.currentForecastMonth || 1;
@@ -71,17 +79,8 @@ class ForecastManager {
             }
             this.currentForecastMonth = nextMonth;
             this.currentForecastYear = nextYear;
-        } else {
-            let nextMonth = this.currentActualMonth || 1;
-            let nextYear = this.currentActualYear;
-            nextMonth++;
-            if (nextMonth > 12) {
-                nextMonth = 1;
-                nextYear++;
-            }
-            this.currentActualMonth = nextMonth;
-            this.currentActualYear = nextYear;
         }
+        // Note: actuals now use the same year as forecasts
     }
 
     getForecastData() {
@@ -109,96 +108,84 @@ class ForecastManager {
     }
 
     renderTimelines() {
-        this.renderForecastTimeline();
-        this.renderActualTimeline();
+        this.renderCombinedTimeline();
+        this.updateChart();
     }
 
-    renderForecastTimeline() {
-        const container = document.getElementById('forecastTimeline');
-        const yearDisplay = document.getElementById('forecastYearDisplay');
-        if (!container) return;
+    updateChart() {
+        if (window.chartManager) {
+            window.chartManager.refreshChart();
+        }
+    }
 
-        yearDisplay.textContent = this.currentForecastYear;
+    renderCombinedTimeline() {
+        const forecastContainer = document.getElementById('forecastTimeline');
+        const actualContainer = document.getElementById('actualTimeline');
+        const monthHeaderContainer = document.getElementById('monthHeaderRow');
+        const currentYearDisplay = document.getElementById('currentYearDisplay');
+
+        if (!forecastContainer || !actualContainer || !monthHeaderContainer) return;
+
+        currentYearDisplay.textContent = this.currentForecastYear;
 
         const months = [];
         for (let i = 0; i < 12; i++) {
             const forecast = this.getForecastForMonth(this.currentForecastYear, i + 1);
+            const actual = this.getActualForMonth(this.currentForecastYear, i + 1);
+
             months.push({
                 month: i + 1,
                 name: this.monthNames[i],
-                value: forecast ? forecast.forecast_units : null,
-                id: forecast ? forecast.id : null
+                forecastValue: forecast ? forecast.forecast_units : '',
+                forecastId: forecast ? forecast.id : null,
+                actualValue: actual ? actual.actual_units : '',
+                actualId: actual ? actual.id : null
             });
         }
 
-        container.innerHTML = months.map(m => `
-            <div class="relative group">
-                <button
-                    type="button"
-                    class="w-full aspect-square rounded-lg border-2 border-dashed border-border hover:border-green-400 transition-all duration-200 flex flex-col items-center justify-center gap-1 ${m.value ? 'bg-green-50 border-green-200 hover:bg-green-100' : 'bg-muted/30 hover:bg-muted/50'}"
-                    onclick="window.forecastManager.editForecastValue(${m.month})"
-                    data-month="${m.month}"
-                >
-                    <span class="text-xs font-medium text-muted-foreground">${m.name}</span>
-                    ${m.value ? `<span class="text-sm font-semibold text-green-600">${m.value.toLocaleString()}</span>` : '<span class="text-xs text-muted-foreground/50">+ Add</span>'}
-                </button>
-                ${m.value ? `
-                    <button
-                        type="button"
-                        class="absolute -top-2 -right-2 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                        onclick="event.stopPropagation(); window.forecastManager.removeForecast('${m.id}')"
-                    >
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
-                    </button>
-                ` : ''}
+        // Render month header row
+        monthHeaderContainer.innerHTML = months.map(m => `
+            <div class="text-center">
+                <div class="text-xs font-medium text-muted-foreground">${m.name}</div>
             </div>
         `).join('');
-    }
 
-    renderActualTimeline() {
-        const container = document.getElementById('actualTimeline');
-        const yearDisplay = document.getElementById('actualYearDisplay');
-        if (!container) return;
-
-        yearDisplay.textContent = this.currentActualYear;
-
-        const months = [];
-        for (let i = 0; i < 12; i++) {
-            const actual = this.getActualForMonth(this.currentActualYear, i + 1);
-            months.push({
-                month: i + 1,
-                name: this.monthNames[i],
-                value: actual ? actual.actual_units : null,
-                id: actual ? actual.id : null
-            });
-        }
-
-        container.innerHTML = months.map(m => `
-            <div class="relative group">
-                <button
-                    type="button"
-                    class="w-full aspect-square rounded-lg border-2 border-dashed border-border hover:border-blue-400 transition-all duration-200 flex flex-col items-center justify-center gap-1 ${m.value ? 'bg-blue-50 border-blue-200 hover:bg-blue-100' : 'bg-muted/30 hover:bg-muted/50'}"
-                    onclick="window.forecastManager.editActualValue(${m.month})"
+        // Render forecast row
+        forecastContainer.innerHTML = months.map(m => `
+            <div class="month-cell" data-tab-index="${months.indexOf(m) * 2}">
+                <input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value="${m.forecastValue}"
+                    class="w-full text-center text-sm font-semibold bg-transparent border border-border rounded px-2 py-2 focus:ring-2 focus:ring-green-400 focus:border-green-400 focus:outline-none ${m.forecastValue ? 'text-green-600' : 'text-muted-foreground'}"
+                    onchange="window.forecastManager.updateForecastValue(${m.month}, this.value)"
+                    oninput="if(this.value) { this.classList.add('text-green-600'); this.classList.remove('text-muted-foreground'); } else { this.classList.remove('text-green-600'); this.classList.add('text-muted-foreground'); }"
+                    data-tab-index="${months.indexOf(m) * 2}"
                     data-month="${m.month}"
-                >
-                    <span class="text-xs font-medium text-muted-foreground">${m.name}</span>
-                    ${m.value ? `<span class="text-sm font-semibold text-blue-600">${m.value.toLocaleString()}</span>` : '<span class="text-xs text-muted-foreground/50">+ Add</span>'}
-                </button>
-                ${m.value ? `
-                    <button
-                        type="button"
-                        class="absolute -top-2 -right-2 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                        onclick="event.stopPropagation(); window.forecastManager.removeActual('${m.id}')"
-                    >
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
-                    </button>
-                ` : ''}
+                />
             </div>
         `).join('');
+
+        // Render actual row
+        actualContainer.innerHTML = months.map(m => `
+            <div class="month-cell" data-tab-index="${months.indexOf(m) * 2 + 1}">
+                <input
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value="${m.actualValue}"
+                    class="w-full text-center text-sm font-semibold bg-transparent border border-border rounded px-2 py-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 focus:outline-none ${m.actualValue ? 'text-blue-600' : 'text-muted-foreground'}"
+                    onchange="window.forecastManager.updateActualValue(${m.month}, this.value)"
+                    oninput="if(this.value) { this.classList.add('text-blue-600'); this.classList.remove('text-muted-foreground'); } else { this.classList.remove('text-blue-600'); this.classList.add('text-muted-foreground'); }"
+                    data-tab-index="${months.indexOf(m) * 2 + 1}"
+                    data-month="${m.month}"
+                />
+            </div>
+        `).join('');
+
+        // Setup tab navigation after rendering
+        this.setupTabNavigation();
     }
 
     editForecastValue(month) {
@@ -222,25 +209,66 @@ class ForecastManager {
         }
     }
 
-    editActualValue(month) {
-        const actual = this.getActualForMonth(this.currentActualYear, month);
-        const currentValue = actual ? actual.actual_units : 0;
-
-        const value = prompt(`Enter actual units for ${this.monthNames[month - 1]} ${this.currentActualYear}:`, currentValue);
-
-        if (value !== null) {
-            const numValue = parseInt(value);
-            if (isNaN(numValue) || numValue < 0) {
-                alert('Please enter a valid positive number');
-                return;
-            }
-
-            if (actual) {
-                actual.actual_units = numValue;
-            } else {
-                this.addActual(this.currentActualYear, month, numValue);
-            }
+    updateForecastValue(month, value) {
+        if (value === '' || value === null || value === undefined) {
+            this.removeForecastForMonth(this.currentForecastYear, month);
+            return;
         }
+
+        const numValue = parseInt(value);
+        if (isNaN(numValue) || numValue < 0) {
+            return;
+        }
+
+        const forecast = this.getForecastForMonth(this.currentForecastYear, month);
+        if (forecast) {
+            forecast.forecast_units = numValue;
+        } else {
+            this.addForecast(this.currentForecastYear, month, numValue);
+        }
+    }
+
+    updateActualValue(month, value) {
+        if (value === '' || value === null || value === undefined) {
+            this.removeActualForMonth(this.currentForecastYear, month);
+            return;
+        }
+
+        const numValue = parseInt(value);
+        if (isNaN(numValue) || numValue < 0) {
+            return;
+        }
+
+        const actual = this.getActualForMonth(this.currentForecastYear, month);
+        if (actual) {
+            actual.actual_units = numValue;
+        } else {
+            this.addActual(this.currentForecastYear, month, numValue);
+        }
+    }
+
+    setupTabNavigation() {
+        const allInputs = document.querySelectorAll('#forecastTimeline input, #actualTimeline input');
+
+        allInputs.forEach(input => {
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Tab') {
+                    const currentIndex = parseInt(input.getAttribute('data-tab-index'));
+                    let nextIndex;
+
+                    if (!e.shiftKey) {
+                        // Forward tab
+                        nextIndex = (currentIndex + 1) % allInputs.length;
+                    } else {
+                        // Backward tab
+                        nextIndex = (currentIndex - 1 + allInputs.length) % allInputs.length;
+                    }
+
+                    e.preventDefault();
+                    allInputs[nextIndex].focus();
+                }
+            });
+        });
     }
 
     clearAllForecasts() {
@@ -257,21 +285,87 @@ class ForecastManager {
         }
     }
 
-    setupEventHandlers() {
-        // Forecast year navigation
-        const forecastPrevYear = document.getElementById('forecastPrevYear');
-        if (forecastPrevYear) {
-            forecastPrevYear.addEventListener('click', () => {
-                this.currentForecastYear--;
-                this.renderForecastTimeline();
+    applyAllForecasts() {
+        const firstInput = document.querySelector('#forecastTimeline input[data-month="1"]');
+
+        // If January is blank, clear all forecasts for this year
+        if (!firstInput || firstInput.value === '') {
+            this.forecasts = this.forecasts.filter(f => f.year !== this.currentForecastYear);
+            this.renderTimelines();
+            return;
+        }
+
+        const value = parseInt(firstInput.value);
+        if (isNaN(value) || value < 0) {
+            alert('Please enter a valid positive number in January');
+            return;
+        }
+
+        // Remove existing forecasts for this year
+        this.forecasts = this.forecasts.filter(f => f.year !== this.currentForecastYear);
+
+        // Add forecasts for all 12 months directly (avoiding renderTimelines in addForecast)
+        for (let month = 1; month <= 12; month++) {
+            const id = `forecast_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            this.forecasts.push({
+                id: id,
+                year: this.currentForecastYear,
+                month: month,
+                forecast_units: value
             });
         }
 
-        const forecastNextYear = document.getElementById('forecastNextYear');
-        if (forecastNextYear) {
-            forecastNextYear.addEventListener('click', () => {
+        this.renderTimelines();
+    }
+
+    applyAllActuals() {
+        const firstInput = document.querySelector('#actualTimeline input[data-month="1"]');
+
+        // If January is blank, clear all actuals for this year
+        if (!firstInput || firstInput.value === '') {
+            this.actuals = this.actuals.filter(a => a.year !== this.currentForecastYear);
+            this.renderTimelines();
+            return;
+        }
+
+        const value = parseInt(firstInput.value);
+        if (isNaN(value) || value < 0) {
+            alert('Please enter a valid positive number in January');
+            return;
+        }
+
+        // Remove existing actuals for this year
+        this.actuals = this.actuals.filter(a => a.year !== this.currentForecastYear);
+
+        // Add actuals for all 12 months directly (avoiding renderTimelines in addActual)
+        for (let month = 1; month <= 12; month++) {
+            const id = `actual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            this.actuals.push({
+                id: id,
+                year: this.currentForecastYear,
+                month: month,
+                actual_units: value
+            });
+        }
+
+        this.renderTimelines();
+    }
+
+    setupEventHandlers() {
+        // Year navigation
+        const prevYear = document.getElementById('prevYear');
+        if (prevYear) {
+            prevYear.addEventListener('click', () => {
+                this.currentForecastYear--;
+                this.renderTimelines();
+            });
+        }
+
+        const nextYear = document.getElementById('nextYear');
+        if (nextYear) {
+            nextYear.addEventListener('click', () => {
                 this.currentForecastYear++;
-                this.renderForecastTimeline();
+                this.renderTimelines();
             });
         }
 
@@ -280,26 +374,19 @@ class ForecastManager {
             clearAllForecasts.addEventListener('click', () => this.clearAllForecasts());
         }
 
-        // Actual year navigation
-        const actualPrevYear = document.getElementById('actualPrevYear');
-        if (actualPrevYear) {
-            actualPrevYear.addEventListener('click', () => {
-                this.currentActualYear--;
-                this.renderActualTimeline();
-            });
-        }
-
-        const actualNextYear = document.getElementById('actualNextYear');
-        if (actualNextYear) {
-            actualNextYear.addEventListener('click', () => {
-                this.currentActualYear++;
-                this.renderActualTimeline();
-            });
-        }
-
         const clearAllActuals = document.getElementById('clearAllActuals');
         if (clearAllActuals) {
             clearAllActuals.addEventListener('click', () => this.clearAllActuals());
+        }
+
+        const applyAllForecasts = document.getElementById('applyAllForecasts');
+        if (applyAllForecasts) {
+            applyAllForecasts.addEventListener('click', () => this.applyAllForecasts());
+        }
+
+        const applyAllActuals = document.getElementById('applyAllActuals');
+        if (applyAllActuals) {
+            applyAllActuals.addEventListener('click', () => this.applyAllActuals());
         }
     }
 
@@ -337,8 +424,7 @@ class ForecastManager {
             ? Math.max(...this.actuals.map(a => a.year))
             : new Date().getFullYear();
 
-        this.currentForecastYear = latestForecastYear;
-        this.currentActualYear = latestActualYear;
+        this.currentForecastYear = Math.max(latestForecastYear, latestActualYear);
 
         this.renderTimelines();
     }

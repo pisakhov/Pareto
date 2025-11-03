@@ -30,6 +30,9 @@ const modalManager = {
 
         setTimeout(() => {
             document.getElementById('productName')?.focus();
+            if (window.chartManager) {
+                window.chartManager.initChart();
+            }
         }, 100);
     },
 
