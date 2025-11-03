@@ -2,14 +2,14 @@ from fastapi import APIRouter
 from fastapi.staticfiles import StaticFiles
 import os
 
-from api.routers import home, pricing, products
+from api.routers import home, contracts, products
 
 # Create main API router
 api_router = APIRouter()
 
 # Include all routers
 api_router.include_router(home.router, prefix="", tags=["home"])
-api_router.include_router(pricing.router, prefix="", tags=["pricing"])
+api_router.include_router(contracts.router, prefix="", tags=["contracts"])
 api_router.include_router(products.router, prefix="", tags=["products"])
 
 # Static files configuration

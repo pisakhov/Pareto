@@ -282,8 +282,8 @@ class FormHandler {
 
   async loadAllData() {
     // This will be implemented by the main app
-    if (window.pricingApp) {
-      await window.pricingApp.loadData();
+    if (window.contractsApp) {
+      await window.contractsApp.loadData();
     }
   }
 }

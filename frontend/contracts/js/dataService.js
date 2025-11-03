@@ -1,5 +1,5 @@
 /**
- * Data Service - Handles all API operations for the pricing management system
+ * Data Service - Handles all API operations for the contracts management system
  */
 class DataService {
   constructor() {

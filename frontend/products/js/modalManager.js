@@ -38,9 +38,9 @@ const modalManager = {
                 window.itemManager.reset();
             }
             
-            if (window.pricingAdjustments) {
-                window.pricingAdjustments.renderAdjustments([]);
-                window.pricingAdjustments.multipliers = {};
+            if (window.contractAdjustments) {
+                window.contractAdjustments.renderAdjustments([]);
+                window.contractAdjustments.multipliers = {};
             }
         }
     },

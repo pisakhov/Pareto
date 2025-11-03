@@ -36,7 +36,7 @@ class FormHandler {
             status: formData.get('status'),
             item_ids: itemIds,
             allocations: window.itemManager.getAllocationData(),
-            price_multipliers: window.pricingAdjustments.getMultiplierData(),
+            price_multipliers: window.contractAdjustments.getMultiplierData(),
         };
 
         try {
@@ -96,16 +96,16 @@ class FormHandler {
             }
 
             if (product.price_multipliers) {
-                window.pricingAdjustments.multipliers = product.price_multipliers;
+                window.contractAdjustments.multipliers = product.price_multipliers;
             }
 
             // Render Pricing Adjustments for current items
-            if (window.itemManager && window.pricingAdjustments) {
+            if (window.itemManager && window.contractAdjustments) {
                 const selectedItems = Array.from(window.itemManager.itemAllocations.entries()).map(([id, data]) => ({
                     id: id,
                     name: data.item.item_name
                 }));
-                window.pricingAdjustments.renderAdjustments(selectedItems);
+                window.contractAdjustments.renderAdjustments(selectedItems);
             }
 
             this.modalManager.showProductModal(true);

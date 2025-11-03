@@ -1,7 +1,7 @@
 /**
- * Pricing App - Main application component that coordinates all other components
+ * Contracts App - Main application component that coordinates all other components
  */
-class PricingApp {
+class ContractsApp {
     constructor() {
         this.data = {
             providers: [],
@@ -42,7 +42,7 @@ class PricingApp {
         );
 
         // Make components globally accessible for onclick handlers
-        window.pricingApp = this;
+        window.contractsApp = this;
         window.dataService = this.components.dataService;
         window.modalManager = this.components.modalManager;
         window.uiManager = this.components.uiManager;
@@ -194,7 +194,7 @@ class PricingApp {
     // Cleanup method
     destroy() {
         // Remove global references
-        delete window.pricingApp;
+        delete window.contractsApp;
         delete window.dataService;
         delete window.modalManager;
         delete window.uiManager;
@@ -205,5 +205,5 @@ class PricingApp {
 
 // Initialize the app when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-    window.pricingApp = new PricingApp();
+    window.contractsApp = new ContractsApp();
 });

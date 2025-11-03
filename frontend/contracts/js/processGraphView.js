@@ -1,6 +1,6 @@
 /**
  * Process Graph View - Renders process flow diagram in view-only mode
- * Used on the main pricing page to show process relationships
+ * Used on the main contracts page to show process relationships
  */
 
 class ProcessGraphView {
@@ -200,7 +200,7 @@ class ProcessGraphView {
       // Add click handler
       nodeGroup.addEventListener('click', () => {
         if (process.process_id !== currentProcessId) {
-          window.location.href = `/pricing/${process.process_id}`;
+          window.location.href = `/contracts/${process.process_id}`;
         }
       });
 
@@ -239,7 +239,7 @@ class ProcessGraphView {
 
   getCurrentProcessId() {
     // Extract process ID from URL path
-    const match = window.location.pathname.match(/\/pricing\/(\d+)/);
+    const match = window.location.pathname.match(/\/contracts\/(\d+)/);
     return match ? parseInt(match[1]) : null;
   }
 }

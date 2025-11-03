@@ -164,7 +164,7 @@ class TierManager {
       return;
     }
 
-    const provider = window.pricingApp
+    const provider = window.contractsApp
       .getProviders()
       .find((p) => p.provider_id === parseInt(providerId));
     if (!provider) {

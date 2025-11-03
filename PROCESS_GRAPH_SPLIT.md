@@ -5,7 +5,7 @@ Split the process graph functionality into two separate components to fix the is
 
 ## Problem
 The original `processGraph.js` file contained both:
-1. **View-only component** - Rendered the "Process Flow" section on the main pricing page
+1. **View-only component** - Rendered the "Process Flow" section on the main contracts page
 2. **Edit modal component** - Allowed users to create/edit processes and connections in a modal
 
 The issue was:
@@ -18,10 +18,10 @@ The issue was:
 ### New File Structure
 
 #### 1. `processGraphView.js` (8.9 KB)
-**Purpose**: View-only component for the main pricing page
+**Purpose**: View-only component for the main contracts page
 **Responsibilities**:
 - Fetches processes and connections from database API
-- Renders the "Process Flow" component at the top of pricing pages
+- Renders the "Process Flow" component at the top of contracts pages
 - Shows process nodes and edges (if they exist in database)
 - Allows navigation between process detail pages
 - Auto-initializes when DOM is ready
@@ -65,34 +65,22 @@ To properly sync the modal editor with the view component:
 
 ## File Updates
 
-### `frontend/pricing/index.html`
+### `frontend/contracts/index.html`
 **Before**:
 ```html
-<script src="/static/pricing/js/processGraph.js"></script>
+<script src="/static/contracts/js/processGraph.js"></script>
 ```
 
 **After**:
 ```html
-<script src="/static/pricing/js/processGraphView.js"></script>
-<script src="/static/pricing/js/processGraphEdit.js"></script>
-```
-
-### `frontend/pricing/processes.html`
-**Before**:
-```html
-<script src="/static/pricing/js/processGraph.js"></script>
-```
-
-**After**:
-```html
-<script src="/static/pricing/js/processGraphView.js"></script>
-<script src="/static/pricing/js/processGraphEdit.js"></script>
+<script src="/static/contracts/js/processGraphView.js"></script>
+<script src="/static/contracts/js/processGraphEdit.js"></script>
 ```
 
 ## Testing
 
 ### View Component (Main Page)
-1. Navigate to `/pricing`
+1. Navigate to `/contracts`
 2. Check browser console for `🌐 ProcessFlowView` logs
 3. Verify "Process Flow" section shows nodes
 4. **Note**: Edges won't show until database has connections

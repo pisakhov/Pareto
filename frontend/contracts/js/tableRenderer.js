@@ -203,8 +203,8 @@ class TableRenderer {
     // Get process name for this item
     const processId = itemProcessMap.get(item.item_id);
     let processName = 'N/A';
-    if (processId && window.pricingApp) {
-      const processes = window.pricingApp.getProcesses();
+    if (processId && window.contractsApp) {
+      const processes = window.contractsApp.getProcesses();
       const process = processes.find(p => p.process_id === processId);
       if (process) {
         processName = process.process_name;

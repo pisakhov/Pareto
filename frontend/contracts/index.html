@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Pareto - Pricing{% endblock %}
+{% block title %}Pareto - Contracts{% endblock %}
 
 {% block content %}
 <div class="max-w-7xl mx-auto">
@@ -16,7 +16,7 @@
                     </p>
                 {% else %}
                     <h1 class="text-3xl font-semibold tracking-tight text-foreground">
-                        Pricing
+                        Contracts
                     </h1>
                 {% endif %}
             </div>
@@ -61,8 +61,8 @@
     </div>
     {% endif %}
 
-    <!-- Pricing Grid Component -->
-    {% include "pricing/components/pricing-grid.html" %}
+    <!-- Contracts Grid Component -->
+    {% include "contracts/components/pricing-grid.html" %}
 </div>
 
 <!-- Provider Modal -->
@@ -323,14 +323,14 @@
 {% endif %}
 
 <!-- Component Scripts (in dependency order) -->
-<script src="/static/pricing/js/dataService.js"></script>
-<script src="/static/pricing/js/tierManager.js"></script>
-<script src="/static/pricing/js/offerManager.js"></script>
-<script src="/static/pricing/js/uiManager.js"></script>
-<script src="/static/pricing/js/modalManager.js"></script>
-<script src="/static/pricing/js/tableRenderer.js"></script>
-<script src="/static/pricing/js/formHandler.js"></script>
-<script src="/static/pricing/js/processGraphView.js"></script>
-<script src="/static/pricing/js/processGraphEdit.js"></script>
-<script src="/static/pricing/js/pricingApp.js"></script>
+<script src="/static/contracts/js/dataService.js"></script>
+<script src="/static/contracts/js/tierManager.js"></script>
+<script src="/static/contracts/js/offerManager.js"></script>
+<script src="/static/contracts/js/uiManager.js"></script>
+<script src="/static/contracts/js/modalManager.js"></script>
+<script src="/static/contracts/js/tableRenderer.js"></script>
+<script src="/static/contracts/js/formHandler.js"></script>
+<script src="/static/contracts/js/processGraphView.js"></script>
+<script src="/static/contracts/js/processGraphEdit.js"></script>
+<script src="/static/contracts/js/contractsApp.js"></script>
 {% endblock %}

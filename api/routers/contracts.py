@@ -58,8 +58,8 @@ class TierOverrideCreate(BaseModel):
     notes: Optional[str] = ""
 
 
-@router.get("/pricing", response_class=HTMLResponse)
-async def pricing_page(request: Request):
+@router.get("/contracts", response_class=HTMLResponse)
+async def contracts_page(request: Request):
     """Redirect to the first process or show processes list if none exist."""
     crud = get_crud()
     processes = crud.get_all_processes()
@@ -68,15 +68,15 @@ async def pricing_page(request: Request):
     if processes and len(processes) > 0:
         from fastapi.responses import RedirectResponse
         first_process_id = processes[0]["process_id"]
-        return RedirectResponse(url=f"/pricing/{first_process_id}", status_code=302)
+        return RedirectResponse(url=f"/contracts/{first_process_id}", status_code=302)
 
-    # If no processes, show the pricing page with empty state
-    return templates.TemplateResponse("pricing/index.html", {"request": request, "current_process": None, "processes": processes})
+    # If no processes, show the contracts page with empty state
+    return templates.TemplateResponse("contracts/index.html", {"request": request, "current_process": None, "processes": processes})
 
 
-@router.get("/pricing/{process_id}", response_class=HTMLResponse)
-async def pricing_process_detail(request: Request, process_id: int):
-    """Render pricing page for specific process."""
+@router.get("/contracts/{process_id}", response_class=HTMLResponse)
+async def contracts_process_detail(request: Request, process_id: int):
+    """Render contracts page for specific process."""
     crud = get_crud()
 
     # Get process details
@@ -88,7 +88,7 @@ async def pricing_process_detail(request: Request, process_id: int):
     processes = crud.get_all_processes()
 
     return templates.TemplateResponse(
-        "pricing/index.html",
+        "contracts/index.html",
         {
             "request": request,
             "current_process": process,

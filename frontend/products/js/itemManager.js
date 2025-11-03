@@ -88,9 +88,9 @@ class ItemManager {
 
   removeItemAllocation(itemId) {
     this.itemAllocations.delete(itemId);
-    // Remove corresponding pricing multiplier if present
-    if (window.pricingAdjustments && window.pricingAdjustments.multipliers) {
-      delete window.pricingAdjustments.multipliers[itemId];
+    // Remove corresponding contract multiplier if present
+    if (window.contractAdjustments && window.contractAdjustments.multipliers) {
+      delete window.contractAdjustments.multipliers[itemId];
     }
     this.render();
     this.updateItemSelect();
@@ -101,9 +101,9 @@ class ItemManager {
     
     if (this.itemAllocations.size === 0) {
       this.container.innerHTML = '<p class="text-sm text-muted-foreground text-center py-4">No items added yet</p>';
-      // Also clear pricing adjustments UI
-      if (window.pricingAdjustments) {
-        window.pricingAdjustments.renderAdjustments([]);
+      // Also clear contract adjustments UI
+      if (window.contractAdjustments) {
+        window.contractAdjustments.renderAdjustments([]);
       }
       return;
     }
@@ -114,14 +114,14 @@ class ItemManager {
       const itemBlock = this.createItemBlock(itemId, data);
       this.container.appendChild(itemBlock);
     });
-    
-    // Update Pricing Adjustments UI to reflect current items
-    if (window.pricingAdjustments) {
+
+    // Update Contract Adjustments UI to reflect current items
+    if (window.contractAdjustments) {
       const selectedItems = Array.from(this.itemAllocations.entries()).map(([id, data]) => ({
         id: id,
         name: data.item.item_name
       }));
-      window.pricingAdjustments.renderAdjustments(selectedItems);
+      window.contractAdjustments.renderAdjustments(selectedItems);
     }
   }
 
@@ -433,9 +433,9 @@ class ItemManager {
     this.itemAllocations.clear();
     this.render();
     this.updateItemSelect();
-    if (window.pricingAdjustments) {
-      window.pricingAdjustments.multipliers = {};
-      window.pricingAdjustments.renderAdjustments([]);
+    if (window.contractAdjustments) {
+      window.contractAdjustments.multipliers = {};
+      window.contractAdjustments.renderAdjustments([]);
     }
   }
 

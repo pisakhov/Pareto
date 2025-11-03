@@ -102,7 +102,7 @@ class ModalManager {
 
     this.loadProcessesIntoDropdown();
 
-    const allProviders = window.pricingApp.getProviders();
+    const allProviders = window.contractsApp.getProviders();
     if (window.offerManager) {
       window.offerManager.setProviders(allProviders);
       window.offerManager.reset();
@@ -171,7 +171,7 @@ class ModalManager {
       }
     }
 
-    const allProviders = window.pricingApp.getProviders();
+    const allProviders = window.contractsApp.getProviders();
     if (window.offerManager) {
       window.offerManager.setProviders(allProviders);
       await window.offerManager.populateExistingOffers(itemId);
@@ -211,7 +211,7 @@ class ModalManager {
 
     processSelect.innerHTML = '<option value="">Select a process</option>';
 
-    const processes = await window.pricingApp.getProcesses();
+    const processes = await window.contractsApp.getProcesses();
     console.log('[ModalManager] Available processes:', processes.map(p => ({id: p.process_id, name: p.process_name})));
 
     processes.forEach(process => {

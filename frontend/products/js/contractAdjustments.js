@@ -1,7 +1,7 @@
 /**
- * Pricing Adjustments - Manages price multipliers per product-item
+ * Contract Adjustments - Manages price multipliers per product-item
  */
-const pricingAdjustments = {
+const contractAdjustments = {
     multipliers: {},
 
     renderAdjustments(selectedItems) {
@@ -42,7 +42,7 @@ const pricingAdjustments = {
                                    step="0.01" 
                                    min="0.01"
                                    max="10"
-                                   onchange="pricingAdjustments.handleMultiplierChange(${item.id}, this.value)"
+                                   onchange="contractAdjustments.handleMultiplierChange(${item.id}, this.value)"
                                    class="w-20 px-2 py-1 text-sm border border-input rounded-md focus:ring-2 focus:ring-ring">
                             <span class="text-xs ${labelColor} font-medium w-28">${label}</span>
                         </div>
@@ -50,7 +50,7 @@ const pricingAdjustments = {
                     <input type="text" 
                            placeholder="Notes (optional)"
                            value="${this.escapeHtml(notes)}"
-                           onchange="pricingAdjustments.handleNotesChange(${item.id}, this.value)"
+                           onchange="contractAdjustments.handleNotesChange(${item.id}, this.value)"
                            class="w-full px-2 py-1 text-xs border border-input rounded-md focus:ring-2 focus:ring-ring">
                 </div>
             `;
@@ -105,4 +105,4 @@ const pricingAdjustments = {
     }
 };
 
-window.pricingAdjustments = pricingAdjustments;
+window.contractAdjustments = contractAdjustments;
