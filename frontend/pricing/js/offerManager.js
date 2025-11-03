@@ -143,26 +143,34 @@ class OfferManager {
       const tiersGrid = document.createElement('div');
       tiersGrid.className = 'space-y-2';
       
-      data.tiers.forEach(tier => {
+      data.tiers.forEach((tier, tierIdx) => {
         const tierRow = document.createElement('div');
         tierRow.className = 'flex items-center gap-2';
-        
+
         const currentPrice = data.prices.get(tier.index) || '';
-        
+
+        const isFirstTier = tierIdx === 0;
+        const applyAllButton = isFirstTier
+          ? `<button type="button" onclick="window.offerManager.applyPriceToAllTiers(${providerId})" class="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded whitespace-nowrap">
+               Apply All
+             </button>`
+          : '';
+
         tierRow.innerHTML = `
           <label class="text-sm w-40">${tier.label}</label>
           <span class="text-sm">$</span>
-          <input type="number" 
-                 step="0.01" 
+          <input type="number"
+                 step="0.01"
                  min="0"
                  value="${currentPrice}"
-                 data-provider="${providerId}" 
+                 data-provider="${providerId}"
                  data-tier="${tier.index}"
                  class="flex-1 px-2 py-1 text-sm border border-input rounded focus:ring-2 focus:ring-ring"
                  placeholder="0.00"
                  oninput="window.offerManager.updatePrice(${providerId}, ${tier.index}, this.value)">
+          ${applyAllButton}
         `;
-        
+
         tiersGrid.appendChild(tierRow);
       });
       
@@ -174,13 +182,36 @@ class OfferManager {
   updatePrice(providerId, tierIndex, value) {
     const data = this.providerOffers.get(providerId);
     if (!data) return;
-    
+
     if (value && value !== '') {
       data.prices.set(tierIndex, parseFloat(value));
     } else {
       data.prices.delete(tierIndex);
     }
-    
+
+    this.validateAllTiers();
+  }
+
+  applyPriceToAllTiers(providerId) {
+    const data = this.providerOffers.get(providerId);
+    if (!data) return;
+
+    // Get the first tier's price
+    const firstTierPrice = data.prices.get(1);
+
+    if (!firstTierPrice || firstTierPrice <= 0) {
+      return;
+    }
+
+    // Apply to all other tiers
+    data.tiers.forEach(tier => {
+      if (tier.index !== 1) { // Skip the first tier
+        data.prices.set(tier.index, firstTierPrice);
+      }
+    });
+
+    // Re-render to update the UI
+    this.render();
     this.validateAllTiers();
   }
 
@@ -210,7 +241,7 @@ class OfferManager {
 
   getOfferData() {
     const offers = [];
-    
+
     this.providerOffers.forEach((data, providerId) => {
       data.prices.forEach((price, tierIndex) => {
         offers.push({
@@ -221,7 +252,7 @@ class OfferManager {
         });
       });
     });
-    
+
     return offers;
   }
 

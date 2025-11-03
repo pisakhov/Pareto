@@ -25,24 +25,32 @@ class TierManager {
     row.id = rowId;
     row.className =
       "flex items-center gap-2 p-2 border border-border rounded bg-secondary/20";
+
+    const applyAllButton = actualTierNumber === 1
+      ? `<button type="button" onclick="window.tierManager.applyPriceToAllTiers()" class="text-xs px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded ml-2">
+           Apply All
+         </button>`
+      : '';
+
     row.innerHTML = `
             <span class="text-sm font-medium w-16">Tier ${actualTierNumber}:</span>
             <span class="text-xs">&lt;</span>
-            <input type="number" 
-                   data-tier="${actualTierNumber}" 
-                   class="tier-threshold w-24 px-2 py-1 text-sm border border-input rounded" 
-                   value="${threshold}" 
-                   min="0" 
+            <input type="number"
+                   data-tier="${actualTierNumber}"
+                   class="tier-threshold w-24 px-2 py-1 text-sm border border-input rounded"
+                   value="${threshold}"
+                   min="0"
                    placeholder="0">
             <span class="text-xs text-muted-foreground">files</span>
             <span class="text-xs ml-2">Base $</span>
-            <input type="number" 
-                   data-tier="${actualTierNumber}" 
-                   class="tier-base-price w-20 px-2 py-1 text-sm border border-input rounded" 
-                   value="${basePrice}" 
-                   min="0" 
-                   step="0.01" 
+            <input type="number"
+                   data-tier="${actualTierNumber}"
+                   class="tier-base-price w-20 px-2 py-1 text-sm border border-input rounded"
+                   value="${basePrice}"
+                   min="0"
+                   step="0.01"
                    placeholder="0.00">
+            ${applyAllButton}
             ${
               actualTierNumber > 1
                 ? `<button type="button" onclick="window.tierManager.removeTierRow(${actualTierNumber})" class="text-red-600 hover:text-red-800 ml-auto">
@@ -63,6 +71,29 @@ class TierManager {
     if (row) {
       row.remove();
     }
+  }
+
+  applyPriceToAllTiers() {
+    // Get the first tier's price input
+    const firstPriceInput = document.querySelector('.tier-base-price');
+    if (!firstPriceInput) return;
+
+    const priceValue = firstPriceInput.value;
+
+    // If no value, don't apply anything
+    if (!priceValue || priceValue === '') {
+      return;
+    }
+
+    // Get all tier price inputs
+    const allPriceInputs = document.querySelectorAll('.tier-base-price');
+
+    // Apply the first tier's price to all other tiers
+    allPriceInputs.forEach((input, index) => {
+      if (index > 0) { // Skip the first input
+        input.value = priceValue;
+      }
+    });
   }
 
   loadTiers(tierData) {

@@ -98,11 +98,26 @@ class FormHandler {
     const offers = window.offerManager.getOfferData();
     const providerIds = offers.map(o => o.provider_id).filter((v, i, a) => a.indexOf(v) === i);
 
+    // Get process_id from the form element directly (not from FormData)
+    // This is necessary because disabled fields don't get submitted via FormData
+    const processSelect = document.getElementById("itemProcess");
+    let processId = null;
+
+    if (processSelect) {
+      // If the field is disabled (locked in edit mode), get value from DOM
+      // Otherwise, get from FormData
+      if (processSelect.disabled) {
+        processId = parseInt(processSelect.value);
+      } else {
+        processId = parseInt(formData.get("process_id"));
+      }
+    }
+
     const itemData = {
       item_name: formData.get("item_name"),
       description: formData.get("description") || "",
       status: formData.get("status"),
-      process_id: parseInt(formData.get("process_id")),
+      process_id: processId,
       provider_ids: providerIds,
     };
 
@@ -119,12 +134,7 @@ class FormHandler {
 
       const itemId = editingItemId || response.item_id;
 
-      console.log("[Frontend] Creating offers for item:", itemId);
-      console.log("[Frontend] Process ID:", itemData.process_id);
-      console.log("[Frontend] Offers data:", offers);
-
       for (const offer of offers) {
-        console.log("[Frontend] Creating offer:", offer);
         await this.dataService.createOffer({
           item_id: itemId,
           process_id: itemData.process_id,
