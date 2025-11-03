@@ -100,6 +100,8 @@ class ModalManager {
     this.editingStates.itemId = null;
     this.updateModalTitle("itemModalTitle", "Add Item");
 
+    this.loadProcessesIntoDropdown();
+
     const allProviders = window.pricingApp.getProviders();
     if (window.offerManager) {
       window.offerManager.setProviders(allProviders);
@@ -109,7 +111,7 @@ class ModalManager {
     this.showModal(this.modals.item);
 
     setTimeout(() => {
-      document.getElementById("itemName")?.focus();
+      document.getElementById("itemProcess")?.focus();
     }, 100);
 
     if (callback) {
@@ -140,13 +142,15 @@ class ModalManager {
   async editItem(itemId) {
     this.editingStates.itemId = itemId;
     this.updateModalTitle("itemModalTitle", "Edit Item");
-    
+
+    this.loadProcessesIntoDropdown();
+
     const allProviders = window.pricingApp.getProviders();
     if (window.offerManager) {
       window.offerManager.setProviders(allProviders);
       await window.offerManager.populateExistingOffers(itemId);
     }
-    
+
     this.showModal(this.modals.item);
   }
 
@@ -160,6 +164,19 @@ class ModalManager {
   resetItemForm() {
     const form = document.getElementById("itemForm");
     if (form) form.reset();
+  }
+
+  async loadProcessesIntoDropdown() {
+    const processSelect = document.getElementById("itemProcess");
+    processSelect.innerHTML = '<option value="">Select a process</option>';
+
+    const processes = await window.pricingApp.getProcesses();
+    processes.forEach(process => {
+      const option = document.createElement("option");
+      option.value = process.process_id;
+      option.textContent = process.process_name;
+      processSelect.appendChild(option);
+    });
   }
 
 

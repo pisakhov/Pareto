@@ -7,7 +7,8 @@ class PricingApp {
             providers: [],
             items: [],
             offers: [],
-            providerItems: []
+            providerItems: [],
+            processes: []
         };
         this.components = {};
         this.init();
@@ -88,7 +89,8 @@ class PricingApp {
                 this.loadProviders(),
                 this.loadItems(),
                 this.loadProviderItems(),
-                this.loadOffers()
+                this.loadOffers(),
+                this.loadProcesses()
             ]);
 
             this.updateCounts();
@@ -141,6 +143,10 @@ class PricingApp {
         }
     }
 
+    async loadProcesses() {
+        this.data.processes = await this.components.dataService.loadProcesses();
+    }
+
 
     updateCounts() {
         this.components.uiManager.updateCounts(
@@ -174,6 +180,10 @@ class PricingApp {
 
     getProviderItems() {
         return this.data.providerItems;
+    }
+
+    getProcesses() {
+        return this.data.processes;
     }
 
     // Component access

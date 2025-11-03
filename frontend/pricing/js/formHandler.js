@@ -102,6 +102,7 @@ class FormHandler {
       item_name: formData.get("item_name"),
       description: formData.get("description") || "",
       status: formData.get("status"),
+      process_id: parseInt(formData.get("process_id")),
       provider_ids: providerIds,
     };
 
@@ -117,10 +118,11 @@ class FormHandler {
       }
 
       const itemId = editingItemId || response.item_id;
-      
+
       for (const offer of offers) {
         await this.dataService.createOffer({
           item_id: itemId,
+          process_id: itemData.process_id,
           ...offer
         });
       }
@@ -168,20 +170,20 @@ class FormHandler {
   }
 
   async populateItemForm(itemId) {
-    try {
-      const item = await this.dataService.getItem(itemId);
+    const item = await this.dataService.getItem(itemId);
+    const offers = await this.dataService.getAllOffers();
 
-      document.getElementById("itemId").value = item.item_id;
-      document.getElementById("itemName").value = item.item_name;
-      document.getElementById("itemDescription").value = item.description || "";
-      document.getElementById("itemStatus").value = item.status;
+    const itemOffers = offers.filter(offer => offer.item_id === itemId);
+    const processId = itemOffers.length > 0 ? itemOffers[0].process_id : null;
 
-      this.modalManager.setEditingItemId(itemId);
-      await this.modalManager.editItem(itemId);
-    } catch (error) {
-      console.error("Error loading item:", error);
-      this.uiManager.showNotification("Failed to load item", "error");
-    }
+    document.getElementById("itemId").value = item.item_id;
+    document.getElementById("itemName").value = item.item_name;
+    document.getElementById("itemDescription").value = item.description || "";
+    document.getElementById("itemStatus").value = item.status;
+    document.getElementById("itemProcess").value = processId;
+
+    this.modalManager.setEditingItemId(itemId);
+    await this.modalManager.editItem(itemId);
   }
 
 
