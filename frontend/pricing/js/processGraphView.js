@@ -98,11 +98,15 @@ class ProcessGraphView {
     const levelWidth = 250;
     const nodeSpacing = 60;
 
+    // Calculate total width needed for centering
+    const totalWidth = (levelGroups.size - 1) * levelWidth;
+    const startX = Math.max(marginX, (canvasWidth - totalWidth) / 2);
+
     levelGroups.forEach((nodeIds, level) => {
       nodeIds.forEach((nodeId, index) => {
         const process = this.processes.find(p => p.process_id === nodeId);
         if (process) {
-          const x = marginX + (level * levelWidth);
+          const x = startX + (level * levelWidth);
           const y = marginY + (index * nodeSpacing);
           process.x = x;
           process.y = y;
@@ -171,13 +175,14 @@ class ProcessGraphView {
         rect.setAttribute('fill', '#10b981');
         rect.setAttribute('stroke', '#059669');
         rect.setAttribute('stroke-width', '2');
+        rect.setAttribute('class', 'process-nav-node process-nav-node-active');
       } else {
         rect.setAttribute('fill', '#ffffff');
         rect.setAttribute('stroke', '#cbd5e1');
         rect.setAttribute('stroke-width', '1');
+        rect.setAttribute('class', 'process-nav-node');
       }
 
-      rect.setAttribute('class', 'process-nav-node');
       nodeGroup.appendChild(rect);
 
       // Process name text
@@ -188,6 +193,7 @@ class ProcessGraphView {
       text.setAttribute('font-size', '14');
       text.setAttribute('font-weight', '500');
       text.setAttribute('fill', process.process_id === currentProcessId ? '#ffffff' : '#0f172a');
+      text.setAttribute('pointer-events', 'none');
       text.textContent = process.process_name;
       nodeGroup.appendChild(text);
 
@@ -237,6 +243,31 @@ class ProcessGraphView {
     return match ? parseInt(match[1]) : null;
   }
 }
+
+// Add CSS styles for process nodes
+const style = document.createElement('style');
+style.textContent = `
+  .process-nav-node {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .process-nav-node:not(.process-nav-node-active):hover {
+    fill: #f8fafc !important;
+    stroke: #94a3b8 !important;
+  }
+
+  .process-nav-node-active {
+    fill: #10b981;
+    stroke: #059669;
+    stroke-width: 2;
+  }
+
+  .process-nav-node-active:hover {
+    fill: #059669 !important;
+    stroke: #047857 !important;
+  }
+`;
+document.head.appendChild(style);
 
 // Initialize when DOM is ready
 let processGraphView;

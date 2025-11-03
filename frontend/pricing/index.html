@@ -6,16 +6,18 @@
 <div class="max-w-7xl mx-auto">
     <div class="py-8">
         <div class="flex items-center justify-between">
-            <div>
-                <h1 class="text-4xl font-bold text-foreground">
-                    {% if current_process %}
-                        {{ current_process.process_name }} - Pricing
-                    {% else %}
-                        Pricing
-                    {% endif %}
-                </h1>
+            <div class="space-y-1">
                 {% if current_process %}
-                    <p class="text-muted-foreground mt-1">{{ current_process.description|default("No description") }}</p>
+                    <h1 class="text-3xl font-semibold tracking-tight text-foreground">
+                        {{ current_process.process_name }}
+                    </h1>
+                    <p class="text-base text-muted-foreground">
+                        {{ current_process.description|default("No description available") }}
+                    </p>
+                {% else %}
+                    <h1 class="text-3xl font-semibold tracking-tight text-foreground">
+                        Pricing
+                    </h1>
                 {% endif %}
             </div>
 
@@ -43,8 +45,7 @@
     <!-- Process Graph Navigation -->
     {% if processes %}
     <div class="mb-6">
-        <h2 class="text-sm font-medium text-muted-foreground mb-2 px-1">Process Flow</h2>
-        <div class="bg-card border rounded-lg p-4">
+        <div class="bg-card rounded-lg p-4">
             <div id="processGraphNav" style="height: 200px; position: relative;">
                 <svg class="w-full h-full" style="cursor: default;">
                     <defs>
