@@ -108,7 +108,6 @@ class ProductsApp {
             this.initializeItemManager();
 
         } catch (error) {
-            console.error('DEBUG: Error loading data:', error);
             this.components.uiManager.showNotification('Error loading data: ' + error.message, 'error');
         }
     }

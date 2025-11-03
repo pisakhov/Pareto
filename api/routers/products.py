@@ -58,12 +58,8 @@ async def get_products():
     crud = get_crud()
     products = crud.get_all_products()
 
-    print(f"[Products API] Retrieved {len(products)} products from database")
-    print(f"[Products API] Products data: {products}")
-
     result = []
     for p in products:
-        print(f"[Products API] Processing product: {p}")
         item_ids = crud.get_item_ids_for_product(p[0])
         result.append(
             {
@@ -211,32 +207,18 @@ async def get_product(product_id: int):
     """Get a specific product."""
     crud = get_crud()
 
-    print(f"[Products API] Loading product ID: {product_id}")
-
     try:
         product = crud.get_product(product_id)
-        print(f"[Products API] Retrieved product from database: {product}")
 
         if not product:
-            print(f"[Products API] Product not found in database")
             raise HTTPException(status_code=404, detail="Product not found")
 
-        print(f"[Products API] Getting item IDs for product")
         item_ids = crud.get_item_ids_for_product(product['product_id'])
-        print(f"[Products API] Item IDs: {item_ids}")
-
-        print(f"[Products API] Getting allocations for product")
         allocations = crud.get_allocations_for_product(product['product_id'])
-        print(f"[Products API] Allocations: {allocations}")
-
-        print(f"[Products API] Getting price multipliers for product")
         price_multipliers = crud.get_price_multipliers_for_product(product['product_id'])
-        print(f"[Products API] Price multipliers: {price_multipliers}")
 
         # Get forecasts
-        print(f"[Products API] Getting forecasts for product")
         forecasts = crud.get_forecasts_for_product(product_id)
-        print(f"[Products API] Retrieved {len(forecasts)} forecasts")
         forecasts_data = [{
             "forecast_id": f['forecast_id'],
             "year": f['year'],
@@ -247,9 +229,7 @@ async def get_product(product_id: int):
         } for f in forecasts]
 
         # Get actuals
-        print(f"[Products API] Getting actuals for product")
         actuals = crud.get_actuals_for_product(product_id)
-        print(f"[Products API] Retrieved {len(actuals)} actuals")
         actuals_data = [{
             "actual_id": a['actual_id'],
             "year": a['year'],
@@ -258,8 +238,6 @@ async def get_product(product_id: int):
             "date_creation": a['date_creation'],
             "date_last_update": a['date_last_update']
         } for a in actuals]
-
-        print(f"[Products API] Successfully loaded all product data")
 
         return JSONResponse(
             content={
@@ -279,9 +257,6 @@ async def get_product(product_id: int):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[Products API] Exception in get_product: {e}")
-        import traceback
-        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 

@@ -81,7 +81,6 @@ class ItemManager {
       const response = await fetch(`/api/items/${itemId}/providers`);
       return await response.json();
     } catch (error) {
-      console.error('Error loading providers for item:', error);
       return [];
     }
   }

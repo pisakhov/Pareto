@@ -40,11 +40,6 @@ class FormHandler {
             actuals: window.forecastManager.getActualData(),
         };
 
-        console.log('[FormHandler] Form submission data:', {
-            editingProductId: window.editingProductId,
-            data: data
-        });
-
         try {
             await this.dataService.saveProduct(data, window.editingProductId);
             this.modalManager.closeProductModal();
@@ -54,7 +49,6 @@ class FormHandler {
                 'success'
             );
         } catch (error) {
-            console.error('[FormHandler] Error saving product:', error);
             this.uiManager.showNotification(error.message, 'error');
         }
     }
@@ -120,7 +114,6 @@ class FormHandler {
 
             this.modalManager.showProductModal(true);
         } catch (error) {
-            console.error('Error loading product:', error);
             this.uiManager.showNotification('Failed to load product', 'error');
         }
     }
@@ -139,7 +132,6 @@ class FormHandler {
             this.uiManager.showNotification('Product deleted successfully', 'success');
             await window.productsApp.refreshData();
         } catch (error) {
-            console.error('Error deleting product:', error);
             this.uiManager.showNotification(error.message, 'error');
         } finally {
             button.textContent = originalText;
@@ -330,7 +322,6 @@ class FormHandler {
             document.getElementById('productViewContent').innerHTML = content;
             this.modalManager.showViewModal();
         } catch (error) {
-            console.error('Error loading product:', error);
             this.uiManager.showNotification('Failed to load product details', 'error');
         }
     }
