@@ -63,6 +63,39 @@ class TableRenderer {
     this.data.providerItems = providerItems;
   }
 
+  // Helper method to filter items by current process
+  getFilteredItems() {
+    const currentProcessId = window.CURRENT_PROCESS_ID;
+
+    // If no current process, show all items
+    if (!currentProcessId) {
+      return this.data.items;
+    }
+
+    // Filter offers by current process
+    const offersInCurrentProcess = this.data.offers.filter(
+      offer => offer.process_id === currentProcessId
+    );
+
+    // Get unique item_ids from filtered offers
+    const itemIdsInCurrentProcess = new Set(
+      offersInCurrentProcess.map(offer => offer.item_id)
+    );
+
+    // Filter items to only show those with offers in current process
+    const filteredItems = this.data.items.filter(item =>
+      itemIdsInCurrentProcess.has(item.item_id)
+    );
+
+    console.log(`[TableRenderer] Filtered items for process ${currentProcessId}:`, {
+      totalItems: this.data.items.length,
+      filteredItems: filteredItems.length,
+      itemNames: filteredItems.map(i => i.item_name)
+    });
+
+    return filteredItems;
+  }
+
   // Provider table rendering
   renderProviders() {
     const tbody = document.getElementById("providersTableBody");
@@ -138,17 +171,38 @@ class TableRenderer {
 
     if (this.data.items.length === 0) {
       tbody.innerHTML =
-        '<tr><td colspan="3" class="text-center py-4 text-muted-foreground">No items found</td></tr>';
+        '<tr><td colspan="4" class="text-center py-4 text-muted-foreground">No items found</td></tr>';
       return;
     }
 
+    // Get process info for each item
+    const itemProcessMap = this.getItemProcessMap();
+
     this.data.items.forEach((item) => {
-      const row = this.createItemRow(item);
+      const row = this.createItemRow(item, itemProcessMap);
       tbody.appendChild(row);
     });
   }
 
-  createItemRow(item) {
+  // Helper method to get process info for each item
+  getItemProcessMap() {
+    const map = new Map();
+
+    // Get all unique item IDs from offers
+    this.data.offers.forEach(offer => {
+      const itemId = offer.item_id;
+      const processId = offer.process_id;
+
+      // Store the process ID for this item (offers should all have same process for an item)
+      if (!map.has(itemId)) {
+        map.set(itemId, processId);
+      }
+    });
+
+    return map;
+  }
+
+  createItemRow(item, itemProcessMap) {
     const providerCount = this.data.providerItems.filter(
       (pi) => pi.item_id === item.item_id,
     ).length;
@@ -156,10 +210,24 @@ class TableRenderer {
       (o) => o.item_id === item.item_id,
     ).length;
 
+    // Get process name for this item
+    const processId = itemProcessMap.get(item.item_id);
+    let processName = 'N/A';
+    if (processId && window.pricingApp) {
+      const processes = window.pricingApp.getProcesses();
+      const process = processes.find(p => p.process_id === processId);
+      if (process) {
+        processName = process.process_name;
+      }
+    }
+
     const row = document.createElement("tr");
     row.className = "hover:bg-secondary/50";
     row.innerHTML = `
             <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">${item.item_name}</td>
+            <td class="px-4 py-3 whitespace-nowrap text-sm">
+                <span class="text-xs px-2 py-1 rounded-full ${processId ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}">${processName}</span>
+            </td>
             <td class="px-4 py-3 whitespace-nowrap text-sm">
                 <span class="text-xs text-white bg-[#023047] px-2 py-1 rounded-full mr-2">${providerCount} providers</span>
                 <span class="text-xs text-white bg-[#7f4f24] px-2 py-1 rounded-full">${offerCount} offers</span>
@@ -182,9 +250,18 @@ class TableRenderer {
     const matrix = document.getElementById("relationshipMatrix");
     if (!matrix) return;
 
-    if (this.data.providers.length === 0 || this.data.items.length === 0) {
-      matrix.innerHTML =
-        '<p class="text-center text-muted-foreground py-8">No data available for relationship matrix</p>';
+    // Get filtered items based on current process
+    const items = this.getFilteredItems();
+
+    if (this.data.providers.length === 0 || items.length === 0) {
+      const currentProcessId = window.CURRENT_PROCESS_ID;
+      if (currentProcessId) {
+        matrix.innerHTML =
+          '<p class="text-center text-muted-foreground py-8">No items found for this process</p>';
+      } else {
+        matrix.innerHTML =
+          '<p class="text-center text-muted-foreground py-8">No data available for relationship matrix</p>';
+      }
       return;
     }
 
@@ -201,20 +278,25 @@ class TableRenderer {
       console.warn('Could not load allocations:', error);
     }
 
-    // Calculate total files per provider across ALL items and determine tier
+    // Get filtered items based on current process
+    const items = this.getFilteredItems();
+
+    console.log(`[TableRenderer] Creating matrix for ${items.length} items (process ${window.CURRENT_PROCESS_ID || 'all'})`);
+
+    // Calculate total files per provider across CURRENT PROCESS items and determine tier
     const providerTotals = new Map();
     const providerCurrentTiers = new Map();
     const providersExceedingTiers = new Set();
-    
+
     this.data.providers.forEach((provider) => {
       const tierInfo = providerTierData[provider.provider_id] || {};
       const thresholds = tierInfo.thresholds || {};
-      
+
       let totalFiles = 0;
       const productMap = new Map();
-      
-      // Sum up all files across all items for this provider
-      this.data.items.forEach((item) => {
+
+      // Sum up all files across current process items for this provider
+      items.forEach((item) => {
         const allocationData = allocations?.[provider.provider_id]?.[item.item_id];
         const allocationTotal = allocationData?.total || 0;
         const allocationProducts = allocationData?.products || [];
@@ -257,8 +339,8 @@ class TableRenderer {
     let html =
       '<div class="overflow-x-auto"><table class="border-collapse text-sm w-auto"><thead><tr><th class="border border-border px-4 py-2 bg-secondary font-medium whitespace-nowrap">Provider \ Item</th>';
 
-    // Add item headers as columns
-    this.data.items.forEach((item) => {
+    // Add item headers as columns (filtered items)
+    items.forEach((item) => {
       html += `<th class="border border-border px-4 py-2 bg-secondary text-center font-medium whitespace-nowrap">
         <div class="font-semibold">${item.item_name}</div>
       </th>`;
@@ -323,18 +405,25 @@ class TableRenderer {
         </div>
       </td>`;
 
-      this.data.items.forEach((item) => {
+      items.forEach((item) => {
         const hasRelationship = this.data.providerItems.some(
           (pi) =>
             pi.provider_id === provider.provider_id &&
             pi.item_id === item.item_id,
         );
-        
-        const offers = this.data.offers.filter(
+
+        // Filter offers by current process ID if we're in a process view
+        const currentProcessId = window.CURRENT_PROCESS_ID;
+        let offers = this.data.offers.filter(
           (o) =>
             o.provider_id === provider.provider_id &&
             o.item_id === item.item_id,
         );
+
+        // If we have a current process, filter by it
+        if (currentProcessId) {
+          offers = offers.filter(o => o.process_id === currentProcessId);
+        }
 
         const tierInfo = providerTierData[provider.provider_id] || {};
         const providerTiers = Object.keys(tierInfo.thresholds || {}).map(t => parseInt(t));

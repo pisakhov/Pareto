@@ -283,13 +283,22 @@ class DatabaseSchema:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS items (
                 item_id INTEGER PRIMARY KEY,
-                item_name VARCHAR NOT NULL UNIQUE,
+                item_name VARCHAR NOT NULL,
                 description TEXT,
                 status VARCHAR DEFAULT 'active',
                 date_creation VARCHAR NOT NULL,
                 date_last_update VARCHAR NOT NULL
             )
         """)
+
+        # Remove UNIQUE constraint if it exists (for backward compatibility)
+        # This allows the same item name to exist in different processes
+        try:
+            # Check if UNIQUE constraint exists and remove it
+            conn.execute("ALTER TABLE items DROP CONSTRAINT IF EXISTS items_item_name_key")
+        except:
+            # If constraint doesn't exist or can't be dropped, continue
+            pass
 
     def _create_provider_items_table(self):
         """Create provider_items junction table if it doesn't exist"""

@@ -28,13 +28,23 @@ class CRUDOperations(DatabaseSchema):
         )
         return self.get_provider(provider_id)
 
-    def get_provider(self, provider_id: int) -> Optional[Any]:
+    def get_provider(self, provider_id: int) -> Optional[Dict[str, Any]]:
         conn = self._get_connection()
         result = conn.execute(
             "SELECT provider_id, company_name, details, status, date_creation, date_last_update, tier_thresholds FROM providers WHERE provider_id = ?",
             [provider_id]
         ).fetchone()
-        return result if result else None
+        if result:
+            return {
+                "provider_id": result[0],
+                "company_name": result[1],
+                "details": result[2],
+                "status": result[3],
+                "date_creation": result[4],
+                "date_last_update": result[5],
+                "tier_thresholds": result[6]
+            }
+        return None
 
     def get_all_providers(self) -> List[Any]:
         conn = self._get_connection()
@@ -75,14 +85,15 @@ class CRUDOperations(DatabaseSchema):
         if not current:
             return False
 
-        company_name = company_name if company_name is not None else current[1]
-        details = details if details is not None else current[2]
-        status = status if status is not None else current[3]
+        company_name = company_name if company_name is not None else current["company_name"]
+        details = details if details is not None else current["details"]
+        status = status if status is not None else current["status"]
 
         conn.execute(
             "UPDATE providers SET company_name = ?, details = ?, status = ?, date_last_update = ? WHERE provider_id = ?",
             [company_name, details, status, now, provider_id]
         )
+        conn.commit()
         return True
 
     def delete_provider(self, provider_id: int) -> bool:
@@ -103,10 +114,19 @@ class CRUDOperations(DatabaseSchema):
         )
         return self.get_item(item_id)
 
-    def get_item(self, item_id: int) -> Optional[Any]:
+    def get_item(self, item_id: int) -> Optional[Dict[str, Any]]:
         conn = self._get_connection()
         result = conn.execute("SELECT * FROM items WHERE item_id = ?", [item_id]).fetchone()
-        return result if result else None
+        if result:
+            return {
+                "item_id": result[0],
+                "item_name": result[1],
+                "description": result[2],
+                "status": result[3],
+                "date_creation": result[4],
+                "date_last_update": result[5]
+            }
+        return None
 
     def get_all_items(self) -> List[Any]:
         conn = self._get_connection()
@@ -120,14 +140,15 @@ class CRUDOperations(DatabaseSchema):
         if not current:
             return False
 
-        item_name = item_name if item_name is not None else current[1]
-        description = description if description is not None else current[2]
-        status = status if status is not None else current[3]
+        item_name = item_name if item_name is not None else current["item_name"]
+        description = description if description is not None else current["description"]
+        status = status if status is not None else current["status"]
 
         conn.execute(
             "UPDATE items SET item_name = ?, description = ?, status = ?, date_last_update = ? WHERE item_id = ?",
             [item_name, description, status, now, item_id]
         )
+        conn.commit()
         return True
 
     def delete_item(self, item_id: int) -> bool:
@@ -148,13 +169,23 @@ class CRUDOperations(DatabaseSchema):
         )
         return self.get_product(product_id)
 
-    def get_product(self, product_id: int) -> Optional[Any]:
+    def get_product(self, product_id: int) -> Optional[Dict[str, Any]]:
         conn = self._get_connection()
         result = conn.execute(
             "SELECT product_id, name, description, proxy_quantity, status, date_creation, date_last_update FROM products WHERE product_id = ?",
             [product_id]
         ).fetchone()
-        return result if result else None
+        if result:
+            return {
+                "product_id": result[0],
+                "name": result[1],
+                "description": result[2],
+                "proxy_quantity": result[3],
+                "status": result[4],
+                "date_creation": result[5],
+                "date_last_update": result[6]
+            }
+        return None
 
     def get_all_products(self) -> List[Any]:
         conn = self._get_connection()
@@ -170,10 +201,10 @@ class CRUDOperations(DatabaseSchema):
         if not current:
             return False
 
-        name = name if name is not None else current[1]
-        description = description if description is not None else current[2]
-        proxy_quantity = proxy_quantity if proxy_quantity is not None else current[3]
-        status = status if status is not None else current[4]
+        name = name if name is not None else current["name"]
+        description = description if description is not None else current["description"]
+        proxy_quantity = proxy_quantity if proxy_quantity is not None else current["proxy_quantity"]
+        status = status if status is not None else current["status"]
 
         conn.execute(
             "UPDATE products SET name = ?, description = ?, proxy_quantity = ?, status = ?, date_last_update = ? WHERE product_id = ?",
@@ -194,16 +225,46 @@ class CRUDOperations(DatabaseSchema):
         conn = self._get_connection()
         now = datetime.now().isoformat()
         offer_id = conn.execute("SELECT nextval('offer_seq')").fetchone()[0]
-        conn.execute(
-            "INSERT INTO offers (offer_id, item_id, provider_id, process_id, tier_number, price_per_unit, status, date_creation, date_last_update) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [offer_id, item_id, provider_id, process_id, tier_number, price_per_unit, status, now, now]
-        )
-        return self.get_offer(offer_id)
 
-    def get_offer(self, offer_id: int) -> Optional[Any]:
+        print(f"[DEBUG] Creating offer:")
+        print(f"  offer_id: {offer_id}")
+        print(f"  item_id: {item_id}")
+        print(f"  provider_id: {provider_id}")
+        print(f"  process_id: {process_id}")
+        print(f"  tier_number: {tier_number}")
+        print(f"  price_per_unit: {price_per_unit}")
+        print(f"  status: {status}")
+
+        # Note: process_id is added later via ALTER TABLE, so it's at the END of the column order
+        conn.execute(
+            "INSERT INTO offers (offer_id, item_id, provider_id, tier_number, price_per_unit, status, date_creation, date_last_update, process_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [offer_id, item_id, provider_id, tier_number, price_per_unit, status, now, now, process_id]
+        )
+        print(f"[DEBUG] Offer created successfully")
+
+        result = self.get_offer(offer_id)
+        print(f"[DEBUG] Retrieved offer: {result}")
+        return result
+
+    def get_offer(self, offer_id: int) -> Optional[Dict[str, Any]]:
         conn = self._get_connection()
-        result = conn.execute("SELECT * FROM offers WHERE offer_id = ?", [offer_id]).fetchone()
-        return result if result else None
+        result = conn.execute("""
+            SELECT offer_id, item_id, provider_id, tier_number, price_per_unit, status, date_creation, date_last_update, process_id
+            FROM offers WHERE offer_id = ?
+        """, [offer_id]).fetchone()
+        if result:
+            return {
+                "offer_id": result[0],
+                "item_id": result[1],
+                "provider_id": result[2],
+                "tier_number": result[3],
+                "price_per_unit": float(result[4]),
+                "status": result[5],
+                "date_creation": result[6],
+                "date_last_update": result[7],
+                "process_id": result[8]
+            }
+        return None
 
     def get_all_offers(self) -> List[Dict[str, Any]]:
         conn = self._get_connection()
@@ -233,14 +294,27 @@ class CRUDOperations(DatabaseSchema):
             for row in results
         ]
 
-    def get_offers_by_provider(self, provider_id: int) -> List[Any]:
+    def get_offers_by_provider(self, provider_id: int) -> List[Dict[str, Any]]:
         """Get all offers for a specific provider"""
         conn = self._get_connection()
         results = conn.execute(
             "SELECT * FROM offers WHERE provider_id = ? ORDER BY tier_number",
             [provider_id]
         ).fetchall()
-        return [result for result in results]
+        return [
+            {
+                "offer_id": row[0],
+                "item_id": row[1],
+                "provider_id": row[2],
+                "process_id": row[3],
+                "tier_number": row[4],
+                "price_per_unit": float(row[5]),
+                "status": row[6],
+                "date_creation": row[7],
+                "date_last_update": row[8]
+            }
+            for row in results
+        ]
 
     def update_offer(self, offer_id: int, tier_number: int = None, price_per_unit: float = None, status: str = None, process_id: int = None) -> bool:
         conn = self._get_connection()
@@ -249,15 +323,16 @@ class CRUDOperations(DatabaseSchema):
         if not current:
             return False
 
-        tier_number = tier_number if tier_number is not None else current[4]
-        price_per_unit = price_per_unit if price_per_unit is not None else current[5]
-        status = status if status is not None else current[6]
-        process_id = process_id if process_id is not None else current[3]
+        tier_number = tier_number if tier_number is not None else current["tier_number"]
+        price_per_unit = price_per_unit if price_per_unit is not None else current["price_per_unit"]
+        status = status if status is not None else current["status"]
+        process_id = process_id if process_id is not None else current["process_id"]
 
         conn.execute(
             "UPDATE offers SET tier_number = ?, price_per_unit = ?, status = ?, process_id = ?, date_last_update = ? WHERE offer_id = ?",
             [tier_number, price_per_unit, status, process_id, now, offer_id]
         )
+        conn.commit()
         return True
 
     def delete_offer(self, offer_id: int) -> bool:
@@ -504,6 +579,7 @@ class CRUDOperations(DatabaseSchema):
             "UPDATE providers SET tier_thresholds = ?, date_last_update = ? WHERE provider_id = ?",
             [json.dumps(tier_data), now, provider_id]
         )
+        conn.commit()
 
     def get_provider_tier_thresholds(self, provider_id: int) -> Dict:
         conn = self._get_connection()
@@ -692,20 +768,46 @@ class CRUDOperations(DatabaseSchema):
         ]
 
     def update_process(self, process_id: int, process_name: str = None, description: str = None, status: str = None) -> bool:
+        print(f"[CRUD] update_process called with:")
+        print(f"  - process_id: {process_id}")
+        print(f"  - process_name: {process_name}")
+        print(f"  - description: {description}")
+        print(f"  - status: {status}")
+
         conn = self._get_connection()
         now = datetime.now().isoformat()
+
+        print(f"[CRUD] Getting current process data...")
         current = self.get_process(process_id)
+        print(f"[CRUD] Current process data: {current}")
+
         if not current:
+            print(f"[CRUD] ❌ Process not found, returning False")
             return False
 
         process_name = process_name if process_name is not None else current["process_name"]
         description = description if description is not None else current["description"]
         status = status if status is not None else current["status"]
 
-        conn.execute(
-            "UPDATE processes SET process_name = ?, description = ?, status = ?, date_last_update = ? WHERE process_id = ?",
-            [process_name, description, status, now, process_id]
-        )
+        print(f"[CRUD] Values to update:")
+        print(f"  - process_name: {process_name}")
+        print(f"  - description: {description}")
+        print(f"  - status: {status}")
+        print(f"  - date_last_update: {now}")
+
+        sql = "UPDATE processes SET process_name = ?, description = ?, status = ?, date_last_update = ? WHERE process_id = ?"
+        params = [process_name, description, status, now, process_id]
+        print(f"[CRUD] Executing SQL: {sql}")
+        print(f"[CRUD] With params: {params}")
+
+        conn.execute(sql, params)
+        print(f"[CRUD] ✓ SQL executed successfully")
+
+        print(f"[CRUD] Committing transaction...")
+        conn.commit()
+        print(f"[CRUD] ✓ Transaction committed")
+
+        print(f"[CRUD] Returning True")
         return True
 
     def delete_process(self, process_id: int) -> bool:
@@ -724,8 +826,10 @@ class CRUDOperations(DatabaseSchema):
                 "INSERT INTO process_graph (from_process_id, to_process_id) VALUES (?, ?)",
                 [from_process_id, to_process_id]
             )
+            conn.commit()
             return True
         except:
+            conn.rollback()
             return False
 
     def remove_process_graph_edge(self, from_process_id: int, to_process_id: int) -> bool:
@@ -813,10 +917,20 @@ class CRUDOperations(DatabaseSchema):
         )
         return self.get_forecast(forecast_id)
 
-    def get_forecast(self, forecast_id: int) -> Optional[Any]:
+    def get_forecast(self, forecast_id: int) -> Optional[Dict[str, Any]]:
         conn = self._get_connection()
         result = conn.execute("SELECT * FROM forecasts WHERE forecast_id = ?", [forecast_id]).fetchone()
-        return result if result else None
+        if result:
+            return {
+                "forecast_id": result[0],
+                "product_id": result[1],
+                "year": result[2],
+                "month": result[3],
+                "forecast_units": result[4],
+                "date_creation": result[5],
+                "date_last_update": result[6]
+            }
+        return None
 
     def get_forecast_by_product_month(self, product_id: int, year: int, month: int) -> Optional[Any]:
         conn = self._get_connection()
@@ -846,12 +960,13 @@ class CRUDOperations(DatabaseSchema):
         if not current:
             return False
 
-        forecast_units = forecast_units if forecast_units is not None else current[4]
+        forecast_units = forecast_units if forecast_units is not None else current["forecast_units"]
 
         conn.execute(
             "UPDATE forecasts SET forecast_units = ?, date_last_update = ? WHERE forecast_id = ?",
             [forecast_units, now, forecast_id]
         )
+        conn.commit()
         return True
 
     def delete_forecast(self, forecast_id: int) -> bool:
@@ -873,10 +988,20 @@ class CRUDOperations(DatabaseSchema):
         )
         return self.get_actual(actual_id)
 
-    def get_actual(self, actual_id: int) -> Optional[Any]:
+    def get_actual(self, actual_id: int) -> Optional[Dict[str, Any]]:
         conn = self._get_connection()
         result = conn.execute("SELECT * FROM actuals WHERE actual_id = ?", [actual_id]).fetchone()
-        return result if result else None
+        if result:
+            return {
+                "actual_id": result[0],
+                "product_id": result[1],
+                "year": result[2],
+                "month": result[3],
+                "actual_units": result[4],
+                "date_creation": result[5],
+                "date_last_update": result[6]
+            }
+        return None
 
     def get_actual_by_product_month(self, product_id: int, year: int, month: int) -> Optional[Any]:
         conn = self._get_connection()
@@ -906,12 +1031,13 @@ class CRUDOperations(DatabaseSchema):
         if not current:
             return False
 
-        actual_units = actual_units if actual_units is not None else current[4]
+        actual_units = actual_units if actual_units is not None else current["actual_units"]
 
         conn.execute(
             "UPDATE actuals SET actual_units = ?, date_last_update = ? WHERE actual_id = ?",
             [actual_units, now, actual_id]
         )
+        conn.commit()
         return True
 
     def delete_actual(self, actual_id: int) -> bool:
@@ -933,10 +1059,21 @@ class CRUDOperations(DatabaseSchema):
         )
         return self.get_contract(contract_id)
 
-    def get_contract(self, contract_id: int) -> Optional[Any]:
+    def get_contract(self, contract_id: int) -> Optional[Dict[str, Any]]:
         conn = self._get_connection()
         result = conn.execute("SELECT * FROM contracts WHERE contract_id = ?", [contract_id]).fetchone()
-        return result if result else None
+        if result:
+            return {
+                "contract_id": result[0],
+                "provider_id": result[1],
+                "contract_name": result[2],
+                "min_monthly_volume": float(result[3]) if result[3] is not None else None,
+                "min_monthly_cost": float(result[4]) if result[4] is not None else None,
+                "status": result[5],
+                "date_creation": result[6],
+                "date_last_update": result[7]
+            }
+        return None
 
     def get_all_contracts(self) -> List[Any]:
         conn = self._get_connection()
@@ -955,15 +1092,16 @@ class CRUDOperations(DatabaseSchema):
         if not current:
             return False
 
-        contract_name = contract_name if contract_name is not None else current[2]
-        min_monthly_volume = min_monthly_volume if min_monthly_volume is not None else current[3]
-        min_monthly_cost = min_monthly_cost if min_monthly_cost is not None else current[4]
-        status = status if status is not None else current[5]
+        contract_name = contract_name if contract_name is not None else current["contract_name"]
+        min_monthly_volume = min_monthly_volume if min_monthly_volume is not None else current["min_monthly_volume"]
+        min_monthly_cost = min_monthly_cost if min_monthly_cost is not None else current["min_monthly_cost"]
+        status = status if status is not None else current["status"]
 
         conn.execute(
             "UPDATE contracts SET contract_name = ?, min_monthly_volume = ?, min_monthly_cost = ?, status = ?, date_last_update = ? WHERE contract_id = ?",
             [contract_name, min_monthly_volume, min_monthly_cost, status, now, contract_id]
         )
+        conn.commit()
         return True
 
     def delete_contract(self, contract_id: int) -> bool:
@@ -993,13 +1131,21 @@ class CRUDOperations(DatabaseSchema):
         results = conn.execute("SELECT * FROM contract_rules WHERE contract_id = ?", [contract_id]).fetchall()
         return [result for result in results]
 
-    def get_contract_rule(self, contract_id: int, rule_type: str) -> Optional[Any]:
+    def get_contract_rule(self, contract_id: int, rule_type: str) -> Optional[Dict[str, Any]]:
         conn = self._get_connection()
         result = conn.execute(
             "SELECT * FROM contract_rules WHERE contract_id = ? AND rule_type = ?",
             [contract_id, rule_type]
         ).fetchone()
-        return result if result else None
+        if result:
+            return {
+                "contract_id": result[0],
+                "rule_type": result[1],
+                "rule_value": float(result[2]) if result[2] is not None else None,
+                "rule_config": result[3],
+                "date_creation": result[4]
+            }
+        return None
 
     def update_contract_rule(self, contract_id: int, rule_type: str, rule_value: float = None, rule_config: str = None) -> bool:
         conn = self._get_connection()
@@ -1007,13 +1153,14 @@ class CRUDOperations(DatabaseSchema):
         if not current:
             return False
 
-        rule_value = rule_value if rule_value is not None else current[2]
-        rule_config = rule_config if rule_config is not None else current[3]
+        rule_value = rule_value if rule_value is not None else current["rule_value"]
+        rule_config = rule_config if rule_config is not None else current["rule_config"]
 
         conn.execute(
             "UPDATE contract_rules SET rule_value = ?, rule_config = ? WHERE contract_id = ? AND rule_type = ?",
             [rule_value, rule_config, contract_id, rule_type]
         )
+        conn.commit()
         return True
 
     def delete_contract_rule(self, contract_id: int, rule_type: str) -> bool:

@@ -119,7 +119,12 @@ class FormHandler {
 
       const itemId = editingItemId || response.item_id;
 
+      console.log("[Frontend] Creating offers for item:", itemId);
+      console.log("[Frontend] Process ID:", itemData.process_id);
+      console.log("[Frontend] Offers data:", offers);
+
       for (const offer of offers) {
+        console.log("[Frontend] Creating offer:", offer);
         await this.dataService.createOffer({
           item_id: itemId,
           process_id: itemData.process_id,
@@ -145,10 +150,10 @@ class FormHandler {
     try {
       const provider = await this.dataService.getProvider(providerId);
 
-      document.getElementById("providerId").value = provider.provider_id;
-      document.getElementById("companyName").value = provider.company_name;
-      document.getElementById("details").value = provider.details || "";
-      document.getElementById("providerStatus").value = provider.status;
+      document.getElementById("providerId").value = provider["provider_id"];
+      document.getElementById("companyName").value = provider["company_name"];
+      document.getElementById("details").value = provider["details"] || "";
+      document.getElementById("providerStatus").value = provider["status"];
 
       try {
         const tierResponse = await fetch(
@@ -176,14 +181,35 @@ class FormHandler {
     const itemOffers = offers.filter(offer => offer.item_id === itemId);
     const processId = itemOffers.length > 0 ? itemOffers[0].process_id : null;
 
-    document.getElementById("itemId").value = item.item_id;
-    document.getElementById("itemName").value = item.item_name;
-    document.getElementById("itemDescription").value = item.description || "";
-    document.getElementById("itemStatus").value = item.status;
-    document.getElementById("itemProcess").value = processId;
+    console.log('[FormHandler] Editing item:', itemId, 'Process ID:', processId);
+    console.log('[FormHandler] Item details:', item);
+
+    document.getElementById("itemId").value = item["item_id"];
+    document.getElementById("itemName").value = item["item_name"];
+    document.getElementById("itemDescription").value = item["description"] || "";
+    document.getElementById("itemStatus").value = item["status"];
+    // DON'T set process here - editItem() will do it after loading options
 
     this.modalManager.setEditingItemId(itemId);
     await this.modalManager.editItem(itemId);
+
+    // Disable the process field after editItem() has set its value
+    const processSelect = document.getElementById("itemProcess");
+    if (processSelect) {
+      // Small delay to ensure dropdown is fully loaded and value is set
+      setTimeout(() => {
+        processSelect.disabled = true;
+        processSelect.classList.add("bg-gray-100", "cursor-not-allowed");
+
+        // Update label to show it's locked
+        const processLabel = processSelect.previousElementSibling;
+        if (processLabel && processLabel.tagName === 'LABEL') {
+          processLabel.innerHTML = 'Process * <span class="text-xs text-amber-600 ml-1">(locked)</span>';
+        }
+
+        console.log('[FormHandler] Process field disabled - value:', processSelect.value);
+      }, 50);
+    }
   }
 
 

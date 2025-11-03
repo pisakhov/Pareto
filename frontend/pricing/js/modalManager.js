@@ -143,7 +143,33 @@ class ModalManager {
     this.editingStates.itemId = itemId;
     this.updateModalTitle("itemModalTitle", "Edit Item");
 
-    this.loadProcessesIntoDropdown();
+    // Get the process ID from offers before loading dropdown
+    const offers = await window.dataService.loadOffers();
+    const itemOffers = offers.filter(offer => offer.item_id === itemId);
+    const processId = itemOffers.length > 0 ? itemOffers[0].process_id : null;
+
+    console.log('[ModalManager] Editing item:', itemId, 'locking to process:', processId);
+
+    // Load processes first
+    await this.loadProcessesIntoDropdown();
+
+    // NOW set the value after loading (when options exist)
+    if (processId) {
+      const processSelect = document.getElementById("itemProcess");
+      if (processSelect) {
+        console.log('[ModalManager] Setting value to:', processId, 'Available options:', Array.from(processSelect.options).map(opt => `${opt.value}:${opt.text}`));
+
+        processSelect.value = processId;
+        console.log('[ModalManager] After set - selectedIndex:', processSelect.selectedIndex, 'value:', processSelect.value);
+        console.log('[ModalManager] Selected option text:', processSelect.options[processSelect.selectedIndex]?.text);
+
+        // Double-check the value was set correctly
+        setTimeout(() => {
+          console.log('[ModalManager] Final check - value:', processSelect.value, 'selectedIndex:', processSelect.selectedIndex);
+          console.log('[ModalManager] Final check - Display text:', processSelect.options[processSelect.selectedIndex]?.text);
+        }, 10);
+      }
+    }
 
     const allProviders = window.pricingApp.getProviders();
     if (window.offerManager) {
@@ -164,19 +190,39 @@ class ModalManager {
   resetItemForm() {
     const form = document.getElementById("itemForm");
     if (form) form.reset();
+
+    // Re-enable the process field and restore its label
+    const processSelect = document.getElementById("itemProcess");
+    if (processSelect) {
+      processSelect.disabled = false;
+      processSelect.classList.remove("bg-gray-100", "cursor-not-allowed");
+
+      // Restore the original label text
+      const processLabel = processSelect.previousElementSibling;
+      if (processLabel && processLabel.tagName === 'LABEL') {
+        processLabel.innerHTML = 'Process *';
+      }
+    }
   }
 
   async loadProcessesIntoDropdown() {
     const processSelect = document.getElementById("itemProcess");
+    console.log('[ModalManager] Before loading - current value:', processSelect.value);
+
     processSelect.innerHTML = '<option value="">Select a process</option>';
 
     const processes = await window.pricingApp.getProcesses();
+    console.log('[ModalManager] Available processes:', processes.map(p => ({id: p.process_id, name: p.process_name})));
+
     processes.forEach(process => {
       const option = document.createElement("option");
       option.value = process.process_id;
       option.textContent = process.process_name;
       processSelect.appendChild(option);
     });
+
+    console.log('[ModalManager] After loading - innerHTML:', processSelect.innerHTML);
+    console.log('[ModalManager] After loading - selectedIndex:', processSelect.selectedIndex, 'value:', processSelect.value);
   }
 
 

@@ -22,6 +22,23 @@ class ProcessGraph {
     this.setupEventListeners();
     this.render();
     this.autoLayout();
+    this.setupFormEventHandlers();
+  }
+
+  setupFormEventHandlers() {
+    // Use event delegation to handle form submissions
+    // This works even after render() recreates the elements
+    this.processList.addEventListener('submit', (e) => {
+      const form = e.target;
+      if (form.id && form.id.startsWith('editProcessForm-')) {
+        console.log('[FORM-SUBMIT] Form submit event fired via delegation');
+        e.preventDefault();
+        e.stopPropagation();
+        const processId = parseInt(form.id.replace('editProcessForm-', ''));
+        console.log('[FORM-SUBMIT] Process ID:', processId);
+        this.handleEditProcess(e, processId);
+      }
+    });
   }
 
   setupEventListeners() {
@@ -47,6 +64,7 @@ class ProcessGraph {
   }
 
   render() {
+    console.log('[DEBUG] ProcessGraph.render() called');
     this.renderProcessList();
     this.renderGraph();
     this.updateStats();
@@ -89,6 +107,7 @@ class ProcessGraph {
   }
 
   renderProcessList() {
+    console.log('[DEBUG] renderProcessList() called, processes:', this.processes.length);
     this.processList.innerHTML = '';
 
     this.processes.forEach(process => {
@@ -99,7 +118,7 @@ class ProcessGraph {
         <div class="flex items-center justify-between mb-2">
           <h4 class="font-semibold text-sm">${process.process_name}</h4>
           <div class="flex gap-1">
-            <button onclick="event.stopPropagation(); processGraph.toggleEditForm(${process.process_id})" class="p-1 hover:bg-accent rounded">
+            <button onclick="event.stopPropagation(); console.log('[DEBUG] Edit button clicked for process', ${process.process_id}); processGraph.toggleEditForm(${process.process_id})" class="p-1 hover:bg-accent rounded">
               <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
               </svg>
@@ -120,7 +139,7 @@ class ProcessGraph {
           </span>
         </div>
         <div id="editForm-${process.process_id}" class="hidden mt-3 p-3 border border-border rounded-md bg-secondary/50">
-          <form onsubmit="return processGraph.handleEditProcess(event, ${process.process_id})" class="space-y-3">
+          <form id="editProcessForm-${process.process_id}" class="space-y-3">
             <div>
               <label class="block text-xs font-medium mb-1">Process Name *</label>
               <input type="text" id="editName-${process.process_id}" value="${process.process_name}" required
@@ -132,7 +151,7 @@ class ProcessGraph {
                         class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent text-sm">${process.description || ''}</textarea>
             </div>
             <div class="flex gap-2">
-              <button type="submit" class="flex-1 inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-8 px-2 py-2 bg-emerald-600 text-white hover:bg-emerald-600/90">
+              <button type="submit" onclick="console.log('[BUTTON] Save button clicked for process', ${process.process_id}); return true;" class="flex-1 inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-8 px-2 py-2 bg-emerald-600 text-white hover:bg-emerald-600/90">
                 Save
               </button>
               <button type="button" onclick="processGraph.toggleEditForm(${process.process_id})" class="flex-1 inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-8 px-2 py-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground">
@@ -143,7 +162,17 @@ class ProcessGraph {
         </div>
       `;
 
-      processItem.onclick = () => this.selectProcess(process.process_id);
+      processItem.onclick = (e) => {
+        console.log('[DEBUG] Process item clicked', process.process_id);
+        // Check if click is inside the edit form - if so, don't handle it
+        const editForm = e.target.closest('#editForm-' + process.process_id);
+        if (editForm) {
+          console.log('[DEBUG] Click is inside edit form, ignoring');
+          return;
+        }
+        this.selectProcess(process.process_id);
+      };
+
       this.processList.appendChild(processItem);
     });
   }
@@ -705,6 +734,7 @@ class ProcessGraph {
   }
 
   selectProcess(processId) {
+    console.log('[DEBUG] selectProcess called with ID:', processId);
     this.selectedProcess = processId;
     this.render();
   }
@@ -771,13 +801,47 @@ class ProcessGraph {
   }
 
   async editProcess(processId) {
-    const process = this.processes.find(p => p.process_id === processId);
-    if (!process) return;
+    console.log('========================================');
+    console.log('[EDIT-PROCESS] Started for process ID:', processId);
+    console.log('========================================');
 
-    const name = document.getElementById(`editName-${processId}`).value;
-    const description = document.getElementById(`editDescription-${processId}`).value;
+    const process = this.processes.find(p => p.process_id === processId);
+    if (!process) {
+      console.error('[EDIT-PROCESS] ❌ Process not found with ID:', processId);
+      console.log('[EDIT-PROCESS] Available processes:', this.processes.map(p => ({ id: p.process_id, name: p.process_name })));
+      return;
+    }
+
+    console.log('[EDIT-PROCESS] ✓ Process found:', process);
+
+    const nameInput = document.getElementById(`editName-${processId}`);
+    const descriptionInput = document.getElementById(`editDescription-${processId}`);
+
+    console.log('[EDIT-PROCESS] Name input element:', nameInput);
+    console.log('[EDIT-PROCESS] Description input element:', descriptionInput);
+    console.log('[EDIT-PROCESS] Name input value:', nameInput?.value);
+    console.log('[EDIT-PROCESS] Description input value:', descriptionInput?.value);
+
+    if (!nameInput || !descriptionInput) {
+      console.error('[EDIT-PROCESS] ❌ Form inputs not found for process:', processId);
+      console.error('[EDIT-PROCESS] Name input exists:', !!nameInput);
+      console.error('[EDIT-PROCESS] Description input exists:', !!descriptionInput);
+      uiManager.showNotification('Error: Form inputs not found', 'error');
+      return;
+    }
+
+    const name = nameInput.value;
+    const description = descriptionInput.value;
+
+    console.log('[EDIT-PROCESS] Form values:');
+    console.log('  - name:', name);
+    console.log('  - description:', description);
+    console.log('[EDIT-PROCESS] Current process values:');
+    console.log('  - process_name:', process.process_name);
+    console.log('  - description:', process.description);
 
     if (!name.trim()) {
+      console.log('[EDIT-PROCESS] ❌ Validation failed: empty name');
       uiManager.showNotification('Process name is required', 'error');
       document.getElementById(`editName-${processId}`).focus();
       return;
@@ -790,27 +854,62 @@ class ProcessGraph {
     );
 
     if (duplicate) {
+      console.log('[EDIT-PROCESS] ❌ Validation failed: duplicate name');
       uiManager.showNotification('A process with this name already exists. Please choose a different name.', 'error');
       document.getElementById(`editName-${processId}`).focus();
       return;
     }
 
     try {
-      await dataService.updateProcess(processId, {
+      const payload = {
         process_name: name.trim(),
         description: description.trim(),
         status: process.status
-      });
+      };
 
+      console.log('[EDIT-PROCESS] Preparing API call...');
+      console.log('[EDIT-PROCESS] API endpoint:', `/api/processes/${processId}`);
+      console.log('[EDIT-PROCESS] Request method: PUT');
+      console.log('[EDIT-PROCESS] Request payload:', payload);
+
+      console.log('[EDIT-PROCESS] 🚀 Making API call to update process...');
+      const response = await dataService.updateProcess(processId, payload);
+
+      console.log('[EDIT-PROCESS] ✓ API call successful!');
+      console.log('[EDIT-PROCESS] Response:', response);
+
+      console.log('[EDIT-PROCESS] Updating local process object...');
       process.process_name = name.trim();
       process.description = description.trim();
+      console.log('[EDIT-PROCESS] ✓ Local process updated:', process);
 
+      console.log('[EDIT-PROCESS] Closing edit form...');
       this.toggleEditForm(processId);
+
+      console.log('[EDIT-PROCESS] Re-rendering UI...');
       this.render();
 
+      console.log('[EDIT-PROCESS] ✓ Process update completed successfully');
       uiManager.showNotification(`Process "${name.trim()}" updated successfully`, 'success');
+
     } catch (error) {
-      console.error('Error updating process:', error);
+      console.error('========================================');
+      console.error('[EDIT-PROCESS] ❌ ERROR UPDATING PROCESS');
+      console.error('========================================');
+      console.error('[EDIT-PROCESS] Error object:', error);
+      console.error('[EDIT-PROCESS] Error message:', error.message);
+      console.error('[EDIT-PROCESS] Error stack:', error.stack);
+      console.error('[EDIT-PROCESS] Error name:', error.name);
+      console.error('[EDIT-PROCESS] Full error details:', {
+        message: error.message,
+        name: error.name,
+        stack: error.stack,
+        cause: error.cause,
+        status: error.status,
+        statusText: error.statusText,
+        response: error.response
+      });
+
       let errorMsg = 'Failed to update process';
 
       if (error.message.includes('Duplicate key')) {
@@ -819,8 +918,13 @@ class ProcessGraph {
         errorMsg = error.message;
       }
 
+      console.error('[EDIT-PROCESS] Showing error notification:', errorMsg);
       uiManager.showNotification(errorMsg, 'error');
     }
+
+    console.log('========================================');
+    console.log('[EDIT-PROCESS] Completed');
+    console.log('========================================');
   }
 
   async deleteProcess(processId) {
@@ -954,15 +1058,57 @@ class ProcessGraph {
   }
 
   toggleEditForm(processId) {
+    console.log('[DEBUG] toggleEditForm called for process', processId);
     const form = document.getElementById(`editForm-${processId}`);
 
-    if (form.classList.contains('hidden')) {
+    if (!form) {
+      console.error('[DEBUG] Edit form not found for process', processId);
+      return;
+    }
+
+    const isHidden = form.classList.contains('hidden');
+    console.log('[DEBUG] Form is currently:', isHidden ? 'HIDDEN' : 'VISIBLE');
+
+    if (isHidden) {
+      console.log('[DEBUG] Showing edit form for process', processId);
       form.classList.remove('hidden');
+      console.log('[DEBUG] Form classes after show:', form.className);
+      // Focus on the name input
+      setTimeout(() => {
+        const nameInput = document.getElementById(`editName-${processId}`);
+        if (nameInput) {
+          console.log('[DEBUG] Focusing on name input');
+          nameInput.focus();
+        }
+      }, 100);
     } else {
+      console.log('[DEBUG] Hiding edit form for process', processId);
       form.classList.add('hidden');
       document.getElementById(`editName-${processId}`).value = '';
       document.getElementById(`editDescription-${processId}`).value = '';
     }
+  }
+
+  handleEditProcess(event, processId) {
+    console.log('========================================');
+    console.log('[HANDLER] handleEditProcess called!');
+    console.log('[HANDLER] Event:', event);
+    console.log('[HANDLER] ProcessId:', processId);
+    console.log('[HANDLER] this (processGraph):', this);
+    console.log('========================================');
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (!this) {
+      console.error('[HANDLER] ❌ this (processGraph) is not defined!');
+      alert('Error: Process editor not initialized');
+      return false;
+    }
+
+    console.log('[HANDLER] Calling this.editProcess...');
+    this.editProcess(processId);
+    return false;
   }
 }
 
@@ -1063,7 +1209,7 @@ function toggleEditForm(processId) {
 }
 
 function handleEditProcess(event, processId) {
+  console.log('[GLOBAL-HANDLER] This function is deprecated, use processGraph.handleEditProcess instead');
   event.preventDefault();
-  processGraph.editProcess(processId);
   return false;
 }

@@ -70,8 +70,8 @@ async def pricing_page(request: Request):
         first_process_id = processes[0]["process_id"]
         return RedirectResponse(url=f"/pricing/{first_process_id}", status_code=302)
 
-    # If no processes, show the processes list (with empty state)
-    return templates.TemplateResponse("pricing/processes.html", {"request": request, "processes": processes})
+    # If no processes, show the pricing page with empty state
+    return templates.TemplateResponse("pricing/index.html", {"request": request, "current_process": None, "processes": processes})
 
 
 @router.get("/pricing/{process_id}", response_class=HTMLResponse)
@@ -123,16 +123,7 @@ async def create_provider(provider: ProviderCreate):
         details=provider.details,
         status=provider.status,
     )
-    return JSONResponse(
-        content={
-            "provider_id": new_provider.provider_id,
-            "company_name": new_provider.company_name,
-            "details": new_provider.details,
-            "status": new_provider.status,
-            "date_creation": new_provider.date_creation,
-            "date_last_update": new_provider.date_last_update,
-        }
-    )
+    return JSONResponse(content=new_provider)
 
 
 @router.get("/api/providers/{provider_id}")
@@ -140,28 +131,23 @@ async def get_provider(provider_id: int):
     """Get a specific provider."""
     crud = get_crud()
     provider = crud.get_provider(provider_id)
-    return JSONResponse(
-        content={
-            "provider_id": provider.provider_id,
-            "company_name": provider.company_name,
-            "details": provider.details,
-            "status": provider.status,
-            "date_creation": provider.date_creation,
-            "date_last_update": provider.date_last_update,
-        }
-    )
+    if not provider:
+        raise HTTPException(status_code=404, detail=f"Provider with ID {provider_id} not found")
+    return JSONResponse(content=provider)
 
 
 @router.put("/api/providers/{provider_id}")
 async def update_provider(provider_id: int, provider: ProviderUpdate):
     """Update a provider."""
     crud = get_crud()
-    crud.update_provider(
+    success = crud.update_provider(
         provider_id=provider_id,
         company_name=provider.company_name,
         details=provider.details,
         status=provider.status,
     )
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Provider with ID {provider_id} not found")
     return JSONResponse(content={"message": "Provider updated successfully"})
 
 
@@ -190,26 +176,22 @@ async def get_offers_by_provider(provider_id: int):
     """Get all offers for a specific provider."""
     crud = get_crud()
     offers = crud.get_offers_by_provider(provider_id)
-    return JSONResponse(
-        content=[
-            {
-                "offer_id": o.offer_id,
-                "provider_id": o.provider_id,
-                "tier_number": o.tier_number,
-                "price_per_unit": float(o.price_per_unit),
-                "status": o.status,
-                "date_creation": o.date_creation,
-                "date_last_update": o.date_last_update,
-            }
-            for o in offers
-        ]
-    )
+    return JSONResponse(content=offers)
 
 
 @router.post("/api/offers")
 async def create_offer(offer: OfferCreate):
     """Create a new offer."""
     crud = get_crud()
+
+    print(f"[API] Received offer data:")
+    print(f"  item_id: {offer.item_id}")
+    print(f"  provider_id: {offer.provider_id}")
+    print(f"  process_id: {offer.process_id}")
+    print(f"  tier_number: {offer.tier_number}")
+    print(f"  price_per_unit: {offer.price_per_unit}")
+    print(f"  status: {offer.status}")
+
     new_offer = crud.create_offer(
         item_id=offer.item_id,
         provider_id=offer.provider_id,
@@ -218,31 +200,23 @@ async def create_offer(offer: OfferCreate):
         price_per_unit=offer.price_per_unit,
         status=offer.status,
     )
-    return JSONResponse(
-        content={
-            "offer_id": new_offer.offer_id,
-            "item_id": new_offer.item_id,
-            "provider_id": new_offer.provider_id,
-            "process_id": new_offer.process_id,
-            "tier_number": new_offer.tier_number,
-            "price_per_unit": new_offer.price_per_unit,
-            "status": new_offer.status,
-            "date_creation": new_offer.date_creation,
-            "date_last_update": new_offer.date_last_update,
-        }
-    )
+
+    print(f"[API] Created offer successfully")
+    return JSONResponse(content=new_offer)
 
 
 @router.put("/api/offers/{offer_id}")
 async def update_offer(offer_id: int, offer: OfferUpdate):
     """Update an offer."""
     crud = get_crud()
-    crud.update_offer(
+    success = crud.update_offer(
         offer_id=offer_id,
         tier_number=offer.tier_number,
         price_per_unit=offer.price_per_unit,
         status=offer.status,
     )
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Offer with ID {offer_id} not found")
     return JSONResponse(content={"message": "Offer updated successfully"})
 
 
@@ -251,18 +225,9 @@ async def get_offer(offer_id: int):
     """Get a specific offer."""
     crud = get_crud()
     offer = crud.get_offer(offer_id)
-    return JSONResponse(
-        content={
-            "offer_id": offer.offer_id,
-            "item_id": offer.item_id,
-            "provider_id": offer.provider_id,
-            "tier_number": offer.tier_number,
-            "price_per_unit": float(offer.price_per_unit),
-            "status": offer.status,
-            "date_creation": offer.date_creation,
-            "date_last_update": offer.date_last_update,
-        }
-    )
+    if not offer:
+        raise HTTPException(status_code=404, detail=f"Offer with ID {offer_id} not found")
+    return JSONResponse(content=offer)
 
 
 @router.delete("/api/offers/{offer_id}")
@@ -326,18 +291,9 @@ async def create_item(item: ItemCreate):
     )
 
     if item.provider_ids is not None:
-        crud.set_providers_for_item(new_item.item_id, item.provider_ids)
+        crud.set_providers_for_item(new_item["item_id"], item.provider_ids)
 
-    return JSONResponse(
-        content={
-            "item_id": new_item.item_id,
-            "item_name": new_item.item_name,
-            "description": new_item.description,
-            "status": new_item.status,
-            "date_creation": new_item.date_creation,
-            "date_last_update": new_item.date_last_update,
-        }
-    )
+    return JSONResponse(content=new_item)
 
 
 @router.get("/api/items/{item_id}")
@@ -345,16 +301,9 @@ async def get_item(item_id: int):
     """Get a specific item."""
     crud = get_crud()
     item = crud.get_item(item_id)
-    return JSONResponse(
-        content={
-            "item_id": item.item_id,
-            "item_name": item.item_name,
-            "description": item.description,
-            "status": item.status,
-            "date_creation": item.date_creation,
-            "date_last_update": item.date_last_update,
-        }
-    )
+    if not item:
+        raise HTTPException(status_code=404, detail=f"Item with ID {item_id} not found")
+    return JSONResponse(content=item)
 
 
 @router.get("/api/items/{item_id}/providers")
@@ -366,11 +315,11 @@ async def get_item_providers(item_id: int):
     providers = []
     for provider_id in provider_ids:
         provider = crud.get_provider(provider_id)
-        if provider and provider.status == 'active':
+        if provider and provider["status"] == 'active':
             providers.append({
-                'provider_id': provider.provider_id,
-                'company_name': provider.company_name,
-                'status': provider.status
+                'provider_id': provider["provider_id"],
+                'company_name': provider["company_name"],
+                'status': provider["status"]
             })
 
     return JSONResponse(content=providers)
@@ -381,12 +330,14 @@ async def update_item(item_id: int, item: ItemUpdate):
     """Update an item and its provider associations."""
     crud = get_crud()
 
-    crud.update_item(
+    success = crud.update_item(
         item_id=item_id,
         item_name=item.item_name,
         description=item.description,
         status=item.status,
     )
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Item with ID {item_id} not found")
 
     if item.provider_ids is not None:
         crud.set_providers_for_item(item_id, item.provider_ids)
@@ -523,13 +474,21 @@ async def get_process(process_id: int):
 @router.put("/api/processes/{process_id}")
 async def update_process(process_id: int, process: ProcessUpdate):
     """Update a process."""
+    print(f"[API] update_process called for process_id: {process_id}")
+    print(f"[API] ProcessUpdate data: {process}")
+    print(f"[API] process_name: {process.process_name}")
+    print(f"[API] description: {process.description}")
+    print(f"[API] status: {process.status}")
+
     crud = get_crud()
-    crud.update_process(
+    result = crud.update_process(
         process_id=process_id,
         process_name=process.process_name,
         description=process.description,
         status=process.status,
     )
+
+    print(f"[API] update_process result: {result}")
     return JSONResponse(content={"message": "Process updated successfully"})
 
 

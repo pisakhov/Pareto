@@ -7,38 +7,77 @@ class DataService {
   }
 
   async fetchWithErrorHandling(url, options = {}) {
+    console.log('[FETCH] ========================================');
+    console.log('[FETCH] Request URL:', url);
+    console.log('[FETCH] Request Method:', options.method || 'GET');
+    console.log('[FETCH] Request Headers:', options.headers);
+    console.log('[FETCH] Request Body:', options.body);
+    console.log('[FETCH] ========================================');
+
     try {
       const response = await fetch(url, options);
+      console.log('[FETCH] Response received:');
+      console.log('  - Status:', response.status, response.statusText);
+      console.log('  - OK:', response.ok);
+      console.log('  - Headers:', Object.fromEntries(response.headers.entries()));
 
       // Handle responses without a body
       const contentLength = response.headers.get("Content-Length");
       if (contentLength === "0" || response.status === 204) {
+        console.log('[FETCH] Empty response (204 or Content-Length: 0)');
         return null;
       }
 
-      // Read the response body once
-      let data;
-      try {
-        data = await response.json();
-      } catch (e) {
-        data = await response.text();
-      }
-
+      // Check status first to avoid "body stream already read" errors
       if (!response.ok) {
+        console.log('[FETCH] ❌ Response not OK, status:', response.status);
+        // Try to read error details, but don't fail if we can't
         let errorDetail = `Request failed with status ${response.status}`;
-        if (data && typeof data === 'object' && data.detail) {
-          errorDetail = data.detail;
-        } else if (data && typeof data === 'string') {
-          errorDetail = data;
+        try {
+          const data = await response.json();
+          console.log('[FETCH] Error response JSON:', data);
+          if (data && typeof data === 'object' && data.detail) {
+            errorDetail = data.detail;
+          }
+        } catch (e) {
+          console.log('[FETCH] Failed to parse error JSON:', e.message);
+          // If JSON parsing fails, try to get text
+          try {
+            const text = await response.text();
+            console.log('[FETCH] Error response text:', text);
+            if (text) {
+              errorDetail = text;
+            }
+          } catch (textError) {
+            console.log('[FETCH] Failed to read error text:', textError.message);
+            // If both fail, use the default errorDetail
+          }
         }
-        console.error(`API Error for ${url}:`, errorDetail);
+        console.error(`[FETCH] ❌ API Error for ${url}:`, errorDetail);
         throw new Error(errorDetail);
       }
 
+      // Read the response body once - only if response is OK
+      let data;
+      try {
+        data = await response.json();
+        console.log('[FETCH] ✓ Response JSON:', data);
+      } catch (e) {
+        console.log('[FETCH] Failed to parse JSON, trying text...');
+        data = await response.text();
+        console.log('[FETCH] ✓ Response text:', data);
+      }
+
+      console.log('[FETCH] ✓ Request successful, returning data');
       return data;
     } catch (error) {
-      console.error("API Error details:", error.message, error);
+      console.error('[FETCH] ❌ Network/Request Error:');
+      console.error('  - Error name:', error.name);
+      console.error('  - Error message:', error.message);
+      console.error('  - Error stack:', error.stack);
       throw error;
+    } finally {
+      console.log('[FETCH] ========================================');
     }
   }
 
@@ -52,11 +91,16 @@ class DataService {
   }
 
   async update(entityType, id, data) {
-    return this.fetchWithErrorHandling(`${this.basePath}/${entityType}/${id}`, {
+    console.log('[DATASERVICE] update called:', { entityType, id, data });
+    const url = `${this.basePath}/${entityType}/${id}`;
+    console.log('[DATASERVICE] Making PUT request to:', url);
+    const result = await this.fetchWithErrorHandling(url, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
+    console.log('[DATASERVICE] Update result:', result);
+    return result;
   }
 
   async delete(entityType, id) {
@@ -140,6 +184,10 @@ class DataService {
 
   async deleteOffer(offerId) {
     return this.delete("offers", offerId);
+  }
+
+  async getAllOffers() {
+    return this.loadOffers();
   }
 
   async deleteOffersForItem(itemId) {
