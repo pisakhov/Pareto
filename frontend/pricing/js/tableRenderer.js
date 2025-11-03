@@ -67,31 +67,21 @@ class TableRenderer {
   getFilteredItems() {
     const currentProcessId = window.CURRENT_PROCESS_ID;
 
-    // If no current process, show all items
     if (!currentProcessId) {
       return this.data.items;
     }
 
-    // Filter offers by current process
     const offersInCurrentProcess = this.data.offers.filter(
       offer => offer.process_id === currentProcessId
     );
 
-    // Get unique item_ids from filtered offers
     const itemIdsInCurrentProcess = new Set(
       offersInCurrentProcess.map(offer => offer.item_id)
     );
 
-    // Filter items to only show those with offers in current process
     const filteredItems = this.data.items.filter(item =>
       itemIdsInCurrentProcess.has(item.item_id)
     );
-
-    console.log(`[TableRenderer] Filtered items for process ${currentProcessId}:`, {
-      totalItems: this.data.items.length,
-      filteredItems: filteredItems.length,
-      itemNames: filteredItems.map(i => i.item_name)
-    });
 
     return filteredItems;
   }
@@ -275,15 +265,10 @@ class TableRenderer {
     try {
       allocations = await dataService.fetchProviderItemAllocations() || {};
     } catch (error) {
-      console.warn('Could not load allocations:', error);
     }
 
-    // Get filtered items based on current process
     const items = this.getFilteredItems();
 
-    console.log(`[TableRenderer] Creating matrix for ${items.length} items (process ${window.CURRENT_PROCESS_ID || 'all'})`);
-
-    // Calculate total files per provider across CURRENT PROCESS items and determine tier
     const providerTotals = new Map();
     const providerCurrentTiers = new Map();
     const providersExceedingTiers = new Set();
@@ -498,7 +483,6 @@ class TableRenderer {
           const response = await fetch(`/api/providers/${provider.provider_id}/tier-thresholds`);
           tierData[provider.provider_id] = await response.json();
         } catch (error) {
-          console.warn(`Could not load tiers for provider ${provider.provider_id}:`, error);
           tierData[provider.provider_id] = { thresholds: {}, base_prices: {} };
         }
       })
