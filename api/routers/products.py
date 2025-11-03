@@ -66,9 +66,10 @@ async def get_products():
                 "product_id": p[0],
                 "name": p[1],
                 "description": p[2],
-                "status": p[3],
-                "date_creation": p[4],
-                "date_last_update": p[5],
+                "proxy_quantity": p[3],
+                "status": p[4],
+                "date_creation": p[5],
+                "date_last_update": p[6],
                 "item_ids": item_ids,
             }
         )

@@ -54,6 +54,10 @@ const modalManager = {
             if (window.forecastManager) {
                 window.forecastManager.reset();
             }
+
+            if (window.chartManager) {
+                window.chartManager.destroyChart();
+            }
         }
     },
 

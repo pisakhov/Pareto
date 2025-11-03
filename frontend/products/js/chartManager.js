@@ -4,8 +4,19 @@
 window.chartManager = (function() {
     let chart = null;
 
+    // Destroy existing chart
+    function destroyChart() {
+        if (chart) {
+            chart.destroy();
+            chart = null;
+        }
+    }
+
     // Initialize the chart
     function initChart() {
+        // Destroy any existing chart first
+        destroyChart();
+
         const ctx = document.getElementById('forecastActualsChart');
         if (!ctx) return;
 
@@ -212,6 +223,7 @@ window.chartManager = (function() {
     // Return public API
     return {
         initChart: initChart,
+        destroyChart: destroyChart,
         updateForecastData: updateForecastData,
         updateActualData: updateActualData,
         updateChartData: updateChartData,
