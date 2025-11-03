@@ -32,12 +32,18 @@ class FormHandler {
         const data = {
             name: formData.get('name'),
             description: formData.get('description') || '',
-            proxy_quantity: parseInt(formData.get('proxy_quantity')) || 0,
             status: formData.get('status'),
             item_ids: itemIds,
             allocations: window.itemManager.getAllocationData(),
             price_multipliers: window.contractAdjustments.getMultiplierData(),
+            forecasts: window.forecastManager.getForecastData(),
+            actuals: window.forecastManager.getActualData(),
         };
+
+        console.log('[FormHandler] Form submission data:', {
+            editingProductId: window.editingProductId,
+            data: data
+        });
 
         try {
             await this.dataService.saveProduct(data, window.editingProductId);
@@ -48,7 +54,7 @@ class FormHandler {
                 'success'
             );
         } catch (error) {
-            console.error('Error saving product:', error);
+            console.error('[FormHandler] Error saving product:', error);
             this.uiManager.showNotification(error.message, 'error');
         }
     }
@@ -63,8 +69,12 @@ class FormHandler {
             document.getElementById('productId').value = product.product_id;
             document.getElementById('productName').value = product.name;
             document.getElementById('productDescription').value = product.description;
-            document.getElementById('proxyQuantity').value = product.proxy_quantity || 0;
             document.getElementById('productStatus').value = product.status;
+
+            // Load forecasts and actuals
+            if (window.forecastManager) {
+                window.forecastManager.loadFromProduct(product);
+            }
 
             // Load items into itemManager
             if (window.itemManager) {
@@ -152,20 +162,14 @@ class FormHandler {
                     <div class="flex items-center justify-between mb-2">
                         <h4 class="text-xl font-bold text-foreground">${this.escapeHtml(product.name)}</h4>
                         <span class="px-3 py-1 text-sm rounded-full ${
-                            product.status === 'active' 
-                                ? 'bg-green-100 text-green-800' 
+                            product.status === 'active'
+                                ? 'bg-green-100 text-green-800'
                                 : 'bg-gray-100 text-gray-800'
                         }">
                             ${product.status}
                         </span>
                     </div>
                     ${product.description ? `<p class="text-muted-foreground">${this.escapeHtml(product.description)}</p>` : ''}
-                    ${product.proxy_quantity > 0 ? `
-                        <div class="mt-2 flex items-center gap-2 text-sm">
-                            <span class="text-muted-foreground">Proxy Quantity:</span>
-                            <span class="font-semibold text-foreground">${product.proxy_quantity.toLocaleString()} files</span>
-                        </div>
-                    ` : ''}
                 </div>
 
                 <div>
@@ -266,6 +270,60 @@ class FormHandler {
                     `;
                 }
                 
+                content += '</div></div>';
+            }
+
+            // Display Forecasts
+            if (product.forecasts && product.forecasts.length > 0) {
+                const monthNames = [
+                    'January', 'February', 'March', 'April', 'May', 'June',
+                    'July', 'August', 'September', 'October', 'November', 'December'
+                ];
+
+                content += '<div><h5 class="font-semibold mb-3">Forecasts</h5><div class="space-y-2">';
+
+                product.forecasts.forEach(forecast => {
+                    content += `
+                        <div class="flex items-center justify-between p-2 border border-green-200 bg-green-50 rounded-md">
+                            <div class="flex items-center gap-3">
+                                <span class="text-sm font-medium text-foreground">
+                                    ${monthNames[forecast.month - 1]} ${forecast.year}
+                                </span>
+                            </div>
+                            <span class="text-sm font-semibold text-green-600">
+                                ${forecast.forecast_units.toLocaleString()} units
+                            </span>
+                        </div>
+                    `;
+                });
+
+                content += '</div></div>';
+            }
+
+            // Display Actuals
+            if (product.actuals && product.actuals.length > 0) {
+                const monthNames = [
+                    'January', 'February', 'March', 'April', 'May', 'June',
+                    'July', 'August', 'September', 'October', 'November', 'December'
+                ];
+
+                content += '<div><h5 class="font-semibold mb-3 mt-4">Actuals</h5><div class="space-y-2">';
+
+                product.actuals.forEach(actual => {
+                    content += `
+                        <div class="flex items-center justify-between p-2 border border-blue-200 bg-blue-50 rounded-md">
+                            <div class="flex items-center gap-3">
+                                <span class="text-sm font-medium text-foreground">
+                                    ${monthNames[actual.month - 1]} ${actual.year}
+                                </span>
+                            </div>
+                            <span class="text-sm font-semibold text-blue-600">
+                                ${actual.actual_units.toLocaleString()} units
+                            </span>
+                        </div>
+                    `;
+                });
+
                 content += '</div></div>';
             }
 

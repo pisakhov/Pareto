@@ -26,21 +26,23 @@ templates = Jinja2Templates(directory=FRONTEND_DIR)
 class ProductCreate(BaseModel):
     name: str
     description: Optional[str] = ""
-    proxy_quantity: Optional[int] = 0
     status: Optional[str] = "active"
     item_ids: Optional[List[int]] = []
     allocations: Optional[Dict[str, Any]] = None
     price_multipliers: Optional[Dict[int, Any]] = None
+    forecasts: Optional[List[Dict[str, Any]]] = None
+    actuals: Optional[List[Dict[str, Any]]] = None
 
 
 class ProductUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
-    proxy_quantity: Optional[int] = None
     status: Optional[str] = None
     item_ids: Optional[List[int]] = None
     allocations: Optional[Dict[str, Any]] = None
     price_multipliers: Optional[Dict[int, Any]] = None
+    forecasts: Optional[List[Dict[str, Any]]] = None
+    actuals: Optional[List[Dict[str, Any]]] = None
 
 
 @router.get("/products", response_class=HTMLResponse)
@@ -54,20 +56,23 @@ async def products_page(request: Request):
 async def get_products():
     """Get all products with their items."""
     crud = get_crud()
-    products = repo.get_all_products()
+    products = crud.get_all_products()
+
+    print(f"[Products API] Retrieved {len(products)} products from database")
+    print(f"[Products API] Products data: {products}")
 
     result = []
     for p in products:
-        item_ids = repo.get_item_ids_for_product(p.product_id)
+        print(f"[Products API] Processing product: {p}")
+        item_ids = crud.get_item_ids_for_product(p[0])
         result.append(
             {
-                "product_id": p.product_id,
-                "name": p.name,
-                "description": p.description,
-                "proxy_quantity": p.proxy_quantity,
-                "status": p.status,
-                "date_creation": p.date_creation,
-                "date_last_update": p.date_last_update,
+                "product_id": p[0],
+                "name": p[1],
+                "description": p[2],
+                "status": p[3],
+                "date_creation": p[4],
+                "date_last_update": p[5],
                 "item_ids": item_ids,
             }
         )
@@ -78,31 +83,49 @@ async def get_products():
 async def create_product(product: ProductCreate):
     """Create a new product."""
     crud = get_crud()
-    new_product = repo.create_product(
+    new_product = crud.create_product(
         name=product.name,
         description=product.description,
-        proxy_quantity=product.proxy_quantity,
         status=product.status,
     )
 
     if product.item_ids:
-        repo.set_items_for_product(new_product.product_id, product.item_ids)
+        crud.set_items_for_product(new_product['product_id'], product.item_ids)
 
     if product.allocations:
-        repo.set_allocations_for_product(new_product.product_id, product.allocations)
+        crud.set_allocations_for_product(new_product['product_id'], product.allocations)
 
     if product.price_multipliers:
-        repo.set_price_multipliers_for_product(new_product.product_id, product.price_multipliers)
+        crud.set_price_multipliers_for_product(new_product['product_id'], product.price_multipliers)
+
+    # Handle forecasts
+    if product.forecasts:
+        for forecast in product.forecasts:
+            crud.create_forecast(
+                product_id=new_product['product_id'],
+                year=forecast.get('year'),
+                month=forecast.get('month'),
+                forecast_units=forecast.get('forecast_units')
+            )
+
+    # Handle actuals
+    if product.actuals:
+        for actual in product.actuals:
+            crud.create_actual(
+                product_id=new_product['product_id'],
+                year=actual.get('year'),
+                month=actual.get('month'),
+                actual_units=actual.get('actual_units')
+            )
 
     return JSONResponse(
         content={
-            "product_id": new_product.product_id,
-            "name": new_product.name,
-            "description": new_product.description,
-            "proxy_quantity": new_product.proxy_quantity,
-            "status": new_product.status,
-            "date_creation": new_product.date_creation,
-            "date_last_update": new_product.date_last_update,
+            "product_id": new_product['product_id'],
+            "name": new_product['name'],
+            "description": new_product['description'],
+            "status": new_product['status'],
+            "date_creation": new_product['date_creation'],
+            "date_last_update": new_product['date_last_update'],
             "item_ids": product.item_ids,
         }
     )
@@ -111,7 +134,7 @@ async def create_product(product: ProductCreate):
 
 
 @router.get("/api/products/pricing-details")
-async def get_products_pricing_details():
+async def get_products_pricing_details(process_id: int = 1):
     """Get pricing details for all products including per-item rates."""
     crud = get_crud()
 
@@ -119,8 +142,8 @@ async def get_products_pricing_details():
     result = {}
 
     for product in products:
-        allocations = crud.get_allocations_for_product(product.product_id)
-        price_multipliers = crud.get_price_multipliers_for_product(product.product_id)
+        allocations = crud.get_allocations_for_product(product[0])
+        price_multipliers = crud.get_price_multipliers_for_product(product[0])
 
         product_pricing = {}
 
@@ -138,8 +161,8 @@ async def get_products_pricing_details():
                 tier_data = crud.get_provider_tier_thresholds(provider_id)
                 thresholds = tier_data.get('thresholds', {})
 
-                allocations_data = crud.get_provider_item_allocations()
-                provider_items = allocations_data.get('provider_items', {})
+                allocations_data = crud.get_all_allocations()
+                provider_items = allocations_data
                 total_files = 0
                 if str(provider_id) in provider_items:
                     for item_data in provider_items[str(provider_id)].values():
@@ -154,7 +177,7 @@ async def get_products_pricing_details():
                             break
                         current_tier = tier
 
-                base_price = crud.get_price_for_item_at_tier(provider_id, item_id, current_tier)
+                base_price = crud.get_price_for_item_at_tier(provider_id, item_id, current_tier, process_id)
                 if base_price:
 
                     multiplier = 1.0
@@ -168,7 +191,7 @@ async def get_products_pricing_details():
                     final_price = base_price * multiplier
                     item_prices.append({
                         'provider_id': provider_id,
-                        'provider_name': provider.company_name,
+                        'provider_name': provider['company_name'],
                         'tier': current_tier,
                         'base_price': base_price,
                         'multiplier': multiplier,
@@ -178,7 +201,7 @@ async def get_products_pricing_details():
             if item_prices:
                 product_pricing[str(item_id)] = item_prices[0] if len(item_prices) == 1 else item_prices
 
-        result[str(product.product_id)] = product_pricing
+        result[str(product[0])] = product_pricing
 
     return JSONResponse(content=result)
 
@@ -187,52 +210,130 @@ async def get_products_pricing_details():
 async def get_product(product_id: int):
     """Get a specific product."""
     crud = get_crud()
-    product = repo.get_product(product_id)
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
 
-    item_ids = repo.get_item_ids_for_product(product.product_id)
-    allocations = repo.get_allocations_for_product(product.product_id)
-    price_multipliers = repo.get_price_multipliers_for_product(product.product_id)
+    print(f"[Products API] Loading product ID: {product_id}")
 
-    return JSONResponse(
-        content={
-            "product_id": product.product_id,
-            "name": product.name,
-            "description": product.description,
-            "proxy_quantity": product.proxy_quantity,
-            "status": product.status,
-            "date_creation": product.date_creation,
-            "date_last_update": product.date_last_update,
-            "item_ids": item_ids,
-            "allocations": allocations,
-            "price_multipliers": price_multipliers,
-        }
-    )
+    try:
+        product = crud.get_product(product_id)
+        print(f"[Products API] Retrieved product from database: {product}")
+
+        if not product:
+            print(f"[Products API] Product not found in database")
+            raise HTTPException(status_code=404, detail="Product not found")
+
+        print(f"[Products API] Getting item IDs for product")
+        item_ids = crud.get_item_ids_for_product(product['product_id'])
+        print(f"[Products API] Item IDs: {item_ids}")
+
+        print(f"[Products API] Getting allocations for product")
+        allocations = crud.get_allocations_for_product(product['product_id'])
+        print(f"[Products API] Allocations: {allocations}")
+
+        print(f"[Products API] Getting price multipliers for product")
+        price_multipliers = crud.get_price_multipliers_for_product(product['product_id'])
+        print(f"[Products API] Price multipliers: {price_multipliers}")
+
+        # Get forecasts
+        print(f"[Products API] Getting forecasts for product")
+        forecasts = crud.get_forecasts_for_product(product_id)
+        print(f"[Products API] Retrieved {len(forecasts)} forecasts")
+        forecasts_data = [{
+            "forecast_id": f['forecast_id'],
+            "year": f['year'],
+            "month": f['month'],
+            "forecast_units": f['forecast_units'],
+            "date_creation": f['date_creation'],
+            "date_last_update": f['date_last_update']
+        } for f in forecasts]
+
+        # Get actuals
+        print(f"[Products API] Getting actuals for product")
+        actuals = crud.get_actuals_for_product(product_id)
+        print(f"[Products API] Retrieved {len(actuals)} actuals")
+        actuals_data = [{
+            "actual_id": a['actual_id'],
+            "year": a['year'],
+            "month": a['month'],
+            "actual_units": a['actual_units'],
+            "date_creation": a['date_creation'],
+            "date_last_update": a['date_last_update']
+        } for a in actuals]
+
+        print(f"[Products API] Successfully loaded all product data")
+
+        return JSONResponse(
+            content={
+                "product_id": product['product_id'],
+                "name": product['name'],
+                "description": product['description'],
+                "status": product['status'],
+                "date_creation": product['date_creation'],
+                "date_last_update": product['date_last_update'],
+                "item_ids": item_ids,
+                "allocations": allocations,
+                "price_multipliers": price_multipliers,
+                "forecasts": forecasts_data,
+                "actuals": actuals_data,
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[Products API] Exception in get_product: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
 @router.put("/api/products/{product_id}")
 async def update_product(product_id: int, product: ProductUpdate):
     """Update a product."""
     crud = get_crud()
-    success = repo.update_product(
+    success = crud.update_product(
         product_id=product_id,
         name=product.name,
         description=product.description,
-        proxy_quantity=product.proxy_quantity,
         status=product.status,
     )
     if not success:
         raise HTTPException(status_code=404, detail="Product not found")
 
     if product.item_ids is not None:
-        repo.set_items_for_product(product_id, product.item_ids)
+        crud.set_items_for_product(product_id, product.item_ids)
 
     if product.allocations is not None:
-        repo.set_allocations_for_product(product_id, product.allocations)
+        crud.set_allocations_for_product(product_id, product.allocations)
 
     if product.price_multipliers is not None:
-        repo.set_price_multipliers_for_product(product_id, product.price_multipliers)
+        crud.set_price_multipliers_for_product(product_id, product.price_multipliers)
+
+    # Handle forecasts - delete all existing and recreate
+    if product.forecasts is not None:
+        existing_forecasts = crud.get_forecasts_for_product(product_id)
+        for forecast in existing_forecasts:
+            crud.delete_forecast(forecast['forecast_id'])
+
+        for forecast_data in product.forecasts:
+            crud.create_forecast(
+                product_id=product_id,
+                year=forecast_data.get('year'),
+                month=forecast_data.get('month'),
+                forecast_units=forecast_data.get('forecast_units')
+            )
+
+    # Handle actuals - delete all existing and recreate
+    if product.actuals is not None:
+        existing_actuals = crud.get_actuals_for_product(product_id)
+        for actual in existing_actuals:
+            crud.delete_actual(actual['actual_id'])
+
+        for actual_data in product.actuals:
+            crud.create_actual(
+                product_id=product_id,
+                year=actual_data.get('year'),
+                month=actual_data.get('month'),
+                actual_units=actual_data.get('actual_units')
+            )
 
     return JSONResponse(content={"message": "Product updated successfully"})
 
@@ -246,7 +347,17 @@ async def update_product(product_id: int, product: ProductUpdate):
 async def delete_product(product_id: int):
     """Delete a product."""
     crud = get_crud()
-    repo.delete_product(product_id)
+
+    # Delete forecasts and actuals for this product
+    forecasts = crud.get_forecasts_for_product(product_id)
+    for forecast in forecasts:
+        crud.delete_forecast(forecast['forecast_id'])
+
+    actuals = crud.get_actuals_for_product(product_id)
+    for actual in actuals:
+        crud.delete_actual(actual['actual_id'])
+
+    crud.delete_product(product_id)
     return JSONResponse(content={"message": "Product deleted successfully"})
 
 
@@ -254,7 +365,7 @@ async def delete_product(product_id: int):
 async def get_product_items(product_id: int):
     """Get all items for a specific product."""
     crud = get_crud()
-    items = repo.get_items_for_product(product_id)
+    items = crud.get_items_for_product(product_id)
     return JSONResponse(
         content=[
             {

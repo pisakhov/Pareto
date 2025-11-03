@@ -945,13 +945,25 @@ class CRUDOperations(DatabaseSchema):
         results = conn.execute("SELECT * FROM forecasts ORDER BY year DESC, month DESC").fetchall()
         return [result for result in results]
 
-    def get_forecasts_for_product(self, product_id: int) -> List[Any]:
+    def get_forecasts_for_product(self, product_id: int) -> List[Dict[str, Any]]:
         conn = self._get_connection()
         results = conn.execute(
             "SELECT * FROM forecasts WHERE product_id = ? ORDER BY year DESC, month DESC",
             [product_id]
         ).fetchall()
-        return [result for result in results]
+
+        forecasts = []
+        for result in results:
+            forecasts.append({
+                "forecast_id": result[0],
+                "product_id": result[1],
+                "year": result[2],
+                "month": result[3],
+                "forecast_units": result[4],
+                "date_creation": result[5],
+                "date_last_update": result[6]
+            })
+        return forecasts
 
     def update_forecast(self, forecast_id: int, forecast_units: int = None) -> bool:
         conn = self._get_connection()
@@ -1016,13 +1028,25 @@ class CRUDOperations(DatabaseSchema):
         results = conn.execute("SELECT * FROM actuals ORDER BY year DESC, month DESC").fetchall()
         return [result for result in results]
 
-    def get_actuals_for_product(self, product_id: int) -> List[Any]:
+    def get_actuals_for_product(self, product_id: int) -> List[Dict[str, Any]]:
         conn = self._get_connection()
         results = conn.execute(
             "SELECT * FROM actuals WHERE product_id = ? ORDER BY year DESC, month DESC",
             [product_id]
         ).fetchall()
-        return [result for result in results]
+
+        actuals = []
+        for result in results:
+            actuals.append({
+                "actual_id": result[0],
+                "product_id": result[1],
+                "year": result[2],
+                "month": result[3],
+                "actual_units": result[4],
+                "date_creation": result[5],
+                "date_last_update": result[6]
+            })
+        return actuals
 
     def update_actual(self, actual_id: int, actual_units: int = None) -> bool:
         conn = self._get_connection()

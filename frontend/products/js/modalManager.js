@@ -13,10 +13,15 @@ const modalManager = {
             form.reset();
             window.editingProductId = null;
             title.textContent = 'Add Product';
-            
+
             // Reset itemManager
             if (window.itemManager) {
                 window.itemManager.reset();
+            }
+
+            // Reset forecastManager
+            if (window.forecastManager) {
+                window.forecastManager.reset();
             }
         }
 
@@ -33,14 +38,18 @@ const modalManager = {
         if (modal) {
             modal.classList.add('hidden');
             modal.classList.remove('flex');
-            
+
             if (window.itemManager) {
                 window.itemManager.reset();
             }
-            
+
             if (window.contractAdjustments) {
                 window.contractAdjustments.renderAdjustments([]);
                 window.contractAdjustments.multipliers = {};
+            }
+
+            if (window.forecastManager) {
+                window.forecastManager.reset();
             }
         }
     },
@@ -63,9 +72,6 @@ const modalManager = {
 
     setupModalHandlers() {
         document.addEventListener('click', (event) => {
-            if (event.target.id === 'productModal') {
-                this.closeProductModal();
-            }
             if (event.target.id === 'productViewModal') {
                 this.closeViewModal();
             }

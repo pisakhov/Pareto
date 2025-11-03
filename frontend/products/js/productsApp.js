@@ -24,6 +24,7 @@ class ProductsApp {
         this.components.modalManager = modalManager;
         this.components.uiManager = uiManager;
         this.components.tableRenderer = new TableRenderer();
+        this.components.forecastManager = new ForecastManager();
         this.components.formHandler = new FormHandler(
             this.components.dataService,
             this.components.modalManager,
@@ -35,6 +36,7 @@ class ProductsApp {
         window.modalManager = this.components.modalManager;
         window.uiManager = this.components.uiManager;
         window.tableRenderer = this.components.tableRenderer;
+        window.forecastManager = this.components.forecastManager;
         window.formHandler = this.components.formHandler;
     }
 
@@ -61,6 +63,7 @@ class ProductsApp {
 
         this.components.modalManager.setupModalHandlers();
         this.components.formHandler.setupForms();
+        this.components.forecastManager.setupEventHandlers();
     }
 
     handleFilter() {
