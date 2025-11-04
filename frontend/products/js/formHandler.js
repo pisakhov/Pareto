@@ -55,7 +55,9 @@ class FormHandler {
 
     async editProduct(productId) {
         try {
+            console.log('[EDIT PRODUCT] Starting to edit product:', productId);
             const product = await this.dataService.getProduct(productId);
+            console.log('[EDIT PRODUCT] Product loaded:', product);
 
             window.editingProductId = productId;
             document.getElementById('productModalTitle').textContent = 'Edit Product';
@@ -72,27 +74,48 @@ class FormHandler {
 
             // Load items into itemManager
             if (window.itemManager) {
+                console.log('[EDIT PRODUCT] Resetting itemManager');
                 window.itemManager.reset();
-                
-                // Add each item with its providers
+
+                // Add each item
+                console.log('[EDIT PRODUCT] Adding items:', product.item_ids);
                 for (const itemId of product.item_ids) {
-                    await window.itemManager.addItemAllocation(itemId);
+                    console.log('[EDIT PRODUCT] Adding item:', itemId);
+                    await window.itemManager.addItem(itemId);
                 }
+                console.log('[EDIT PRODUCT] All items added successfully');
                 
                 // Restore allocations
                 if (product.allocations) {
-                    for (const [itemIdStr, allocation] of Object.entries(product.allocations)) {
-                        const itemId = parseInt(itemIdStr);
-                        const data = window.itemManager.itemAllocations.get(itemId);
-                        if (data) {
-                            data.allocation.mode = allocation.mode;
-                            data.allocation.locked = allocation.locked;
-                            data.allocation.lockedProviderId = allocation.lockedProviderId;
-                            
-                            // Restore provider values (from list format)
+                    // Check if this is collective format or legacy per-item format
+                    const isCollectiveFormat = !Object.keys(product.allocations).some(k => {
+                        const keyStr = String(k);
+                        // Try to parse as integer to see if it's an item ID
+                        const parsed = parseInt(keyStr);
+                        return !isNaN(parsed) && parsed.toString() === keyStr && parsed > 0;
+                    });
+
+                    if (isCollectiveFormat) {
+                        // Collective allocation format
+                        const allocation = product.allocations;
+                        if (window.itemManager.collectiveAllocation) {
+                            window.itemManager.collectiveAllocation.mode = allocation.mode;
+                            window.itemManager.collectiveAllocation.locked = allocation.locked;
+                            window.itemManager.collectiveAllocation.lockedProviderId = allocation.lockedProviderId;
+
+                            // Restore provider values
                             allocation.providers.forEach(provider => {
-                                data.allocation.providerValues.set(provider.provider_id, provider.value);
+                                window.itemManager.collectiveAllocation.providerValues.set(provider.provider_id, provider.value);
                             });
+                        }
+                    } else {
+                        // Legacy per-item format
+                        for (const [itemIdStr, allocation] of Object.entries(product.allocations)) {
+                            const itemId = parseInt(itemIdStr);
+                            // For legacy format, we can't easily restore per-item allocations
+                            // since we're now using collective allocations
+                            // This is a limitation - legacy products with different per-item allocations
+                            // will need to be migrated to collective format
                         }
                     }
                     window.itemManager.render();
@@ -105,16 +128,17 @@ class FormHandler {
 
             // Render Pricing Adjustments for current items
             if (window.itemManager && window.contractAdjustments) {
-                const selectedItems = Array.from(window.itemManager.itemAllocations.entries()).map(([id, data]) => ({
-                    id: id,
-                    name: data.item.item_name
+                const selectedItems = window.itemManager.selectedItems.map(item => ({
+                    id: item.item_id,
+                    name: item.item_name
                 }));
                 window.contractAdjustments.renderAdjustments(selectedItems);
             }
 
             this.modalManager.showProductModal(true);
         } catch (error) {
-            this.uiManager.showNotification('Failed to load product', 'error');
+            console.error('[EDIT PRODUCT] Error:', error);
+            this.uiManager.showNotification('Failed to load product: ' + error.message, 'error');
         }
     }
 
@@ -141,9 +165,82 @@ class FormHandler {
 
     async viewProduct(productId) {
         try {
+            console.log('=== VIEW PRODUCT DEBUG ===');
+            console.log('Fetching product:', productId);
+
+            const product = await this.dataService.getProduct(productId);
+            console.log('Product data received:', product);
+
+            const pricingDetails = await this.dataService.loadProductsPricing();
+            console.log('Pricing details received:', pricingDetails);
+
+            console.log('=== END VIEW PRODUCT DEBUG ===');
+
+            // Initialize and render the Product Report Dashboard
+            window.modalManager.showViewModal();
+            const dashboard = new window.ProductReportDashboard(product, pricingDetails);
+            await dashboard.init();
+
+            // Store reference for cleanup
+            window.currentProductDashboard = dashboard;
+
+            // Add global functions for export/print
+            window.exportDashboardData = () => this.exportDashboardToCSV(product);
+            window.printDashboard = () => window.print();
+
+        } catch (error) {
+            console.error('Error viewing product:', error);
+            alert('Error loading product details. Please try again.');
+        }
+    }
+
+    exportDashboardToCSV(product) {
+        const forecasts = product.forecasts || [];
+        const actuals = product.actuals || [];
+
+        let csv = 'Month,Year,Forecast,Actual,Variance,Variance %,Accuracy\n';
+
+        // Create a map for quick lookup
+        const actualsMap = new Map();
+        actuals.forEach(a => {
+            const key = `${a.year}-${a.month}`;
+            actualsMap.set(key, a.actual_units);
+        });
+
+        forecasts.forEach(f => {
+            const key = `${f.year}-${f.month}`;
+            const actual = actualsMap.get(key) || 0;
+            const variance = actual - f.forecast_units;
+            const variancePercent = f.forecast_units > 0 ? (variance / f.forecast_units * 100).toFixed(2) : 0;
+            const accuracy = f.forecast_units > 0 ? (100 - Math.abs(variancePercent)).toFixed(2) : 0;
+
+            const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            csv += `${monthNames[f.month]},${f.year},${f.forecast_units},${actual},${variance},${variancePercent}%,${accuracy}%\n`;
+        });
+
+        // Download CSV
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `product-${product.product_id}-forecast-report.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    async viewProductOld(productId) {
+        try {
             const product = await this.dataService.getProduct(productId);
             const items = await this.dataService.loadItems();
-            
+
             const itemsMap = {};
             items.forEach(item => {
                 itemsMap[item.item_id] = item.item_name;
@@ -180,11 +277,11 @@ class FormHandler {
 
             if (product.allocations && Object.keys(product.allocations).length > 0) {
                 content += '<div><h5 class="font-semibold mb-3">Provider Allocations</h5><div class="space-y-4">';
-                
+
                 for (const [itemId, allocation] of Object.entries(product.allocations)) {
                     const itemName = itemsMap[itemId] || `Item ${itemId}`;
                     const total = allocation.providers.reduce((sum, p) => sum + p.value, 0);
-                    
+
                     content += `
                         <div class="border border-border rounded-lg p-4">
                             <div class="flex items-center justify-between mb-3">

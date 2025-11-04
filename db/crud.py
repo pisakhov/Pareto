@@ -427,20 +427,59 @@ class CRUDOperations(DatabaseSchema):
         now = datetime.now().isoformat()
         conn.execute("DELETE FROM product_item_allocations WHERE product_id = ?", [product_id])
 
-        for item_id_str, allocation in allocations_data.items():
-            item_id = int(item_id_str)
+        # Check if this is the new collective allocation format or legacy per-item format
+        # New format: single allocation object (no item_id keys)
+        # Legacy format: {item_id: {allocation}}
+        first_key = next(iter(allocations_data.keys())) if allocations_data else None
+
+        # If the first key is a positive integer (item_id), it's the legacy format
+        # Otherwise, it's the new collective format
+        is_legacy_format = False
+        if first_key is not None:
+            try:
+                parsed = int(str(first_key))
+                is_legacy_format = parsed > 0
+            except (ValueError, TypeError):
+                # Can't parse as integer, so it's likely a field name (collective format)
+                is_legacy_format = False
+
+        if is_legacy_format:
+            # Legacy per-item allocation format
+            for item_id_str, allocation in allocations_data.items():
+                item_id = int(item_id_str)
+                mode = allocation.get('mode', 'percentage')
+                locked = allocation.get('locked', False)
+
+                for provider in allocation.get('providers', []):
+                    provider_id = provider.get('provider_id')
+                    value = provider.get('value', 0)
+
+                    if value > 0 or (locked and provider_id == allocation.get('lockedProviderId')):
+                        conn.execute(
+                            "INSERT INTO product_item_allocations (product_id, item_id, provider_id, allocation_mode, allocation_value, is_locked, date_creation, date_last_update) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                            [product_id, item_id, provider_id, mode, value, locked, now, now]
+                        )
+        else:
+            # New collective allocation format - apply same allocation to ALL items in product
+            allocation = allocations_data
             mode = allocation.get('mode', 'percentage')
             locked = allocation.get('locked', False)
+            locked_provider_id = allocation.get('lockedProviderId')
+
+            # Get all items for this product
+            item_ids = self.get_item_ids_for_product(product_id)
 
             for provider in allocation.get('providers', []):
                 provider_id = provider.get('provider_id')
                 value = provider.get('value', 0)
 
-                if value > 0 or (locked and provider_id == allocation.get('lockedProviderId')):
-                    conn.execute(
-                        "INSERT INTO product_item_allocations (product_id, item_id, provider_id, allocation_mode, allocation_value, is_locked, date_creation, date_last_update) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                        [product_id, item_id, provider_id, mode, value, locked, now, now]
-                    )
+                # Apply this allocation to ALL items in the product
+                for item_id in item_ids:
+                    if value > 0 or (locked and provider_id == locked_provider_id):
+                        conn.execute(
+                            "INSERT INTO product_item_allocations (product_id, item_id, provider_id, allocation_mode, allocation_value, is_locked, date_creation, date_last_update) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                            [product_id, item_id, provider_id, mode, value, locked, now, now]
+                        )
 
     def get_allocations_for_product(self, product_id: int) -> dict:
         conn = self._get_connection()
@@ -461,7 +500,8 @@ class CRUDOperations(DatabaseSchema):
             [product_id]
         ).fetchall()
 
-        allocations = {}
+        # Group allocations by item_id
+        item_allocations = {}
         for row in results:
             item_id = row[0]
             provider_id = row[1]
@@ -470,24 +510,79 @@ class CRUDOperations(DatabaseSchema):
             value = float(row[4])
             is_locked = row[5]
 
-            if item_id not in allocations:
-                allocations[item_id] = {
+            if item_id not in item_allocations:
+                item_allocations[item_id] = {
                     'mode': mode,
                     'locked': is_locked,
                     'lockedProviderId': None,
                     'providers': []
                 }
 
-            allocations[item_id]['providers'].append({
+            item_allocations[item_id]['providers'].append({
                 'provider_id': provider_id,
                 'provider_name': provider_name,
                 'value': value
             })
 
             if is_locked and value > 0:
-                allocations[item_id]['lockedProviderId'] = provider_id
+                item_allocations[item_id]['lockedProviderId'] = provider_id
 
-        return allocations
+        # If we have allocations, check if all items have the same allocation (collective allocation)
+        if item_allocations:
+            # Convert to list for comparison
+            item_ids = sorted(item_allocations.keys())
+            first_item_id = item_ids[0]
+            first_allocation = item_allocations[first_item_id]
+
+            # Check if all other items have the same allocation as the first item
+            all_same = True
+            for item_id in item_ids[1:]:
+                current = item_allocations[item_id]
+
+                # Compare mode
+                if current['mode'] != first_allocation['mode']:
+                    all_same = False
+                    break
+
+                # Compare locked status
+                if current['locked'] != first_allocation['locked']:
+                    all_same = False
+                    break
+
+                # Compare lockedProviderId
+                if current['lockedProviderId'] != first_allocation['lockedProviderId']:
+                    all_same = False
+                    break
+
+                # Compare providers (sorted by provider_id)
+                current_providers = sorted(current['providers'], key=lambda p: p['provider_id'])
+                first_providers = sorted(first_allocation['providers'], key=lambda p: p['provider_id'])
+
+                if len(current_providers) != len(first_providers):
+                    all_same = False
+                    break
+
+                for i, provider in enumerate(current_providers):
+                    if (provider['provider_id'] != first_providers[i]['provider_id'] or
+                        provider['value'] != first_providers[i]['value']):
+                        all_same = False
+                        break
+
+                if not all_same:
+                    break
+
+            # If all items have the same allocation, return collective format
+            if all_same:
+                collective = {
+                    'mode': first_allocation['mode'],
+                    'locked': first_allocation['locked'],
+                    'lockedProviderId': first_allocation['lockedProviderId'],
+                    'providers': first_allocation['providers']
+                }
+                return collective
+
+        # Otherwise, return per-item format (legacy)
+        return item_allocations
 
     def get_all_allocations(self) -> Dict[str, Any]:
         """Get all provider-item allocations aggregated."""

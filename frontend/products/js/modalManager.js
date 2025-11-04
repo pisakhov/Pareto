@@ -72,18 +72,22 @@ const modalManager = {
     closeViewModal() {
         const modal = document.getElementById('productViewModal');
         if (modal) {
+            // Destroy the dashboard instance if it exists
+            if (window.currentProductDashboard) {
+                window.currentProductDashboard.destroy();
+                window.currentProductDashboard = null;
+            }
+
+            // Clear global functions
+            window.exportDashboardData = null;
+            window.printDashboard = null;
+
             modal.classList.add('hidden');
             modal.classList.remove('flex');
         }
     },
 
     setupModalHandlers() {
-        document.addEventListener('click', (event) => {
-            if (event.target.id === 'productViewModal') {
-                this.closeViewModal();
-            }
-        });
-
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
                 this.closeProductModal();
