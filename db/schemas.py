@@ -20,7 +20,6 @@ class Provider:
     status: str
     date_creation: str
     date_last_update: str
-    tier_thresholds: str = None
 
 
 @dataclass
@@ -110,27 +109,18 @@ class Contract:
     contract_id: int
     provider_id: int
     contract_name: str
-    min_monthly_volume: float
-    min_monthly_cost: float
     status: str
     date_creation: str
     date_last_update: str
 
 
 @dataclass
-class ContractRule:
+class ContractTier:
+    contract_tier_id: int
     contract_id: int
-    rule_type: str
-    rule_value: float
-    rule_config: str
-    date_creation: str
-
-
-@dataclass
-class ProviderTierOverride:
-    provider_id: int
-    manual_tier: int
-    notes: str
+    tier_number: int
+    threshold_units: int
+    is_selected: bool
     date_creation: str
     date_last_update: str
 
@@ -195,7 +185,6 @@ class DatabaseSchema:
         self._create_items_table()
         self._create_provider_items_table()
         self._create_offers_table()
-        self._create_provider_tier_overrides_table()
         self._create_products_table()
         self._create_product_items_table()
         self._create_product_item_allocations_table()
@@ -207,7 +196,7 @@ class DatabaseSchema:
         self._create_forecasts_table()
         self._create_actuals_table()
         self._create_contracts_table()
-        self._create_contract_rules_table()
+        self._create_contract_tiers_table()
 
     def _create_sequences(self):
         """Create database sequences for auto-incrementing IDs"""
@@ -220,6 +209,7 @@ class DatabaseSchema:
         conn.execute("CREATE SEQUENCE IF NOT EXISTS forecast_seq")
         conn.execute("CREATE SEQUENCE IF NOT EXISTS actual_seq")
         conn.execute("CREATE SEQUENCE IF NOT EXISTS contract_seq")
+        conn.execute("CREATE SEQUENCE IF NOT EXISTS contract_tier_seq")
         self._sync_sequences()
 
     def _sync_sequences(self):
@@ -257,6 +247,9 @@ class DatabaseSchema:
         max_contract = get_max_id("contracts", "contract_id")
         conn.execute(f"DROP SEQUENCE IF EXISTS contract_seq; CREATE SEQUENCE contract_seq START {max_contract + 1}")
 
+        max_contract_tier = get_max_id("contract_tiers", "contract_tier_id")
+        conn.execute(f"DROP SEQUENCE IF EXISTS contract_tier_seq; CREATE SEQUENCE contract_tier_seq START {max_contract_tier + 1}")
+
     def _create_providers_table(self):
         """Create providers table if it doesn't exist"""
         conn = self._get_connection()
@@ -265,17 +258,11 @@ class DatabaseSchema:
                 provider_id INTEGER PRIMARY KEY,
                 company_name VARCHAR NOT NULL UNIQUE,
                 details TEXT,
-                tier_thresholds TEXT,
                 status VARCHAR DEFAULT 'active',
                 date_creation VARCHAR NOT NULL,
                 date_last_update VARCHAR NOT NULL
             )
         """)
-
-        columns = conn.execute("PRAGMA table_info(providers)").fetchall()
-        column_names = [col[1] for col in columns]
-        if 'tier_thresholds' not in column_names:
-            conn.execute("ALTER TABLE providers ADD COLUMN tier_thresholds TEXT")
 
     def _create_items_table(self):
         """Create items table if it doesn't exist"""
@@ -335,19 +322,6 @@ class DatabaseSchema:
             conn.execute("ALTER TABLE offers ADD COLUMN process_id INTEGER")
             conn.execute("UPDATE offers SET process_id = 1 WHERE process_id IS NULL")
             conn.execute("ALTER TABLE offers ALTER COLUMN process_id SET NOT NULL")
-
-    def _create_provider_tier_overrides_table(self):
-        """Create provider_tier_overrides table if it doesn't exist"""
-        conn = self._get_connection()
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS provider_tier_overrides (
-                provider_id INTEGER PRIMARY KEY,
-                manual_tier INTEGER NOT NULL,
-                notes TEXT,
-                date_creation VARCHAR NOT NULL,
-                date_last_update VARCHAR NOT NULL
-            )
-        """)
 
     def _create_products_table(self):
         """Create products table if it doesn't exist"""
@@ -502,25 +476,24 @@ class DatabaseSchema:
                 contract_id INTEGER PRIMARY KEY,
                 provider_id INTEGER NOT NULL,
                 contract_name VARCHAR NOT NULL,
-                min_monthly_volume DECIMAL(10,2),
-                min_monthly_cost DECIMAL(10,2),
                 status VARCHAR DEFAULT 'active',
                 date_creation VARCHAR NOT NULL,
                 date_last_update VARCHAR NOT NULL
             )
         """)
 
-    def _create_contract_rules_table(self):
-        """Create contract_rules table if it doesn't exist"""
+    def _create_contract_tiers_table(self):
+        """Create contract_tiers table if it doesn't exist"""
         conn = self._get_connection()
         conn.execute("""
-            CREATE TABLE IF NOT EXISTS contract_rules (
-                contract_id INTEGER,
-                rule_type VARCHAR NOT NULL,
-                rule_value DECIMAL(10,2),
-                rule_config TEXT,
+            CREATE TABLE IF NOT EXISTS contract_tiers (
+                contract_tier_id INTEGER PRIMARY KEY,
+                contract_id INTEGER NOT NULL,
+                tier_number INTEGER NOT NULL,
+                threshold_units INTEGER NOT NULL,
+                is_selected BOOLEAN DEFAULT FALSE,
                 date_creation VARCHAR NOT NULL,
-                PRIMARY KEY (contract_id, rule_type)
+                date_last_update VARCHAR NOT NULL
             )
         """)
 

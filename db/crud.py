@@ -23,15 +23,15 @@ class CRUDOperations(DatabaseSchema):
         now = datetime.now().isoformat()
         provider_id = conn.execute("SELECT nextval('provider_seq')").fetchone()[0]
         conn.execute(
-            "INSERT INTO providers (provider_id, company_name, details, status, date_creation, date_last_update, tier_thresholds) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            [provider_id, company_name, details, status, now, now, None]
+            "INSERT INTO providers (provider_id, company_name, details, status, date_creation, date_last_update) VALUES (?, ?, ?, ?, ?, ?)",
+            [provider_id, company_name, details, status, now, now]
         )
         return self.get_provider(provider_id)
 
     def get_provider(self, provider_id: int) -> Optional[Dict[str, Any]]:
         conn = self._get_connection()
         result = conn.execute(
-            "SELECT provider_id, company_name, details, status, date_creation, date_last_update, tier_thresholds FROM providers WHERE provider_id = ?",
+            "SELECT provider_id, company_name, details, status, date_creation, date_last_update FROM providers WHERE provider_id = ?",
             [provider_id]
         ).fetchone()
         if result:
@@ -41,42 +41,36 @@ class CRUDOperations(DatabaseSchema):
                 "details": result[2],
                 "status": result[3],
                 "date_creation": result[4],
-                "date_last_update": result[5],
-                "tier_thresholds": result[6]
+                "date_last_update": result[5]
             }
         return None
 
     def get_all_providers(self) -> List[Any]:
         conn = self._get_connection()
         results = conn.execute(
-            "SELECT provider_id, company_name, details, status, date_creation, date_last_update, tier_thresholds FROM providers ORDER BY company_name"
+            "SELECT provider_id, company_name, details, status, date_creation, date_last_update FROM providers ORDER BY company_name"
         ).fetchall()
         return [result for result in results]
 
     def get_all_providers_with_tier_counts(self) -> List[Dict[str, Any]]:
-        """Get all providers with their tier counts"""
+        """Get all providers (simplified version, tier counts removed)"""
         conn = self._get_connection()
         results = conn.execute(
-            "SELECT provider_id, company_name, details, status, date_creation, date_last_update, tier_thresholds FROM providers ORDER BY company_name"
+            "SELECT provider_id, company_name, details, status, date_creation, date_last_update FROM providers ORDER BY company_name"
         ).fetchall()
 
-        providers_with_counts = []
+        providers_list = []
         for result in results:
-            provider = result
-            tier_data = self.get_provider_tier_thresholds(provider[0])
-            tier_count = len(tier_data.get("thresholds", {}))
-
-            providers_with_counts.append({
-                "provider_id": provider[0],
-                "company_name": provider[1],
-                "details": provider[2],
-                "status": provider[3],
-                "date_creation": provider[4],
-                "date_last_update": provider[5],
-                "tier_count": tier_count
+            providers_list.append({
+                "provider_id": result[0],
+                "company_name": result[1],
+                "details": result[2],
+                "status": result[3],
+                "date_creation": result[4],
+                "date_last_update": result[5]
             })
 
-        return providers_with_counts
+        return providers_list
 
     def update_provider(self, provider_id: int, company_name: str = None, details: str = None, status: str = None) -> bool:
         conn = self._get_connection()
@@ -661,102 +655,6 @@ class CRUDOperations(DatabaseSchema):
 
         return multipliers
 
-    # Provider tier operations
-    def set_provider_tier_thresholds(self, provider_id: int, thresholds: Dict[str, int], base_prices: Dict[str, float] = None):
-        conn = self._get_connection()
-        now = datetime.now().isoformat()
-        import json
-        tier_data = {
-            "thresholds": thresholds,
-            "base_prices": base_prices or {}
-        }
-        conn.execute(
-            "UPDATE providers SET tier_thresholds = ?, date_last_update = ? WHERE provider_id = ?",
-            [json.dumps(tier_data), now, provider_id]
-        )
-        conn.commit()
-
-    def get_provider_tier_thresholds(self, provider_id: int) -> Dict:
-        conn = self._get_connection()
-        result = conn.execute(
-            "SELECT tier_thresholds FROM providers WHERE provider_id = ?",
-            [provider_id]
-        ).fetchone()
-
-        if result and result[0]:
-            import json
-            data = json.loads(result[0])
-            if isinstance(data, dict) and "thresholds" in data:
-                return data
-            return {"thresholds": data, "base_prices": {}}
-        return {"thresholds": {"1": 0}, "base_prices": {}}
-
-    def get_tier_for_credit_files(self, provider_id: int, total_credit_files: int) -> int:
-        tier_data = self.get_provider_tier_thresholds(provider_id)
-        thresholds = tier_data.get("thresholds", {})
-
-        tier_list = [(int(tier), threshold) for tier, threshold in thresholds.items()]
-        tier_list.sort(key=lambda x: x[1], reverse=True)
-
-        for tier_num, threshold in tier_list:
-            if total_credit_files >= threshold:
-                return tier_num
-
-        return 1
-
-    def get_price_for_item_at_tier(self, provider_id: int, item_id: int, tier_number: int, process_id: int) -> Optional[float]:
-        conn = self._get_connection()
-
-        result = conn.execute(
-            "SELECT price_per_unit FROM offers WHERE provider_id = ? AND item_id = ? AND tier_number = ? AND process_id = ? AND status = 'active' LIMIT 1",
-            [provider_id, item_id, tier_number, process_id]
-        ).fetchone()
-
-        if result:
-            return float(result[0])
-
-        if tier_number > 1:
-            return self.get_price_for_item_at_tier(provider_id, item_id, tier_number - 1, process_id)
-
-        return None
-
-    # Provider tier override operations
-    def set_provider_tier_override(self, provider_id: int, manual_tier: int, notes: str = ""):
-        conn = self._get_connection()
-        now = datetime.now().isoformat()
-
-        existing = conn.execute(
-            "SELECT provider_id FROM provider_tier_overrides WHERE provider_id = ?",
-            [provider_id]
-        ).fetchone()
-
-        if existing:
-            conn.execute(
-                "UPDATE provider_tier_overrides SET manual_tier = ?, notes = ?, date_last_update = ? WHERE provider_id = ?",
-                [manual_tier, notes, now, provider_id]
-            )
-        else:
-            conn.execute(
-                "INSERT INTO provider_tier_overrides (provider_id, manual_tier, notes, date_creation, date_last_update) VALUES (?, ?, ?, ?, ?)",
-                [provider_id, manual_tier, notes, now, now]
-            )
-
-    def get_provider_tier_override(self, provider_id: int) -> Optional[Any]:
-        conn = self._get_connection()
-        result = conn.execute(
-            "SELECT * FROM provider_tier_overrides WHERE provider_id = ?",
-            [provider_id]
-        ).fetchone()
-
-        return result if result else None
-
-    def clear_provider_tier_override(self, provider_id: int):
-        conn = self._get_connection()
-        conn.execute(
-            "DELETE FROM provider_tier_overrides WHERE provider_id = ?",
-            [provider_id]
-        )
-
     def get_effective_price(self, product_id: int, item_id: int, base_price: float) -> float:
         conn = self._get_connection()
         result = conn.execute(
@@ -1168,13 +1066,13 @@ class CRUDOperations(DatabaseSchema):
     # CONTRACTS CRUD OPERATIONS
     # =====================================
 
-    def create_contract(self, provider_id: int, contract_name: str, min_monthly_volume: float = None, min_monthly_cost: float = None, status: str = "active") -> Any:
+    def create_contract(self, provider_id: int, contract_name: str, status: str = "active") -> Any:
         conn = self._get_connection()
         now = datetime.now().isoformat()
         contract_id = conn.execute("SELECT nextval('contract_seq')").fetchone()[0]
         conn.execute(
-            "INSERT INTO contracts (contract_id, provider_id, contract_name, min_monthly_volume, min_monthly_cost, status, date_creation, date_last_update) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            [contract_id, provider_id, contract_name, min_monthly_volume, min_monthly_cost, status, now, now]
+            "INSERT INTO contracts (contract_id, provider_id, contract_name, status, date_creation, date_last_update) VALUES (?, ?, ?, ?, ?, ?)",
+            [contract_id, provider_id, contract_name, status, now, now]
         )
         return self.get_contract(contract_id)
 
@@ -1186,11 +1084,9 @@ class CRUDOperations(DatabaseSchema):
                 "contract_id": result[0],
                 "provider_id": result[1],
                 "contract_name": result[2],
-                "min_monthly_volume": float(result[3]) if result[3] is not None else None,
-                "min_monthly_cost": float(result[4]) if result[4] is not None else None,
-                "status": result[5],
-                "date_creation": result[6],
-                "date_last_update": result[7]
+                "status": result[3],
+                "date_creation": result[4],
+                "date_last_update": result[5]
             }
         return None
 
@@ -1204,7 +1100,7 @@ class CRUDOperations(DatabaseSchema):
         results = conn.execute("SELECT * FROM contracts WHERE provider_id = ? ORDER BY contract_name", [provider_id]).fetchall()
         return [result for result in results]
 
-    def update_contract(self, contract_id: int, contract_name: str = None, min_monthly_volume: float = None, min_monthly_cost: float = None, status: str = None) -> bool:
+    def update_contract(self, contract_id: int, contract_name: str = None, status: str = None) -> bool:
         conn = self._get_connection()
         now = datetime.now().isoformat()
         current = self.get_contract(contract_id)
@@ -1212,83 +1108,272 @@ class CRUDOperations(DatabaseSchema):
             return False
 
         contract_name = contract_name if contract_name is not None else current["contract_name"]
-        min_monthly_volume = min_monthly_volume if min_monthly_volume is not None else current["min_monthly_volume"]
-        min_monthly_cost = min_monthly_cost if min_monthly_cost is not None else current["min_monthly_cost"]
         status = status if status is not None else current["status"]
 
         conn.execute(
-            "UPDATE contracts SET contract_name = ?, min_monthly_volume = ?, min_monthly_cost = ?, status = ?, date_last_update = ? WHERE contract_id = ?",
-            [contract_name, min_monthly_volume, min_monthly_cost, status, now, contract_id]
+            "UPDATE contracts SET contract_name = ?, status = ?, date_last_update = ? WHERE contract_id = ?",
+            [contract_name, status, now, contract_id]
         )
         conn.commit()
         return True
 
     def delete_contract(self, contract_id: int) -> bool:
         conn = self._get_connection()
-        conn.execute("DELETE FROM contract_rules WHERE contract_id = ?", [contract_id])
         result = conn.execute("DELETE FROM contracts WHERE contract_id = ?", [contract_id])
         return result.rowcount > 0
 
     # =====================================
-    # CONTRACT RULES CRUD OPERATIONS
+    # CONTRACT TIERS CRUD OPERATIONS
     # =====================================
 
-    def add_contract_rule(self, contract_id: int, rule_type: str, rule_value: float = None, rule_config: str = None) -> bool:
+    def create_contract_tier(self, contract_id: int, tier_number: int, threshold_units: int, is_selected: bool = False) -> Any:
         conn = self._get_connection()
         now = datetime.now().isoformat()
-        try:
-            conn.execute(
-                "INSERT INTO contract_rules (contract_id, rule_type, rule_value, rule_config, date_creation) VALUES (?, ?, ?, ?, ?)",
-                [contract_id, rule_type, rule_value, rule_config, now]
-            )
-            return True
-        except:
-            return False
+        contract_tier_id = conn.execute("SELECT nextval('contract_tier_seq')").fetchone()[0]
 
-    def get_contract_rules(self, contract_id: int) -> List[Any]:
-        conn = self._get_connection()
-        results = conn.execute("SELECT * FROM contract_rules WHERE contract_id = ?", [contract_id]).fetchall()
-        return [result for result in results]
+        conn.execute(
+            "INSERT INTO contract_tiers (contract_tier_id, contract_id, tier_number, threshold_units, is_selected, date_creation, date_last_update) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [contract_tier_id, contract_id, tier_number, threshold_units, is_selected, now, now]
+        )
+        return self.get_contract_tier(contract_tier_id)
 
-    def get_contract_rule(self, contract_id: int, rule_type: str) -> Optional[Dict[str, Any]]:
+    def get_contract_tier(self, contract_tier_id: int) -> Optional[Dict[str, Any]]:
         conn = self._get_connection()
-        result = conn.execute(
-            "SELECT * FROM contract_rules WHERE contract_id = ? AND rule_type = ?",
-            [contract_id, rule_type]
-        ).fetchone()
+        result = conn.execute("SELECT * FROM contract_tiers WHERE contract_tier_id = ?", [contract_tier_id]).fetchone()
         if result:
             return {
-                "contract_id": result[0],
-                "rule_type": result[1],
-                "rule_value": float(result[2]) if result[2] is not None else None,
-                "rule_config": result[3],
-                "date_creation": result[4]
+                "contract_tier_id": result[0],
+                "contract_id": result[1],
+                "tier_number": result[2],
+                "threshold_units": result[3],
+                "is_selected": result[4],
+                "date_creation": result[5],
+                "date_last_update": result[6]
             }
         return None
 
-    def update_contract_rule(self, contract_id: int, rule_type: str, rule_value: float = None, rule_config: str = None) -> bool:
+    def get_all_contract_tiers(self, contract_id: int) -> List[Dict[str, Any]]:
         conn = self._get_connection()
-        current = self.get_contract_rule(contract_id, rule_type)
+        results = conn.execute("SELECT * FROM contract_tiers WHERE contract_id = ? ORDER BY tier_number", [contract_id]).fetchall()
+        tiers = []
+        for result in results:
+            tiers.append({
+                "contract_tier_id": result[0],
+                "contract_id": result[1],
+                "tier_number": result[2],
+                "threshold_units": result[3],
+                "is_selected": result[4],
+                "date_creation": result[5],
+                "date_last_update": result[6]
+            })
+        return tiers
+
+    def update_contract_tier(self, contract_tier_id: int, tier_number: int = None, threshold_units: int = None, is_selected: bool = None) -> bool:
+        conn = self._get_connection()
+        now = datetime.now().isoformat()
+        current = self.get_contract_tier(contract_tier_id)
         if not current:
             return False
 
-        rule_value = rule_value if rule_value is not None else current["rule_value"]
-        rule_config = rule_config if rule_config is not None else current["rule_config"]
+        tier_number = tier_number if tier_number is not None else current["tier_number"]
+        threshold_units = threshold_units if threshold_units is not None else current["threshold_units"]
+        is_selected = is_selected if is_selected is not None else current["is_selected"]
 
         conn.execute(
-            "UPDATE contract_rules SET rule_value = ?, rule_config = ? WHERE contract_id = ? AND rule_type = ?",
-            [rule_value, rule_config, contract_id, rule_type]
+            "UPDATE contract_tiers SET tier_number = ?, threshold_units = ?, is_selected = ?, date_last_update = ? WHERE contract_tier_id = ?",
+            [tier_number, threshold_units, is_selected, now, contract_tier_id]
         )
         conn.commit()
         return True
 
-    def delete_contract_rule(self, contract_id: int, rule_type: str) -> bool:
+    def delete_contract_tier(self, contract_tier_id: int) -> bool:
         conn = self._get_connection()
-        result = conn.execute(
-            "DELETE FROM contract_rules WHERE contract_id = ? AND rule_type = ?",
-            [contract_id, rule_type]
-        )
+        result = conn.execute("DELETE FROM contract_tiers WHERE contract_tier_id = ?", [contract_tier_id])
         return result.rowcount > 0
+
+    def get_selected_contract_tier(self, contract_id: int) -> Optional[Dict[str, Any]]:
+        conn = self._get_connection()
+        result = conn.execute("SELECT * FROM contract_tiers WHERE contract_id = ? AND is_selected = TRUE LIMIT 1", [contract_id]).fetchone()
+        if result:
+            return {
+                "contract_tier_id": result[0],
+                "contract_id": result[1],
+                "tier_number": result[2],
+                "threshold_units": result[3],
+                "is_selected": result[4],
+                "date_creation": result[5],
+                "date_last_update": result[6]
+            }
+        return None
+
+    def set_selected_contract_tier(self, contract_id: int, contract_tier_id: int):
+        """Set the selected tier for a contract (only one can be selected)"""
+        conn = self._get_connection()
+        now = datetime.now().isoformat()
+        conn.execute("UPDATE contract_tiers SET is_selected = FALSE WHERE contract_id = ?", [contract_id])
+        conn.execute("UPDATE contract_tiers SET is_selected = TRUE, date_last_update = ? WHERE contract_tier_id = ?", [now, contract_tier_id])
+        conn.commit()
+
+    # =====================================
+    # TIER CALCULATION & SIMULATION METHODS
+    # =====================================
+
+    def calculate_tier_for_contract(self, contract_id: int, months_back: int = 0, use_forecasts: bool = False) -> Dict[str, Any]:
+        """
+        Calculate which tier a contract should be at based on historical usage.
+
+        Args:
+            contract_id: The contract to calculate for
+            months_back: How many months to look back (0 = latest actuals, -6 = last 6 months, -12 = last 12 months)
+            use_forecasts: If True, use forecasted units; if False, use actual units
+
+        Returns:
+            Dict with tier information and total units
+        """
+        conn = self._get_connection()
+
+        # Get all products associated with this contract's provider
+        contract = self.get_contract(contract_id)
+        if not contract:
+            return {"error": "Contract not found"}
+
+        # Get items from offers for this provider (within their process context)
+        # This is a simplified version - you'd need to link products to contracts properly
+
+        # Calculate total units based on lookback period
+        from datetime import datetime, timedelta
+        current_date = datetime.now()
+
+        if months_back == 0:
+            # Use latest actual month only
+            month_start = current_date.replace(day=1)
+            year, month = month_start.year, month_start.month
+            if use_forecasts:
+                # Get forecast for current month
+                forecasts = conn.execute(
+                    "SELECT SUM(forecast_units) FROM forecasts WHERE year = ? AND month = ?",
+                    [year, month]
+                ).fetchone()
+                total_units = forecasts[0] if forecasts and forecasts[0] else 0
+            else:
+                # Get actuals for current month
+                actuals = conn.execute(
+                    "SELECT SUM(actual_units) FROM actuals WHERE year = ? AND month = ?",
+                    [year, month]
+                ).fetchone()
+                total_units = actuals[0] if actuals and actuals[0] else 0
+        else:
+            # Sum over lookback period
+            end_date = current_date.replace(day=1)
+            start_date = (end_date - timedelta(days=1)).replace(day=1)
+            start_date = (start_date - timedelta(days=1)).replace(day=1)
+            # Adjust for months_back
+            if months_back < 0:
+                for _ in range(abs(months_back)):
+                    first_day = start_date.replace(day=1)
+                    start_date = (first_day - timedelta(days=1)).replace(day=1)
+
+            total_units = 0
+            current_check = start_date.replace(day=1)
+
+            while current_check <= end_date:
+                year, month = current_check.year, current_check.month
+                if use_forecasts:
+                    result = conn.execute(
+                        "SELECT SUM(forecast_units) FROM forecasts WHERE year = ? AND month = ?",
+                        [year, month]
+                    ).fetchone()
+                else:
+                    result = conn.execute(
+                        "SELECT SUM(actual_units) FROM actuals WHERE year = ? AND month = ?",
+                        [year, month]
+                    ).fetchone()
+
+                if result and result[0]:
+                    total_units += result[0]
+
+                # Move to next month
+                if current_check.month == 12:
+                    current_check = current_check.replace(year=current_check.year + 1, month=1)
+                else:
+                    current_check = current_check.replace(month=current_check.month + 1)
+
+        # Get all tiers for this contract, ordered by tier_number
+        tiers = sorted(self.get_all_contract_tiers(contract_id), key=lambda x: x["tier_number"])
+
+        # Find matching tier - use first tier where total_units < threshold_units
+        selected_tier = None
+        for tier in tiers:
+            if total_units < tier["threshold_units"]:
+                selected_tier = tier
+                break
+
+        # If exceeded all thresholds, use highest tier
+        if not selected_tier and tiers:
+            selected_tier = tiers[-1]
+
+        return {
+            "total_units": total_units,
+            "months_back": months_back,
+            "use_forecasts": use_forecasts,
+            "selected_tier": selected_tier,
+            "calculation_method": f"{months_back}mo_{'forecast' if use_forecasts else 'actual'}"
+        }
+
+    def simulate_contract_tiers(self, contract_id: int, forecast_months: List[int] = None) -> Dict[str, Any]:
+        """
+        Simulate contract tier changes over a forecast period.
+
+        Args:
+            contract_id: The contract to simulate
+            forecast_months: List of (year, month) tuples to forecast for
+
+        Returns:
+            Dict with simulation results for each month
+        """
+        if forecast_months is None:
+            forecast_months = []
+
+        conn = self._get_connection()
+        simulation_results = []
+
+        for year, month in forecast_months:
+            # Get forecast for this month
+            forecast_total = conn.execute(
+                "SELECT SUM(forecast_units) FROM forecasts WHERE year = ? AND month = ?",
+                [year, month]
+            ).fetchone()
+
+            total_units = forecast_total[0] if forecast_total and forecast_total[0] else 0
+
+            # Find tier for this unit count
+            tiers = sorted(self.get_all_contract_tiers(contract_id), key=lambda x: x["tier_number"])
+            selected_tier = None
+
+            for tier in tiers:
+                if total_units < tier["threshold_units"]:
+                    selected_tier = tier
+                    break
+
+            # If exceeded all thresholds, use highest tier
+            if not selected_tier and tiers:
+                selected_tier = tiers[-1]
+
+            simulation_results.append({
+                "year": year,
+                "month": month,
+                "forecast_units": total_units,
+                "tier_number": selected_tier["tier_number"] if selected_tier else None,
+                "threshold_units": selected_tier["threshold_units"] if selected_tier else None
+            })
+
+        return {
+            "contract_id": contract_id,
+            "simulation_period": f"{len(forecast_months)} months",
+            "results": simulation_results
+        }
+
+    # =====================================
 
 
 # Global CRUD instance

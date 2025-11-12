@@ -116,7 +116,7 @@ def calculate_rsi(data, period=14):
 
 ## Contributing
 
-Please follow the guidelines in `.CLAUDE.md` for development practices and UAT compliance requirements.
+Please follow the guidelines in `CLAUDE.md` for development practices and UAT compliance requirements.
 
 ## License
 
