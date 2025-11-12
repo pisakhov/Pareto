@@ -57,6 +57,8 @@ class Process:
     process_id: int
     process_name: str
     description: str
+    provider_id: int
+    tier_thresholds: str  # JSON string with tier thresholds
     status: str
     date_creation: str
     date_last_update: str
@@ -195,8 +197,6 @@ class DatabaseSchema:
         self._create_process_items_table()
         self._create_forecasts_table()
         self._create_actuals_table()
-        self._create_contracts_table()
-        self._create_contract_tiers_table()
 
     def _create_sequences(self):
         """Create database sequences for auto-incrementing IDs"""
@@ -208,8 +208,6 @@ class DatabaseSchema:
         conn.execute("CREATE SEQUENCE IF NOT EXISTS process_seq")
         conn.execute("CREATE SEQUENCE IF NOT EXISTS forecast_seq")
         conn.execute("CREATE SEQUENCE IF NOT EXISTS actual_seq")
-        conn.execute("CREATE SEQUENCE IF NOT EXISTS contract_seq")
-        conn.execute("CREATE SEQUENCE IF NOT EXISTS contract_tier_seq")
         self._sync_sequences()
 
     def _sync_sequences(self):
@@ -243,12 +241,6 @@ class DatabaseSchema:
 
         max_actual = get_max_id("actuals", "actual_id")
         conn.execute(f"DROP SEQUENCE IF EXISTS actual_seq; CREATE SEQUENCE actual_seq START {max_actual + 1}")
-
-        max_contract = get_max_id("contracts", "contract_id")
-        conn.execute(f"DROP SEQUENCE IF EXISTS contract_seq; CREATE SEQUENCE contract_seq START {max_contract + 1}")
-
-        max_contract_tier = get_max_id("contract_tiers", "contract_tier_id")
-        conn.execute(f"DROP SEQUENCE IF EXISTS contract_tier_seq; CREATE SEQUENCE contract_tier_seq START {max_contract_tier + 1}")
 
     def _create_providers_table(self):
         """Create providers table if it doesn't exist"""
@@ -393,8 +385,10 @@ class DatabaseSchema:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS processes (
                 process_id INTEGER PRIMARY KEY,
-                process_name VARCHAR NOT NULL UNIQUE,
+                process_name VARCHAR NOT NULL,
                 description TEXT,
+                provider_id INTEGER NOT NULL,
+                tier_thresholds TEXT DEFAULT '{}',
                 status VARCHAR DEFAULT 'active',
                 date_creation VARCHAR NOT NULL,
                 date_last_update VARCHAR NOT NULL
@@ -465,35 +459,6 @@ class DatabaseSchema:
                 date_creation VARCHAR NOT NULL,
                 date_last_update VARCHAR NOT NULL,
                 UNIQUE(product_id, year, month)
-            )
-        """)
-
-    def _create_contracts_table(self):
-        """Create contracts table if it doesn't exist"""
-        conn = self._get_connection()
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS contracts (
-                contract_id INTEGER PRIMARY KEY,
-                provider_id INTEGER NOT NULL,
-                contract_name VARCHAR NOT NULL,
-                status VARCHAR DEFAULT 'active',
-                date_creation VARCHAR NOT NULL,
-                date_last_update VARCHAR NOT NULL
-            )
-        """)
-
-    def _create_contract_tiers_table(self):
-        """Create contract_tiers table if it doesn't exist"""
-        conn = self._get_connection()
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS contract_tiers (
-                contract_tier_id INTEGER PRIMARY KEY,
-                contract_id INTEGER NOT NULL,
-                tier_number INTEGER NOT NULL,
-                threshold_units INTEGER NOT NULL,
-                is_selected BOOLEAN DEFAULT FALSE,
-                date_creation VARCHAR NOT NULL,
-                date_last_update VARCHAR NOT NULL
             )
         """)
 

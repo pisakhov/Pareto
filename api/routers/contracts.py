@@ -49,15 +49,6 @@ class OfferUpdate(BaseModel):
     status: Optional[str] = None
 
 
-class TierThresholdsUpdate(BaseModel):
-    thresholds: Dict[str, int]
-
-
-class TierOverrideCreate(BaseModel):
-    manual_tier: int
-    notes: Optional[str] = ""
-
-
 @router.get("/contracts", response_class=HTMLResponse)
 async def contracts_page(request: Request):
     """Redirect to the first process or show processes list if none exist."""
@@ -374,56 +365,18 @@ async def get_provider_items():
 # Tier-based pricing endpoints
 @router.get("/api/providers/{provider_id}/tier-thresholds")
 async def get_tier_thresholds(provider_id: int):
-    """Get tier thresholds and base prices for a provider."""
+    """Get tier thresholds for all processes with this provider."""
     crud = get_crud()
-    tier_data = crud.get_provider_tier_thresholds(provider_id)
-    return JSONResponse(content=tier_data)
-
-
-@router.put("/api/providers/{provider_id}/tier-thresholds")
-async def update_tier_thresholds(provider_id: int, data: Dict):
-    """Update tier thresholds and base prices for a provider."""
-    crud = get_crud()
-    thresholds = data.get("thresholds", {})
-    base_prices = data.get("base_prices", {})
-    crud.set_provider_tier_thresholds(provider_id, thresholds, base_prices)
-    return JSONResponse(content={"message": "Tier thresholds updated successfully"})
-
-
-@router.get("/api/providers/{provider_id}/tier-override")
-async def get_tier_override(provider_id: int):
-    """Get manual tier override for a provider."""
-    crud = get_crud()
-    override = crud.get_provider_tier_override(provider_id)
-    if not override:
-        return JSONResponse(content={"override": None})
-    return JSONResponse(
-        content={
-            "override": {
-                "provider_id": override.provider_id,
-                "manual_tier": override.manual_tier,
-                "notes": override.notes,
-                "date_creation": override.date_creation,
-                "date_last_update": override.date_last_update,
+    processes = crud.get_all_processes()
+    provider_processes = [p for p in processes if p['provider_id'] == provider_id]
+    tier_data = {}
+    for process in provider_processes:
+        if process['tier_thresholds'] and process['tier_thresholds'] != '{}':
+            tier_data[process['process_id']] = {
+                'process_name': process['process_name'],
+                'tier_thresholds': process['tier_thresholds']
             }
-        }
-    )
-
-
-@router.post("/api/providers/{provider_id}/tier-override")
-async def create_tier_override(provider_id: int, data: TierOverrideCreate):
-    """Set manual tier override for a provider."""
-    crud = get_crud()
-    crud.set_provider_tier_override(provider_id, data.manual_tier, data.notes)
-    return JSONResponse(content={"message": "Tier override set successfully"})
-
-
-@router.delete("/api/providers/{provider_id}/tier-override")
-async def delete_tier_override(provider_id: int):
-    """Clear manual tier override for a provider."""
-    crud = get_crud()
-    crud.clear_provider_tier_override(provider_id)
-    return JSONResponse(content={"message": "Tier override cleared successfully"})
+    return JSONResponse(content=tier_data)
 
 
 # =====================================
@@ -434,12 +387,16 @@ async def delete_tier_override(provider_id: int):
 class ProcessCreate(BaseModel):
     process_name: str
     description: Optional[str] = ""
+    provider_id: int
+    tier_thresholds: Optional[str] = "{}"
     status: Optional[str] = "active"
 
 
 class ProcessUpdate(BaseModel):
     process_name: Optional[str] = None
     description: Optional[str] = None
+    provider_id: Optional[int] = None
+    tier_thresholds: Optional[str] = None
     status: Optional[str] = None
 
 
@@ -458,6 +415,8 @@ async def create_process(process: ProcessCreate):
     new_process = crud.create_process(
         process_name=process.process_name,
         description=process.description,
+        provider_id=process.provider_id,
+        tier_thresholds=process.tier_thresholds,
         status=process.status,
     )
     return JSONResponse(status_code=201, content=new_process)
@@ -474,21 +433,15 @@ async def get_process(process_id: int):
 @router.put("/api/processes/{process_id}")
 async def update_process(process_id: int, process: ProcessUpdate):
     """Update a process."""
-    print(f"[API] update_process called for process_id: {process_id}")
-    print(f"[API] ProcessUpdate data: {process}")
-    print(f"[API] process_name: {process.process_name}")
-    print(f"[API] description: {process.description}")
-    print(f"[API] status: {process.status}")
-
     crud = get_crud()
     result = crud.update_process(
         process_id=process_id,
         process_name=process.process_name,
         description=process.description,
+        provider_id=process.provider_id,
+        tier_thresholds=process.tier_thresholds,
         status=process.status,
     )
-
-    print(f"[API] update_process result: {result}")
     return JSONResponse(content={"message": "Process updated successfully"})
 
 
@@ -658,105 +611,3 @@ async def delete_actual(actual_id: int):
     crud.delete_actual(actual_id)
     return JSONResponse(content={"message": "Actual deleted successfully"})
 
-
-# Contract management endpoints
-class ContractCreate(BaseModel):
-    provider_id: int
-    contract_name: str
-    min_monthly_volume: Optional[float] = None
-    min_monthly_cost: Optional[float] = None
-    status: Optional[str] = "active"
-
-
-class ContractUpdate(BaseModel):
-    contract_name: Optional[str] = None
-    min_monthly_volume: Optional[float] = None
-    min_monthly_cost: Optional[float] = None
-    status: Optional[str] = None
-
-
-class ContractRuleCreate(BaseModel):
-    rule_type: str
-    rule_value: Optional[float] = None
-    rule_config: Optional[str] = None
-
-
-@router.get("/api/contracts")
-async def get_contracts():
-    """Get all contracts."""
-    crud = get_crud()
-    contracts = crud.get_all_contracts()
-    return JSONResponse(content=contracts)
-
-
-@router.get("/api/contracts/provider/{provider_id}")
-async def get_contracts_for_provider(provider_id: int):
-    """Get contracts for a specific provider."""
-    crud = get_crud()
-    contracts = crud.get_contracts_for_provider(provider_id)
-    return JSONResponse(content=contracts)
-
-
-@router.post("/api/contracts")
-async def create_contract(contract: ContractCreate):
-    """Create a new contract."""
-    crud = get_crud()
-    new_contract = crud.create_contract(
-        provider_id=contract.provider_id,
-        contract_name=contract.contract_name,
-        min_monthly_volume=contract.min_monthly_volume,
-        min_monthly_cost=contract.min_monthly_cost,
-        status=contract.status,
-    )
-    return JSONResponse(content=new_contract)
-
-
-@router.put("/api/contracts/{contract_id}")
-async def update_contract(contract_id: int, contract: ContractUpdate):
-    """Update a contract."""
-    crud = get_crud()
-    crud.update_contract(
-        contract_id=contract_id,
-        contract_name=contract.contract_name,
-        min_monthly_volume=contract.min_monthly_volume,
-        min_monthly_cost=contract.min_monthly_cost,
-        status=contract.status,
-    )
-    return JSONResponse(content={"message": "Contract updated successfully"})
-
-
-@router.delete("/api/contracts/{contract_id}")
-async def delete_contract(contract_id: int):
-    """Delete a contract."""
-    crud = get_crud()
-    crud.delete_contract(contract_id)
-    return JSONResponse(content={"message": "Contract deleted successfully"})
-
-
-@router.post("/api/contracts/{contract_id}/rules")
-async def add_contract_rule(contract_id: int, rule: ContractRuleCreate):
-    """Add a rule to a contract."""
-    crud = get_crud()
-    crud.add_contract_rule(
-        contract_id=contract_id,
-        rule_type=rule.rule_type,
-        rule_value=rule.rule_value,
-        rule_config=rule.rule_config,
-    )
-    return JSONResponse(content={"message": "Contract rule added successfully"})
-
-
-@router.get("/api/contracts/{contract_id}/rules")
-async def get_contract_rules(contract_id: int):
-    """Get all rules for a contract."""
-    crud = get_crud()
-    rules = crud.get_contract_rules(contract_id)
-    return JSONResponse(content=rules)
-
-
-@router.delete("/api/contracts/{contract_id}/rules/{rule_type}")
-async def delete_contract_rule(contract_id: int, rule_type: str):
-    """Delete a rule from a contract."""
-    crud = get_crud()
-    crud.delete_contract_rule(contract_id, rule_type)
-    return JSONResponse(content={"message": "Contract rule deleted successfully"})

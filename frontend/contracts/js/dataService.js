@@ -259,56 +259,6 @@ class DataService {
     return this.delete("actuals", actualId);
   }
 
-  // Contract operations
-  async loadContracts() {
-    return this.load("contracts");
-  }
-
-  async getContractsForProvider(providerId) {
-    return this.fetchWithErrorHandling(
-      `${this.basePath}/contracts/provider/${providerId}`,
-    );
-  }
-
-  async createContract(contractData) {
-    return this.create("contracts", contractData);
-  }
-
-  async updateContract(contractId, contractData) {
-    return this.update("contracts", contractId, contractData);
-  }
-
-  async deleteContract(contractId) {
-    return this.delete("contracts", contractId);
-  }
-
-  async addContractRule(contractId, ruleData) {
-    return this.fetchWithErrorHandling(
-      `${this.basePath}/contracts/${contractId}/rules`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(ruleData),
-      },
-    );
-  }
-
-  async getContractRules(contractId) {
-    return this.fetchWithErrorHandling(
-      `${this.basePath}/contracts/${contractId}/rules`,
-    );
-  }
-
-  async deleteContractRule(contractId, ruleType) {
-    return this.fetchWithErrorHandling(
-      `${this.basePath}/contracts/${contractId}/rules/${ruleType}`,
-      {
-        method: "DELETE",
-      },
-    );
-  }
 }
 
 // Create singleton instance

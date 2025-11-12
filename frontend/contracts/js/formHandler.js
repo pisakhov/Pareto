@@ -59,19 +59,6 @@ class FormHandler {
         response = await this.dataService.createProvider(providerData);
       }
 
-      const providerId = editingProviderId || response.provider_id;
-      const tierThresholds = window.tierManager.getTierThresholds();
-      const basePrices = window.tierManager.getTierBasePrices();
-      
-      await fetch(`/api/providers/${providerId}/tier-thresholds`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          thresholds: tierThresholds,
-          base_prices: basePrices 
-        }),
-      });
-
       this.modalManager.closeProviderModal();
       await this.loadAllData();
       this.uiManager.showNotification(
@@ -164,17 +151,6 @@ class FormHandler {
       document.getElementById("companyName").value = provider["company_name"];
       document.getElementById("details").value = provider["details"] || "";
       document.getElementById("providerStatus").value = provider["status"];
-
-      try {
-        const tierResponse = await fetch(
-          `/api/providers/${providerId}/tier-thresholds`,
-        );
-        const tierData = await tierResponse.json();
-        window.tierManager.loadTiers(tierData);
-      } catch (tierError) {
-        console.warn("Could not load tier thresholds:", tierError);
-        window.tierManager.loadTiers({});
-      }
 
       this.modalManager.setEditingProviderId(providerId);
       this.modalManager.editProvider(providerId);

@@ -19,6 +19,7 @@ class ProcessGraph {
 
   async init() {
     await this.loadProcesses();
+    await this.loadProviders();
     this.setupEventListeners();
     this.render();
     this.autoLayout();
@@ -56,6 +57,27 @@ class ProcessGraph {
   async loadConnections() {
     // Load connections from database API
     this.connections = await dataService.loadProcessGraph();
+  }
+
+  async loadProviders() {
+    this.providers = await dataService.loadProviders();
+    this.populateProviderDropdown();
+  }
+
+  populateProviderDropdown() {
+    const providerSelect = document.getElementById('newContractProvider');
+    if (!providerSelect) return;
+
+    // Clear existing options
+    providerSelect.innerHTML = '<option value="">Select a provider</option>';
+
+    // Add provider options
+    this.providers.forEach(provider => {
+      const option = document.createElement('option');
+      option.value = provider.provider_id;
+      option.textContent = provider.company_name;
+      providerSelect.appendChild(option);
+    });
   }
 
   render() {
@@ -732,6 +754,15 @@ class ProcessGraph {
         return;
       }
 
+      // Get contract information (provider is required)
+      const contractProviderId = document.getElementById('newContractProvider').value;
+
+      if (!contractProviderId) {
+        uiManager.showNotification('Provider is required', 'error');
+        document.getElementById('newContractProvider').focus();
+        return;
+      }
+
       // Check for duplicate names
       const duplicate = this.processes.find(p =>
         p.process_name.toLowerCase() === name.trim().toLowerCase()
@@ -743,9 +774,15 @@ class ProcessGraph {
         return;
       }
 
+      // Get tier thresholds from tierManager and convert to JSON
+      const tierThresholds = window.tierManager.getTierThresholds();
+      const tierThresholdsJson = JSON.stringify(tierThresholds);
+
       const newProcess = await dataService.createProcess({
         process_name: name.trim(),
         description: description.trim(),
+        provider_id: parseInt(contractProviderId),
+        tier_thresholds: tierThresholdsJson,
         status: 'active'
       });
 
@@ -760,14 +797,16 @@ class ProcessGraph {
 
       this.processes.push(newProcess);
 
+      uiManager.showNotification(`Process "${newProcess.process_name}" created successfully`, 'success');
+
       // Clear form and hide
       document.getElementById('newProcessName').value = '';
       document.getElementById('newProcessDescription').value = '';
+      document.getElementById('newContractProvider').value = '';
+      window.tierManager.clearTiers();
       this.toggleAddProcessForm();
 
       this.render();
-
-      uiManager.showNotification(`Process "${newProcess.process_name}" created successfully`, 'success');
     } catch (error) {
       console.error('Error creating process:', error);
       let errorMsg = 'Failed to create process';
@@ -1015,6 +1054,9 @@ async function showProcessModal() {
       processGraph = new ProcessGraph();
     }
     await processGraph.init();
+    // Initialize tierManager with a default tier
+    window.tierManager.clearTiers();
+    window.tierManager.addTierRow(1, 1000);
   }
 }
 
