@@ -1180,9 +1180,10 @@ class ProcessGraph {
   }
 
   async populateAddProviderSelect() {
+    const providerSelectSection = document.getElementById('addProviderSelectSection');
+    if (!providerSelectSection || !this.providers) return;
+
     const container = document.getElementById('addContractsContainer');
-    const providerSection = container.parentElement;
-    if (!providerSection || !this.providers) return;
 
     // Get currently selected providers from contracts
     const existingProviders = new Set();
@@ -1201,12 +1202,12 @@ class ProcessGraph {
       !existingProviders.has(p.provider_id) && p.status === 'active'
     );
 
-    // Clear the section
-    providerSection.innerHTML = '';
+    // Clear and update the provider selection section
+    providerSelectSection.innerHTML = '';
 
     if (availableProviders.length === 0) {
       // Show nice message when all providers have contracts
-      providerSection.innerHTML = `
+      providerSelectSection.innerHTML = `
         <div class="flex items-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -1216,19 +1217,16 @@ class ProcessGraph {
       `;
     } else {
       // Show normal select and add button
-      providerSection.innerHTML = `
-        <div class="mb-3">
-          <div class="flex items-center gap-3">
-            <select id="addNewProviderSelect" class="flex-1 px-3 py-2 border border-input rounded-md">
-              <option value="">Select a provider</option>
-            </select>
-            <button type="button" onclick="processGraph.addProviderToAdd()"
-                    class="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700">
-              Add
-            </button>
-          </div>
-          <p class="text-xs text-muted-foreground mt-2">Each provider can only have one contract per process</p>
+      providerSelectSection.innerHTML = `
+        <div class="flex items-center gap-3">
+          <select id="addNewProviderSelect" class="flex-1 px-3 py-2 border border-input rounded-md">
+          </select>
+          <button type="button" onclick="processGraph.addProviderToAdd()"
+                  class="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700">
+            Add
+          </button>
         </div>
+        <p class="text-xs text-muted-foreground mt-2">Each provider can only have one contract per process</p>
       `;
 
       // Populate the select
@@ -1243,27 +1241,37 @@ class ProcessGraph {
   }
 
   async addProviderToAdd() {
+    console.log('🔵 [ADD] Button clicked');
+
     const select = document.getElementById('addNewProviderSelect');
     if (!select) {
+      console.error('❌ [ADD] Select element not found');
       uiManager.showNotification('No providers available to add', 'error');
       return;
     }
 
     const providerId = parseInt(select.value);
+    console.log('🔵 [ADD] Selected provider ID:', providerId);
+
     if (!providerId) {
+      console.warn('⚠️ [ADD] No provider selected');
       uiManager.showNotification('Please select a provider', 'error');
       return;
     }
 
     const provider = this.providers.find(p => p.provider_id === providerId);
     if (!provider) {
+      console.error('❌ [ADD] Provider not found');
       uiManager.showNotification('Provider not found', 'error');
       return;
     }
 
     const container = document.getElementById('addContractsContainer');
     const emptyState = document.getElementById('addContractsEmpty');
-    if (!container) return;
+    if (!container) {
+      console.error('❌ [ADD] Container not found');
+      return;
+    }
 
     // Hide empty state
     if (emptyState) {
@@ -1323,10 +1331,10 @@ class ProcessGraph {
     `;
 
     container.appendChild(contractElement);
+    console.log('✅ [ADD] Provider added:', provider.company_name);
 
     // Refresh provider select to exclude this provider
     this.populateAddProviderSelect();
-    // Clear the select
     select.value = '';
   }
 
@@ -1653,36 +1661,34 @@ class ProcessGraph {
   }
 
   async populateEditProviderSelect() {
+    const providerSelectSection = document.getElementById('editProviderSelectSection');
+    if (!providerSelectSection || !this.providers) return;
+
     const container = document.getElementById('editContractsContainer');
-    if (!container || !this.providers) return;
 
     // Get currently selected providers from contracts using data attribute (like Add modal)
     const existingProviders = new Set();
-    const contractElements = container.querySelectorAll('[id^="editContract-"]');
-    contractElements.forEach(el => {
-      const providerId = parseInt(el.dataset.providerId);
-      if (providerId) {
-        existingProviders.add(providerId);
-      }
-    });
+    if (container) {
+      const contractElements = container.querySelectorAll('[id^="editContract-"]');
+      contractElements.forEach(el => {
+        const providerId = parseInt(el.dataset.providerId);
+        if (providerId) {
+          existingProviders.add(providerId);
+        }
+      });
+    }
 
     // Get all active providers not yet added
     const availableProviders = this.providers.filter(p =>
       !existingProviders.has(p.provider_id) && p.status === 'active'
     );
 
-    // Find the provider selection section (it's the PREVIOUS sibling before container)
-    let providerSelectionSection = container.previousElementSibling;
-    if (!providerSelectionSection) {
-      return;
-    }
-
-    // Clear only the provider selection section content, NOT the contracts container
-    providerSelectionSection.innerHTML = '';
+    // Clear and update the provider selection section
+    providerSelectSection.innerHTML = '';
 
     if (availableProviders.length === 0) {
       // Show nice message when all providers have contracts
-      providerSelectionSection.innerHTML = `
+      providerSelectSection.innerHTML = `
         <div class="flex items-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -1692,10 +1698,9 @@ class ProcessGraph {
       `;
     } else {
       // Show normal select and add button
-      providerSelectionSection.innerHTML = `
+      providerSelectSection.innerHTML = `
         <div class="flex items-center gap-3">
           <select id="editNewProviderSelect" class="flex-1 px-3 py-2 border border-input rounded-md">
-            <option value="">Select a provider</option>
           </select>
           <button type="button" onclick="processGraph.addProviderToEdit()"
                   class="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700">
