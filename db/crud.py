@@ -1045,6 +1045,167 @@ class CRUDOperations(DatabaseSchema):
         return result.rowcount > 0
 
     # =====================================
+    # CONTRACT CRUD OPERATIONS
+    # =====================================
+
+    def create_contract(self, process_name: str, provider_id: int, contract_name: str = None, status: str = "active") -> Any:
+        conn = self._get_connection()
+        now = datetime.now().isoformat()
+        contract_id = conn.execute("SELECT nextval('contract_seq')").fetchone()[0]
+
+        # Use contract_name or derive from provider
+        if contract_name is None:
+            provider = self.get_provider(provider_id)
+            contract_name = f"{provider['company_name']} Contract" if provider else f"Contract {contract_id}"
+
+        conn.execute(
+            "INSERT INTO contracts (contract_id, process_name, provider_id, contract_name, status, date_creation, date_last_update) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [contract_id, process_name, provider_id, contract_name, status, now, now]
+        )
+        return self.get_contract(contract_id)
+
+    def get_contract(self, contract_id: int) -> Optional[Dict[str, Any]]:
+        conn = self._get_connection()
+        result = conn.execute("""
+            SELECT c.contract_id, c.process_name, c.provider_id, c.contract_name, c.status, c.date_creation, c.date_last_update,
+                   p.company_name as provider_name
+            FROM contracts c
+            JOIN providers p ON c.provider_id = p.provider_id
+            WHERE c.contract_id = ?
+        """, [contract_id]).fetchone()
+
+        if result:
+            return {
+                "contract_id": result[0],
+                "process_name": result[1],
+                "provider_id": result[2],
+                "contract_name": result[3],
+                "status": result[4],
+                "date_creation": result[5],
+                "date_last_update": result[6],
+                "provider_name": result[7]
+            }
+        return None
+
+    def get_contracts_for_process(self, process_name: str) -> List[Dict[str, Any]]:
+        conn = self._get_connection()
+        results = conn.execute("""
+            SELECT c.contract_id, c.process_name, c.provider_id, c.contract_name, c.status, c.date_creation, c.date_last_update,
+                   p.company_name as provider_name
+            FROM contracts c
+            JOIN providers p ON c.provider_id = p.provider_id
+            WHERE c.process_name = ?
+            ORDER BY c.contract_name
+        """, [process_name]).fetchall()
+
+        return [
+            {
+                "contract_id": row[0],
+                "process_name": row[1],
+                "provider_id": row[2],
+                "contract_name": row[3],
+                "status": row[4],
+                "date_creation": row[5],
+                "date_last_update": row[6],
+                "provider_name": row[7]
+            }
+            for row in results
+        ]
+
+    def update_contract(self, contract_id: int, contract_name: str = None, status: str = None) -> bool:
+        conn = self._get_connection()
+        now = datetime.now().isoformat()
+        current = self.get_contract(contract_id)
+        if not current:
+            return False
+
+        contract_name = contract_name if contract_name is not None else current["contract_name"]
+        status = status if status is not None else current["status"]
+
+        conn.execute(
+            "UPDATE contracts SET contract_name = ?, status = ?, date_last_update = ? WHERE contract_id = ?",
+            [contract_name, status, now, contract_id]
+        )
+        return True
+
+    def delete_contract(self, contract_id: int) -> bool:
+        conn = self._get_connection()
+        # Delete tiers first
+        conn.execute("DELETE FROM contract_tiers WHERE contract_id = ?", [contract_id])
+        # Delete contract
+        result = conn.execute("DELETE FROM contracts WHERE contract_id = ?", [contract_id])
+        return result.rowcount > 0
+
+    # Contract Tier CRUD operations
+    def create_contract_tier(self, contract_id: int, tier_number: int, threshold_units: int, is_selected: bool = False) -> Any:
+        conn = self._get_connection()
+        now = datetime.now().isoformat()
+        contract_tier_id = conn.execute("SELECT nextval('contract_tier_seq')").fetchone()[0]
+        conn.execute(
+            "INSERT INTO contract_tiers (contract_tier_id, contract_id, tier_number, threshold_units, is_selected, date_creation, date_last_update) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [contract_tier_id, contract_id, tier_number, threshold_units, is_selected, now, now]
+        )
+        return self.get_contract_tier(contract_tier_id)
+
+    def get_contract_tier(self, contract_tier_id: int) -> Optional[Dict[str, Any]]:
+        conn = self._get_connection()
+        result = conn.execute("SELECT * FROM contract_tiers WHERE contract_tier_id = ?", [contract_tier_id]).fetchone()
+        if result:
+            return {
+                "contract_tier_id": result[0],
+                "contract_id": result[1],
+                "tier_number": result[2],
+                "threshold_units": result[3],
+                "is_selected": result[4],
+                "date_creation": result[5],
+                "date_last_update": result[6]
+            }
+        return None
+
+    def get_contract_tiers_for_contract(self, contract_id: int) -> List[Dict[str, Any]]:
+        conn = self._get_connection()
+        results = conn.execute("""
+            SELECT contract_tier_id, contract_id, tier_number, threshold_units, is_selected, date_creation, date_last_update
+            FROM contract_tiers
+            WHERE contract_id = ?
+            ORDER BY tier_number
+        """, [contract_id]).fetchall()
+
+        return [
+            {
+                "contract_tier_id": row[0],
+                "contract_id": row[1],
+                "tier_number": row[2],
+                "threshold_units": row[3],
+                "is_selected": row[4],
+                "date_creation": row[5],
+                "date_last_update": row[6]
+            }
+            for row in results
+        ]
+
+    def update_contract_tier(self, contract_tier_id: int, threshold_units: int = None, is_selected: bool = None) -> bool:
+        conn = self._get_connection()
+        now = datetime.now().isoformat()
+        current = self.get_contract_tier(contract_tier_id)
+        if not current:
+            return False
+
+        threshold_units = threshold_units if threshold_units is not None else current["threshold_units"]
+        is_selected = is_selected if is_selected is not None else current["is_selected"]
+
+        conn.execute(
+            "UPDATE contract_tiers SET threshold_units = ?, is_selected = ?, date_last_update = ? WHERE contract_tier_id = ?",
+            [threshold_units, is_selected, now, contract_tier_id]
+        )
+        return True
+
+    def delete_contract_tier(self, contract_tier_id: int) -> bool:
+        conn = self._get_connection()
+        result = conn.execute("DELETE FROM contract_tiers WHERE contract_tier_id = ?", [contract_tier_id])
+        return result.rowcount > 0
+
+    # =====================================
 
 
 # Global CRUD instance

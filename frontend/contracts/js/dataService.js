@@ -259,6 +259,55 @@ class DataService {
     return this.delete("actuals", actualId);
   }
 
+  // =====================================
+  // CONTRACT OPERATIONS
+  // =====================================
+
+  async loadContracts() {
+    return this.load("contracts");
+  }
+
+  async loadContractsForProcess(processName) {
+    return this.fetchWithErrorHandling(
+      `${this.basePath}/contracts/process/${encodeURIComponent(processName)}`
+    );
+  }
+
+  async createContract(contractData) {
+    return this.create("contracts", contractData);
+  }
+
+  async getContract(contractId) {
+    return this.get("contracts", contractId);
+  }
+
+  async updateContract(contractId, contractData) {
+    return this.update("contracts", contractId, contractData);
+  }
+
+  async deleteContract(contractId) {
+    return this.delete("contracts", contractId);
+  }
+
+  // Contract Tier operations
+  async loadContractTiers(contractId) {
+    return this.fetchWithErrorHandling(
+      `${this.basePath}/contract-tiers/${contractId}`
+    );
+  }
+
+  async createContractTier(tierData) {
+    return this.create("contract-tiers", tierData);
+  }
+
+  async updateContractTier(contractTierId, tierData) {
+    return this.update("contract-tiers", contractTierId, tierData);
+  }
+
+  async deleteContractTier(contractTierId) {
+    return this.delete("contract-tiers", contractTierId);
+  }
+
 }
 
 // Create singleton instance

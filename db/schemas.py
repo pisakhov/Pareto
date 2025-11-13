@@ -128,6 +128,17 @@ class ContractTier:
 
 
 @dataclass
+class Contract:
+    contract_id: int
+    process_id: int
+    provider_id: int
+    contract_name: str
+    status: str
+    date_creation: str
+    date_last_update: str
+
+
+@dataclass
 class Product:
     product_id: int
     name: str
@@ -195,6 +206,8 @@ class DatabaseSchema:
         self._create_process_graph_table()
         self._create_process_providers_table()
         self._create_process_items_table()
+        self._create_contracts_table()
+        self._create_contract_tiers_table()
         self._create_forecasts_table()
         self._create_actuals_table()
 
@@ -206,6 +219,8 @@ class DatabaseSchema:
         conn.execute("CREATE SEQUENCE IF NOT EXISTS offer_seq")
         conn.execute("CREATE SEQUENCE IF NOT EXISTS product_seq")
         conn.execute("CREATE SEQUENCE IF NOT EXISTS process_seq")
+        conn.execute("CREATE SEQUENCE IF NOT EXISTS contract_seq")
+        conn.execute("CREATE SEQUENCE IF NOT EXISTS contract_tier_seq")
         conn.execute("CREATE SEQUENCE IF NOT EXISTS forecast_seq")
         conn.execute("CREATE SEQUENCE IF NOT EXISTS actual_seq")
         self._sync_sequences()
@@ -235,6 +250,12 @@ class DatabaseSchema:
 
         max_process = get_max_id("processes", "process_id")
         conn.execute(f"DROP SEQUENCE IF EXISTS process_seq; CREATE SEQUENCE process_seq START {max_process + 1}")
+
+        max_contract = get_max_id("contracts", "contract_id")
+        conn.execute(f"DROP SEQUENCE IF EXISTS contract_seq; CREATE SEQUENCE contract_seq START {max_contract + 1}")
+
+        max_contract_tier = get_max_id("contract_tiers", "contract_tier_id")
+        conn.execute(f"DROP SEQUENCE IF EXISTS contract_tier_seq; CREATE SEQUENCE contract_tier_seq START {max_contract_tier + 1}")
 
         max_forecast = get_max_id("forecasts", "forecast_id")
         conn.execute(f"DROP SEQUENCE IF EXISTS forecast_seq; CREATE SEQUENCE forecast_seq START {max_forecast + 1}")
@@ -427,6 +448,36 @@ class DatabaseSchema:
                 item_id INTEGER,
                 date_creation VARCHAR NOT NULL,
                 PRIMARY KEY (process_id, item_id)
+            )
+        """)
+
+    def _create_contracts_table(self):
+        """Create contracts table if it doesn't exist"""
+        conn = self._get_connection()
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS contracts (
+                contract_id INTEGER PRIMARY KEY,
+                process_id INTEGER NOT NULL,
+                provider_id INTEGER NOT NULL,
+                contract_name VARCHAR NOT NULL,
+                status VARCHAR DEFAULT 'active',
+                date_creation VARCHAR NOT NULL,
+                date_last_update VARCHAR NOT NULL
+            )
+        """)
+
+    def _create_contract_tiers_table(self):
+        """Create contract_tiers table if it doesn't exist"""
+        conn = self._get_connection()
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS contract_tiers (
+                contract_tier_id INTEGER PRIMARY KEY,
+                contract_id INTEGER NOT NULL,
+                tier_number INTEGER NOT NULL,
+                threshold_units INTEGER NOT NULL,
+                is_selected BOOLEAN DEFAULT FALSE,
+                date_creation VARCHAR NOT NULL,
+                date_last_update VARCHAR NOT NULL
             )
         """)
 

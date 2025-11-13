@@ -208,9 +208,9 @@
         <!-- Main Content -->
         <div class="flex-1 flex overflow-hidden">
             <!-- Left Sidebar - Process List -->
-            <div class="w-80 border-r border-border bg-secondary/30 flex flex-col">
-                <div class="p-4 border-b border-border">
-                    <button id="addProcessBtn" onclick="toggleAddProcessForm()" class="w-full inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-emerald-600 text-white hover:bg-emerald-600/90">
+            <div id="leftSidebar" class="w-80 border-r border-border bg-secondary/30 flex flex-col transition-all duration-200">
+                <div class="p-4 border-b border-border flex-shrink-0">
+                    <button id="addProcessBtn" onclick="processGraph.showAddProcessModal()" class="w-full inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-emerald-600 text-white hover:bg-emerald-600/90">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                         </svg>
@@ -218,64 +218,36 @@
                     </button>
                 </div>
 
-                <!-- Add Process Form -->
-                <div id="addProcessForm" class="hidden p-4 border-b border-border bg-card">
-                    <form id="createProcessForm" onsubmit="return handleCreateProcess(event)" class="space-y-3">
-                        <div>
-                            <label class="block text-xs font-medium mb-1">Process / Contract Name *</label>
-                            <input type="text" id="newProcessName" required
-                                   class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent text-sm"
-                                   placeholder="e.g., Credit Check (Acquisition)">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium mb-1">Description</label>
-                            <textarea id="newProcessDescription" rows="2"
-                                      class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent text-sm"
-                                      placeholder="Brief description"></textarea>
-                        </div>
-
-                        <div>
-                            <label class="block text-xs font-medium mb-1">Provider *</label>
-                            <select id="newContractProvider" required
-                                    class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent text-sm">
-                                <option value="">Select a provider</option>
-                            </select>
-                        </div>
-
-                        <!-- Tier Thresholds Section -->
-                        <div class="border-t border-border pt-3">
-                            <div class="flex items-center justify-between mb-2">
-                                <label class="block text-xs font-medium">Volume Tiers</label>
-                                <button type="button" id="addContractTierBtn" onclick="window.tierManager.addTierRow()" class="text-xs px-2 py-1 bg-secondary hover:bg-secondary/80 rounded">
-                                    + Add Tier
-                                </button>
-                            </div>
-                            <div id="contractTiersContainer" class="space-y-2">
-                                <!-- Tier rows will be dynamically added here -->
-                            </div>
-                            <p class="text-xs text-muted-foreground mt-2">Set volume thresholds. Example: Tier 2 at 4,000 units</p>
-                        </div>
-
-                        <div class="flex gap-2 pt-2">
-                            <button type="submit" class="flex-1 inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 px-3 py-2 bg-emerald-600 text-white hover:bg-emerald-600/90">
-                                Create Process
-                            </button>
-                            <button type="button" id="cancelAddProcessBtn" onclick="toggleAddProcessForm()" class="flex-1 inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 px-3 py-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground">
-                                Cancel
-                            </button>
-                        </div>
-                    </form>
-                </div>
-
-                <div class="flex-1 overflow-y-auto p-4">
-                    <div id="processList" class="space-y-2">
+                <!-- Process List - Scrollable -->
+                <div id="processListContainer" class="flex-1 overflow-y-auto p-4 min-h-0">
+                    <div id="processList" class="grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
                         <!-- Process items will be added here -->
                     </div>
                 </div>
             </div>
 
+            <!-- Resize Handle -->
+            <div id="resizeHandle" class="w-1 bg-border hover:bg-border/80 cursor-col-resize flex items-center justify-center group transition-colors relative" title="Drag to resize (10% - 90% of viewport)">
+                <!-- Vertical line indicator -->
+                <div class="absolute left-1/2 top-0 bottom-0 w-px bg-border group-hover:bg-border/80 transition-colors"></div>
+                <!-- Drag indicator icons -->
+                <div class="flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <svg class="w-3 h-3 text-muted-foreground" fill="currentColor" viewBox="0 0 20 20">
+                        <circle cx="10" cy="3" r="1.5"/>
+                        <circle cx="10" cy="10" r="1.5"/>
+                        <circle cx="10" cy="17" r="1.5"/>
+                    </svg>
+                </div>
+                <!-- Resize limits indicator -->
+                <div class="absolute bottom-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                    <div class="text-[10px] text-muted-foreground bg-background/90 px-1.5 py-0.5 rounded border shadow-sm whitespace-nowrap">
+                        10% ⟷ 90%
+                    </div>
+                </div>
+            </div>
+
             <!-- Graph Canvas -->
-            <div class="flex-1 relative bg-gradient-to-br from-slate-50 to-slate-100">
+            <div id="canvasContainer" class="flex-1 relative bg-gradient-to-br from-slate-50 to-slate-100 transition-all duration-200">
                 <svg id="processGraphCanvas" class="w-full h-full" style="cursor: move;">
                     <!-- Connections will be drawn here -->
                     <defs>
@@ -316,6 +288,171 @@
                     Close
                 </button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Process Modal -->
+<div id="addProcessModal" class="fixed inset-0 bg-black/60 z-50 hidden items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="addProcessModalTitle">
+    <div class="bg-card w-full max-w-5xl rounded-lg shadow-xl max-h-[90vh] flex flex-col">
+        <!-- Header -->
+        <div class="p-6 border-b border-border flex items-center justify-between flex-shrink-0">
+            <div>
+                <h3 id="addProcessModalTitle" class="text-xl font-semibold">Add New Process</h3>
+                <p class="text-sm text-muted-foreground mt-1">Create a process with one or more provider contracts</p>
+            </div>
+            <button onclick="processGraph.closeAddProcessModal()" class="p-2 hover:bg-accent rounded-md transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Content -->
+        <div class="flex-1 overflow-y-auto p-6">
+            <form id="createProcessForm" onsubmit="return handleCreateProcess(event)" class="space-y-6">
+                <!-- Process Name -->
+                <div>
+                    <label class="block text-sm font-medium mb-2">Process Name *</label>
+                    <input type="text" id="newProcessName" required
+                           class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent"
+                           placeholder="e.g., Credit Check (Acquisition)">
+                    <p class="text-sm text-muted-foreground mt-2">
+                        <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        Process names can be reused for different providers
+                    </p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium mb-2">Description</label>
+                    <textarea id="newProcessDescription" rows="3" placeholder="Brief description"
+                              class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent"></textarea>
+                </div>
+
+                <!-- Contracts Section -->
+                <div class="border-t border-border pt-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="text-lg font-semibold">Contracts for this Process</h4>
+                        <button type="button" onclick="processGraph.addContractToAdd()"
+                                class="text-sm px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                            </svg>
+                            Add Contract
+                        </button>
+                    </div>
+
+                    <!-- Contracts Container -->
+                    <div id="addContractsContainer" class="space-y-4">
+                        <!-- Empty state -->
+                        <div id="addContractsEmpty" class="p-8 border-2 border-dashed border-border rounded-lg bg-secondary/10 text-center">
+                            <svg class="w-12 h-12 text-muted-foreground mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                            </svg>
+                            <p class="text-sm text-muted-foreground">No contracts added yet</p>
+                            <p class="text-xs text-muted-foreground mt-1">Add at least one contract with a provider</p>
+                        </div>
+                    </div>
+
+                    <p class="text-sm text-muted-foreground mt-4 flex items-start gap-2">
+                        <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <span>Each contract represents a provider with custom tier pricing for this process</span>
+                    </p>
+                </div>
+            </form>
+        </div>
+
+        <!-- Footer -->
+        <div class="p-6 border-t border-border bg-card flex justify-end gap-3 flex-shrink-0">
+            <button type="button" onclick="processGraph.closeAddProcessModal()"
+                    class="px-5 py-2.5 border border-input rounded-md hover:bg-accent hover:text-accent-foreground transition-colors">
+                Cancel
+            </button>
+            <button type="submit" form="createProcessForm"
+                    class="px-5 py-2.5 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors">
+                Create Process & Contracts
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Process Modal -->
+<div id="editProcessModal" class="fixed inset-0 bg-black/60 z-50 hidden items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="editProcessModalTitle">
+    <div class="bg-card w-full max-w-4xl rounded-lg shadow-xl max-h-[90vh] flex flex-col">
+        <!-- Header -->
+        <div class="p-6 border-b border-border flex items-center justify-between flex-shrink-0">
+            <div>
+                <h3 id="editProcessModalTitle" class="text-xl font-semibold">Edit Process</h3>
+                <p class="text-sm text-muted-foreground mt-1">Update process name, description, and volume tiers</p>
+            </div>
+            <button onclick="processGraph.closeEditProcessModal()" class="p-2 hover:bg-accent rounded-md transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Content -->
+        <div class="flex-1 overflow-y-auto p-6">
+            <form id="editProcessForm" onsubmit="return processGraph.handleEditProcessSubmit(event)" class="space-y-6">
+                <input type="hidden" id="editProcessId">
+
+                <!-- Process / Contract Name -->
+                <div>
+                    <label class="block text-sm font-medium mb-2">Process / Contract Name *</label>
+                    <input type="text" id="editProcessName" required
+                           class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent"
+                           placeholder="e.g., Credit Check (Acquisition)">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium mb-2">Description</label>
+                    <textarea id="editProcessDescription" rows="3" placeholder="Brief description"
+                              class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent"></textarea>
+                </div>
+
+                <!-- Volume Tiers Section -->
+                <div class="border-t border-border pt-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="text-lg font-semibold">Volume Tiers</h4>
+                        <button type="button" onclick="processGraph.addTierToEdit()"
+                                class="text-sm px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                            </svg>
+                            Add Tier
+                        </button>
+                    </div>
+
+                    <!-- Tiers Container -->
+                    <div id="editTiersContainer" class="space-y-3">
+                        <!-- Tiers will be loaded here -->
+                    </div>
+
+                    <p class="text-sm text-muted-foreground mt-3 flex items-start gap-2">
+                        <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <span>Set volume thresholds for this process. Example: Tier 2 at 4,000 units</span>
+                    </p>
+                </div>
+            </form>
+        </div>
+
+        <!-- Footer -->
+        <div class="p-6 border-t border-border bg-card flex justify-end gap-3 flex-shrink-0">
+            <button type="button" onclick="processGraph.closeEditProcessModal()"
+                    class="px-5 py-2.5 border border-input rounded-md hover:bg-accent hover:text-accent-foreground transition-colors">
+                Cancel
+            </button>
+            <button type="submit" form="editProcessForm"
+                    class="px-5 py-2.5 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors">
+                Save Changes
+            </button>
         </div>
     </div>
 </div>

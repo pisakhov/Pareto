@@ -21,6 +21,7 @@ class ProcessGraph {
     await this.loadProcesses();
     await this.loadProviders();
     this.setupEventListeners();
+    this.setupResizeHandle();
     this.render();
     this.autoLayout();
     this.setupFormEventHandlers();
@@ -43,6 +44,66 @@ class ProcessGraph {
     this.canvas.addEventListener('mousedown', (e) => this.handleCanvasMouseDown(e));
     document.addEventListener('mousemove', (e) => this.handleMouseMove(e));
     document.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+  }
+
+  setupResizeHandle() {
+    const resizeHandle = document.getElementById('resizeHandle');
+    const leftSidebar = document.getElementById('leftSidebar');
+    const canvasContainer = document.getElementById('canvasContainer');
+
+    if (!resizeHandle || !leftSidebar || !canvasContainer) return;
+
+    let isResizing = false;
+    let startX = 0;
+    let startSidebarWidth = 0;
+
+    const startResize = (e) => {
+      isResizing = true;
+      startX = e.clientX;
+      startSidebarWidth = leftSidebar.offsetWidth;
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      e.preventDefault();
+    };
+
+    const doResize = (e) => {
+      if (!isResizing) return;
+
+      const deltaX = e.clientX - startX;
+      let newWidth = startSidebarWidth + deltaX;
+
+      // Calculate min/max as 10% and 90% of viewport
+      const viewportWidth = window.innerWidth;
+      const minWidth = viewportWidth * 0.10;  // 10% of viewport
+      const maxWidth = viewportWidth * 0.90;  // 90% of viewport
+
+      // Constrain width
+      newWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
+
+      leftSidebar.style.width = `${newWidth}px`;
+    };
+
+    const stopResize = () => {
+      if (!isResizing) return;
+      isResizing = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    resizeHandle.addEventListener('mousedown', startResize);
+    document.addEventListener('mousemove', doResize);
+    document.addEventListener('mouseup', stopResize);
+
+    // Touch support
+    resizeHandle.addEventListener('touchstart', (e) => {
+      const touch = e.touches[0];
+      startResize(touch);
+    });
+    document.addEventListener('touchmove', (e) => {
+      const touch = e.touches[0];
+      doResize(touch);
+    });
+    document.addEventListener('touchend', stopResize);
   }
 
   async loadProcesses() {
@@ -129,11 +190,18 @@ class ProcessGraph {
       const processItem = document.createElement('div');
       processItem.className = 'bg-card border border-border rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer';
 
+      // Get provider name from the providers array
+      const provider = this.providers?.find(p => p.provider_id === process.provider_id);
+      const providerName = provider ? provider.company_name : 'Unknown Provider';
+
+      // Count contracts for this process
+      const contractCount = this.getContractCountForProcess(process.process_id);
+
       processItem.innerHTML = `
         <div class="flex items-center justify-between mb-2">
           <h4 class="font-semibold text-sm">${process.process_name}</h4>
           <div class="flex gap-1">
-            <button onclick="event.stopPropagation(); processGraph.toggleEditForm(${process.process_id})" class="p-1 hover:bg-accent rounded">
+            <button onclick="event.stopPropagation(); processGraph.showEditProcessModal(${process.process_id})" class="p-1 hover:bg-accent rounded">
               <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
               </svg>
@@ -145,35 +213,22 @@ class ProcessGraph {
             </button>
           </div>
         </div>
-        <p class="text-xs text-muted-foreground">${process.description || 'No description'}</p>
+        <p class="text-xs text-muted-foreground mb-3">${process.description || 'No description'}</p>
+        <div class="space-y-2">
+          <div class="flex items-center gap-2 text-xs text-muted-foreground">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+            </svg>
+            <span class="font-medium">${contractCount}</span>
+            <span>contract${contractCount !== 1 ? 's' : ''} configured</span>
+          </div>
+        </div>
         <div class="mt-2 flex items-center gap-2">
           <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-            process.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+            process.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-800'
           }">
             ${process.status}
           </span>
-        </div>
-        <div id="editForm-${process.process_id}" class="hidden mt-3 p-3 border border-border rounded-md bg-secondary/50">
-          <form id="editProcessForm-${process.process_id}" class="space-y-3">
-            <div>
-              <label class="block text-xs font-medium mb-1">Process Name *</label>
-              <input type="text" id="editName-${process.process_id}" value="${process.process_name}" required
-                     class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent text-sm">
-            </div>
-            <div>
-              <label class="block text-xs font-medium mb-1">Description</label>
-              <textarea id="editDescription-${process.process_id}" rows="2"
-                        class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent text-sm">${process.description || ''}</textarea>
-            </div>
-            <div class="flex gap-2">
-              <button type="submit" onclick="console.log('[BUTTON] Save button clicked for process', ${process.process_id}); return true;" class="flex-1 inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-8 px-2 py-2 bg-emerald-600 text-white hover:bg-emerald-600/90">
-                Save
-              </button>
-              <button type="button" onclick="processGraph.toggleEditForm(${process.process_id})" class="flex-1 inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-8 px-2 py-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground">
-                Cancel
-              </button>
-            </div>
-          </form>
         </div>
       `;
 
@@ -745,79 +800,95 @@ class ProcessGraph {
 
   async addNewProcess() {
     try {
-      const name = document.getElementById('newProcessName').value;
+      const processName = document.getElementById('newProcessName').value;
       const description = document.getElementById('newProcessDescription').value;
 
-      if (!name.trim()) {
+      if (!processName.trim()) {
         uiManager.showNotification('Process name is required', 'error');
         document.getElementById('newProcessName').focus();
         return;
       }
 
-      // Get contract information (provider is required)
-      const contractProviderId = document.getElementById('newContractProvider').value;
+      // Get all contracts
+      const contractsContainer = document.getElementById('addContractsContainer');
+      const contractElements = contractsContainer.querySelectorAll('[id^="addContract-"]');
 
-      if (!contractProviderId) {
-        uiManager.showNotification('Provider is required', 'error');
-        document.getElementById('newContractProvider').focus();
+      if (contractElements.length === 0) {
+        uiManager.showNotification('Please add at least one contract', 'error');
         return;
       }
 
-      // Check for duplicate names
-      const duplicate = this.processes.find(p =>
-        p.process_name.toLowerCase() === name.trim().toLowerCase()
+      // Validate each contract
+      let createdContracts = 0;
+      for (const contractEl of contractElements) {
+        const contractId = contractEl.id;
+        const providerSelect = document.getElementById(`addContractProvider-${contractId}`);
+
+        if (!providerSelect || !providerSelect.value) {
+          uiManager.showNotification('Each contract must have a provider selected', 'error');
+          return;
+        }
+
+        // Get tier thresholds for this contract
+        const tierThresholds = {};
+        const tierInputs = contractEl.querySelectorAll('.add-contract-tier-threshold');
+        tierInputs.forEach(input => {
+          const tierNumber = input.dataset.tier;
+          const value = parseInt(input.value) || 0;
+          tierThresholds[tierNumber] = value;
+        });
+
+        // Create contract using dataService
+        const newContract = await dataService.createContract({
+          process_name: processName.trim(),
+          provider_id: parseInt(providerSelect.value),
+          status: 'active'
+        });
+
+        // Create tiers for this contract
+        for (const [tierNumber, threshold] of Object.entries(tierThresholds)) {
+          await dataService.createContractTier({
+            contract_id: newContract.contract_id,
+            tier_number: parseInt(tierNumber),
+            threshold_units: threshold,
+            is_selected: false
+          });
+        }
+
+        // Also create a process record for the graph
+        const newProcess = await dataService.createProcess({
+          process_name: processName.trim(),
+          description: description.trim(),
+          provider_id: parseInt(providerSelect.value),
+          tier_thresholds: JSON.stringify(tierThresholds),
+          status: 'active'
+        });
+
+        // Calculate random position
+        const canvasWidth = 1200;
+        const canvasHeight = 800;
+        const margin = 100;
+
+        newProcess.x = Math.random() * (canvasWidth - margin * 2) + margin;
+        newProcess.y = Math.random() * (canvasHeight - margin * 2) + margin;
+
+        this.processes.push(newProcess);
+        createdContracts++;
+      }
+
+      uiManager.showNotification(
+        createdContracts === 1
+          ? `Process "${processName.trim()}" created with 1 contract`
+          : `Process "${processName.trim()}" created with ${createdContracts} contracts`,
+        'success'
       );
 
-      if (duplicate) {
-        uiManager.showNotification('A process with this name already exists. Please choose a different name.', 'error');
-        document.getElementById('newProcessName').focus();
-        return;
-      }
-
-      // Get tier thresholds from tierManager and convert to JSON
-      const tierThresholds = window.tierManager.getTierThresholds();
-      const tierThresholdsJson = JSON.stringify(tierThresholds);
-
-      const newProcess = await dataService.createProcess({
-        process_name: name.trim(),
-        description: description.trim(),
-        provider_id: parseInt(contractProviderId),
-        tier_thresholds: tierThresholdsJson,
-        status: 'active'
-      });
-
-      // Calculate random position within canvas boundaries
-      const canvasWidth = 1200;
-      const canvasHeight = 800;
-      const nodeSize = 120;
-      const margin = 100;
-
-      newProcess.x = Math.random() * (canvasWidth - margin * 2) + margin;
-      newProcess.y = Math.random() * (canvasHeight - margin * 2) + margin;
-
-      this.processes.push(newProcess);
-
-      uiManager.showNotification(`Process "${newProcess.process_name}" created successfully`, 'success');
-
-      // Clear form and hide
-      document.getElementById('newProcessName').value = '';
-      document.getElementById('newProcessDescription').value = '';
-      document.getElementById('newContractProvider').value = '';
-      window.tierManager.clearTiers();
-      this.toggleAddProcessForm();
-
+      // Close modal and refresh
+      this.closeAddProcessModal();
       this.render();
     } catch (error) {
       console.error('Error creating process:', error);
-      let errorMsg = 'Failed to create process';
-
-      if (error.message.includes('Duplicate key')) {
-        errorMsg = 'A process with this name already exists. Please choose a different name.';
-      } else if (error.message) {
-        errorMsg = error.message;
-      }
-
-      uiManager.showNotification(errorMsg, 'error');
+      uiManager.showNotification('Failed to create process: ' + error.message, 'error');
     }
   }
 
@@ -827,50 +898,59 @@ class ProcessGraph {
       return;
     }
 
-    const nameInput = document.getElementById(`editName-${processId}`);
-    const descriptionInput = document.getElementById(`editDescription-${processId}`);
+    const processName = document.getElementById('editProcessName').value;
+    const description = document.getElementById('editProcessDescription').value;
 
-    if (!nameInput || !descriptionInput) {
-      uiManager.showNotification('Error: Form inputs not found', 'error');
-      return;
-    }
-
-    const name = nameInput.value;
-    const description = descriptionInput.value;
-
-    if (!name.trim()) {
+    if (!processName.trim()) {
       uiManager.showNotification('Process name is required', 'error');
-      document.getElementById(`editName-${processId}`).focus();
+      document.getElementById('editProcessName').focus();
       return;
     }
 
     const duplicate = this.processes.find(p =>
       p.process_id !== processId &&
-      p.process_name.toLowerCase() === name.trim().toLowerCase()
+      p.process_name.toLowerCase() === processName.trim().toLowerCase()
     );
 
     if (duplicate) {
       uiManager.showNotification('A process with this name already exists. Please choose a different name.', 'error');
-      document.getElementById(`editName-${processId}`).focus();
+      document.getElementById('editProcessName').focus();
       return;
     }
 
     try {
-      const payload = {
-        process_name: name.trim(),
+      // Get tier thresholds
+      const tierThresholds = {};
+      const tierInputs = document.querySelectorAll('#editTiersContainer .edit-tier-threshold');
+      tierInputs.forEach(input => {
+        const tierNumber = input.dataset.tier;
+        const value = parseInt(input.value) || 0;
+        tierThresholds[tierNumber] = value;
+      });
+
+      const tierThresholdsJson = JSON.stringify(tierThresholds);
+
+      // Update process
+      await dataService.updateProcess(processId, {
+        process_name: processName.trim(),
         description: description.trim(),
+        provider_id: process.provider_id, // Keep existing provider
+        tier_thresholds: tierThresholdsJson,
         status: process.status
-      };
+      });
 
-      await dataService.updateProcess(processId, payload);
-
-      process.process_name = name.trim();
+      // Update local process object
+      process.process_name = processName.trim();
       process.description = description.trim();
+      process.tier_thresholds = tierThresholdsJson;
 
-      this.toggleEditForm(processId);
+      this.closeEditProcessModal();
       this.render();
 
-      uiManager.showNotification(`Process "${name.trim()}" updated successfully`, 'success');
+      uiManager.showNotification(
+        `Process "${processName.trim()}" updated successfully`,
+        'success'
+      );
     } catch (error) {
       let errorMsg = 'Failed to update process';
 
@@ -984,47 +1064,630 @@ class ProcessGraph {
     }
   }
 
-  toggleAddProcessForm() {
-    const form = document.getElementById('addProcessForm');
-    const btn = document.getElementById('addProcessBtn');
+  showAddProcessModal() {
+    const modal = document.getElementById('addProcessModal');
+    if (!modal) return;
 
-    if (!form || !btn) {
-      return;
-    }
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    this.resetAddForm();
 
-    if (form.classList.contains('hidden')) {
-      form.classList.remove('hidden');
-      btn.classList.add('hidden');
-      document.getElementById('newProcessName').focus();
-    } else {
-      form.classList.add('hidden');
-      btn.classList.remove('hidden');
-      document.getElementById('newProcessName').value = '';
-      document.getElementById('newProcessDescription').value = '';
+    // Focus on process name input
+    setTimeout(() => {
+      const processName = document.getElementById('newProcessName');
+      if (processName) {
+        processName.focus();
+      }
+    }, 150);
+  }
+
+  closeAddProcessModal() {
+    const modal = document.getElementById('addProcessModal');
+    if (!modal) return;
+
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    this.resetAddForm();
+  }
+
+  populateTemplateDropdownForAdd() {
+    const templateSelect = document.getElementById('newContractTemplate');
+    if (templateSelect && this.processes) {
+      templateSelect.innerHTML = '<option value="">Select template or create new</option>';
+      // Get unique template names
+      const uniqueTemplates = [...new Set(this.processes.map(p => p.process_name))];
+      uniqueTemplates.forEach(templateName => {
+        const option = document.createElement('option');
+        option.value = templateName;
+        option.textContent = templateName;
+        templateSelect.appendChild(option);
+      });
     }
   }
 
-  toggleEditForm(processId) {
-    const form = document.getElementById(`editForm-${processId}`);
+  resetAddForm() {
+    document.getElementById('newProcessName').value = '';
+    document.getElementById('newProcessDescription').value = '';
 
-    if (!form) {
+    // Reset tiers container
+    const tiersContainer = document.getElementById('addTiersContainer');
+    if (tiersContainer) {
+      tiersContainer.innerHTML = `
+        <div class="flex items-center gap-2 p-3 border border-border rounded bg-secondary/20">
+          <span class="text-sm font-medium w-16">Tier 1:</span>
+          <span class="text-xs">&lt;</span>
+          <input type="number"
+                 data-tier="1"
+                 class="tier-threshold w-32 px-2 py-1.5 text-sm border border-input rounded"
+                 value="1000"
+                 min="0"
+                 placeholder="0">
+          <span class="text-sm text-muted-foreground">units</span>
+          <span class="w-6"></span>
+        </div>
+      `;
+    }
+  }
+
+  createNewTemplateFromAdd() {
+    // No longer needed - using simple text input
+  }
+
+  addTierToAdd() {
+    const container = document.getElementById('addTiersContainer');
+    if (!container) return;
+
+    const tierCount = container.children.length;
+    const tierNumber = tierCount + 1;
+
+    const tierRow = document.createElement('div');
+    tierRow.className = 'flex items-center gap-2 p-3 border border-border rounded bg-secondary/20';
+    tierRow.innerHTML = `
+      <span class="text-sm font-medium w-16">Tier ${tierNumber}:</span>
+      <span class="text-xs">&lt;</span>
+      <input type="number"
+             data-tier="${tierNumber}"
+             class="tier-threshold w-32 px-2 py-1.5 text-sm border border-input rounded"
+             value="0"
+             min="0"
+             placeholder="0">
+      <span class="text-sm text-muted-foreground">units</span>
+      <button type="button" onclick="this.parentElement.remove()"
+              class="text-red-600 hover:text-red-800 ml-auto p-1 hover:bg-red-50 rounded">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    `;
+
+    container.appendChild(tierRow);
+  }
+
+  addContractToAdd() {
+    const container = document.getElementById('addContractsContainer');
+    const emptyState = document.getElementById('addContractsEmpty');
+    if (!container) return;
+
+    // Hide empty state when adding first contract
+    if (emptyState) {
+      emptyState.style.display = 'none';
+    }
+
+    const contractIndex = container.children.length;
+    const contractId = `addContract-${contractIndex}`;
+
+    const contractElement = document.createElement('div');
+    contractElement.id = contractId;
+    contractElement.className = 'p-3 bg-card border border-border rounded-md space-y-3';
+
+    contractElement.innerHTML = `
+      <div class="flex items-center justify-between">
+        <h5 class="text-xs font-semibold text-foreground flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+          </svg>
+          Contract ${contractIndex + 1}
+        </h5>
+        <button type="button" onclick="processGraph.removeContractFromAdd('${contractId}')"
+                class="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium mb-1">Provider *</label>
+        <select id="addContractProvider-${contractId}" required
+                class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent text-sm">
+          <option value="">Select a provider</option>
+        </select>
+      </div>
+
+      <!-- Tier Thresholds for this Contract -->
+      <div class="border-t border-border pt-3">
+        <div class="flex items-center justify-between mb-2">
+          <label class="block text-xs font-medium">Volume Tiers for this Contract</label>
+          <button type="button" onclick="processGraph.addContractTierRowToAdd('${contractId}')"
+                  class="text-xs px-2 py-1 bg-secondary hover:bg-secondary/80 rounded">
+            + Add Tier
+          </button>
+        </div>
+        <div id="addContractTiersContainer-${contractId}" class="space-y-2">
+          <!-- Default tier -->
+          <div class="flex items-center gap-2 p-2 border border-border rounded bg-secondary/20">
+            <span class="text-sm font-medium w-16">Tier 1:</span>
+            <span class="text-xs">&lt;</span>
+            <input type="number"
+                   data-tier="1"
+                   class="add-contract-tier-threshold w-32 px-2 py-1 text-sm border border-input rounded"
+                   value="1000"
+                   min="0"
+                   placeholder="0">
+            <span class="text-xs text-muted-foreground">units</span>
+            <span class="w-6"></span>
+          </div>
+        </div>
+        <p class="text-xs text-muted-foreground mt-2">Customize tier thresholds for this provider</p>
+      </div>
+    `;
+
+    container.appendChild(contractElement);
+
+    // Populate provider dropdown
+    const providerSelect = document.getElementById(`addContractProvider-${contractId}`);
+    if (providerSelect && this.providers) {
+      this.providers.forEach(provider => {
+        const option = document.createElement('option');
+        option.value = provider.provider_id;
+        option.textContent = provider.company_name;
+        providerSelect.appendChild(option);
+      });
+    }
+  }
+
+  removeContractFromAdd(contractId) {
+    const contract = document.getElementById(contractId);
+    const container = document.getElementById('addContractsContainer');
+    const emptyState = document.getElementById('addContractsEmpty');
+
+    if (contract) {
+      contract.remove();
+    }
+
+    // Show empty state if no contracts left
+    if (container && container.children.length === 0 && emptyState) {
+      emptyState.style.display = 'block';
+    }
+  }
+
+  addContractTierRowToAdd(contractId, tierNumber = null, threshold = 0) {
+    const container = document.getElementById(`addContractTiersContainer-${contractId}`);
+    if (!container) return;
+
+    const actualTierNumber = tierNumber || (container.children.length + 1);
+    const rowId = `add-contract-tier-${contractId}-${actualTierNumber}`;
+
+    // Check if tier already exists
+    if (document.getElementById(rowId)) {
       return;
     }
 
-    const isHidden = form.classList.contains('hidden');
+    const row = document.createElement('div');
+    row.id = rowId;
+    row.className = 'flex items-center gap-2 p-2 border border-border rounded bg-secondary/20';
 
-    if (isHidden) {
-      form.classList.remove('hidden');
-      setTimeout(() => {
-        const nameInput = document.getElementById(`editName-${processId}`);
-        if (nameInput) {
-          nameInput.focus();
-        }
-      }, 100);
+    row.innerHTML = `
+      <span class="text-sm font-medium w-16">Tier ${actualTierNumber}:</span>
+      <span class="text-xs">&lt;</span>
+      <input type="number"
+             data-tier="${actualTierNumber}"
+             class="add-contract-tier-threshold w-32 px-2 py-1 text-sm border border-input rounded"
+             value="${threshold}"
+             min="0"
+             placeholder="0">
+      <span class="text-xs text-muted-foreground">units</span>
+      ${
+        actualTierNumber > 1
+          ? `<button type="button" onclick="processGraph.removeContractTierRowFromAdd('${rowId}')" class="text-red-600 hover:text-red-800 ml-auto">
+             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+             </svg>
+           </button>`
+          : '<span class="w-6"></span>'
+      }
+    `;
+
+    container.appendChild(row);
+  }
+
+  removeContractTierRowFromAdd(rowId) {
+    const row = document.getElementById(rowId);
+    if (row) {
+      row.remove();
+    }
+  }
+
+  showEditProcessModal(processId) {
+    const modal = document.getElementById('editProcessModal');
+    if (!modal) return;
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+
+    // Store current process ID
+    document.getElementById('editProcessId').value = processId;
+
+    this.populateEditForm(processId);
+
+    // Focus on template select
+    setTimeout(() => {
+      const templateSelect = document.getElementById('editContractTemplate');
+      if (templateSelect) {
+        templateSelect.focus();
+      }
+    }, 150);
+  }
+
+  closeEditProcessModal() {
+    const modal = document.getElementById('editProcessModal');
+    if (!modal) return;
+
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+
+    // Clear form fields
+    document.getElementById('editProcessId').value = '';
+    document.getElementById('editProcessName').value = '';
+    document.getElementById('editProcessDescription').value = '';
+
+    const tiersContainer = document.getElementById('editTiersContainer');
+    if (tiersContainer) {
+      tiersContainer.innerHTML = '';
+    }
+  }
+
+  populateEditForm(processId) {
+    const process = this.processes.find(p => p.process_id === processId);
+    if (!process) return;
+
+    // Set process name
+    const nameInput = document.getElementById('editProcessName');
+    if (nameInput) {
+      nameInput.value = process.process_name || '';
+    }
+
+    // Set description
+    const descriptionInput = document.getElementById('editProcessDescription');
+    if (descriptionInput) {
+      descriptionInput.value = process.description || '';
+    }
+
+    // Load tiers
+    this.loadTiersForEdit(processId, process.tier_thresholds);
+  }
+
+  getContractCountForProcess(processId) {
+    // Get process by ID
+    const process = this.processes.find(p => p.process_id === processId);
+    if (!process) return 0;
+
+    // Count contracts for this process name
+    return this.processes.filter(p => p.process_name === process.process_name).length;
+  }
+
+  createNewTemplateFromEdit() {
+    // No longer needed - using simple text input
+  }
+
+  loadTiersForEdit(processId, tierThresholdsJson) {
+    const container = document.getElementById('editTiersContainer');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    let tierThresholds = {};
+    try {
+      tierThresholds = JSON.parse(tierThresholdsJson || '{}');
+    } catch (e) {
+      tierThresholds = { '1': 1000 }; // Default
+    }
+
+    const sortedTiers = Object.entries(tierThresholds).sort(([a], [b]) => parseInt(a) - parseInt(b));
+
+    if (sortedTiers.length === 0) {
+      // If no tiers exist, add one default tier
+      this.addTierToEdit();
     } else {
-      form.classList.add('hidden');
-      document.getElementById(`editName-${processId}`).value = '';
-      document.getElementById(`editDescription-${processId}`).value = '';
+      sortedTiers.forEach(([tierNum, threshold]) => {
+        this.addTierToEdit(parseInt(tierNum), threshold);
+      });
+    }
+  }
+
+  addTierToEdit(tierNumber = null, threshold = 0) {
+    const container = document.getElementById('editTiersContainer');
+    if (!container) return;
+
+    const actualTierNumber = tierNumber || (container.children.length + 1);
+    const tierRow = document.createElement('div');
+    tierRow.className = 'flex items-center gap-2 p-3 border border-border rounded bg-secondary/20';
+
+    tierRow.innerHTML = `
+      <span class="text-sm font-medium w-16">Tier ${actualTierNumber}:</span>
+      <span class="text-xs">&lt;</span>
+      <input type="number"
+             data-tier="${actualTierNumber}"
+             class="edit-tier-threshold w-32 px-2 py-1.5 text-sm border border-input rounded"
+             value="${threshold}"
+             min="0"
+             placeholder="0">
+      <span class="text-sm text-muted-foreground">units</span>
+      ${
+        actualTierNumber > 1
+          ? `<button type="button" onclick="this.parentElement.remove()"
+                    class="text-red-600 hover:text-red-800 ml-auto p-1 hover:bg-red-50 rounded">
+               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+               </svg>
+             </button>`
+          : '<span class="w-6"></span>'
+      }
+    `;
+
+    container.appendChild(tierRow);
+  }
+
+  addContractToEdit() {
+    const container = document.getElementById('editContractsContainer');
+    const emptyState = document.getElementById('editContractsEmpty');
+    if (!container) return;
+
+    // Hide empty state when adding first contract
+    if (emptyState) {
+      emptyState.style.display = 'none';
+    }
+
+    const contractIndex = container.children.length;
+    const contractId = `editContract-${contractIndex}`;
+
+    const contractElement = document.createElement('div');
+    contractElement.id = contractId;
+    contractElement.className = 'p-4 bg-card border border-border rounded-md space-y-4';
+
+    contractElement.innerHTML = `
+      <div class="flex items-center justify-between">
+        <h5 class="text-sm font-semibold text-foreground flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+          </svg>
+          Contract ${contractIndex + 1}
+        </h5>
+        <button type="button" onclick="processGraph.removeContractFromEdit('${contractId}')"
+                class="text-red-600 hover:text-red-800 p-1.5 hover:bg-red-50 rounded">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-2">Provider *</label>
+        <select id="editContractProvider-${contractId}" required
+                class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent">
+          <option value="">Select a provider</option>
+        </select>
+      </div>
+
+      <!-- Tier Thresholds for this Contract -->
+      <div class="border-t border-border pt-4">
+        <div class="flex items-center justify-between mb-3">
+          <label class="block text-sm font-medium">Volume Tiers for this Contract</label>
+          <button type="button" onclick="processGraph.addContractTierRow('${contractId}')"
+                  class="text-sm px-3 py-1.5 bg-secondary hover:bg-secondary/80 rounded">
+            + Add Tier
+          </button>
+        </div>
+        <div id="editContractTiersContainer-${contractId}" class="space-y-2">
+          <!-- Default tier -->
+          <div class="flex items-center gap-2 p-3 border border-border rounded bg-secondary/20">
+            <span class="text-sm font-medium w-16">Tier 1:</span>
+            <span class="text-xs">&lt;</span>
+            <input type="number"
+                   data-tier="1"
+                   class="contract-tier-threshold w-32 px-2 py-1.5 text-sm border border-input rounded"
+                   value="1000"
+                   min="0"
+                   placeholder="0">
+            <span class="text-sm text-muted-foreground">units</span>
+            <span class="w-6"></span>
+          </div>
+        </div>
+        <p class="text-sm text-muted-foreground mt-2">Customize tier thresholds for this provider</p>
+      </div>
+    `;
+
+    container.appendChild(contractElement);
+
+    // Populate provider dropdown
+    const providerSelect = document.getElementById(`editContractProvider-${contractId}`);
+    if (providerSelect && this.providers) {
+      this.providers.forEach(provider => {
+        const option = document.createElement('option');
+        option.value = provider.provider_id;
+        option.textContent = provider.company_name;
+        providerSelect.appendChild(option);
+      });
+    }
+  }
+
+  removeContractFromEdit(contractId) {
+    const contract = document.getElementById(contractId);
+    const container = document.getElementById('editContractsContainer');
+    const emptyState = document.getElementById('editContractsEmpty');
+
+    if (contract) {
+      contract.remove();
+    }
+
+    // Show empty state if no contracts left
+    if (container && container.children.length === 0 && emptyState) {
+      emptyState.style.display = 'block';
+    }
+  }
+
+  addContractTierRow(contractId, tierNumber = null, threshold = 0) {
+    const container = document.getElementById(`editContractTiersContainer-${contractId}`);
+    if (!container) return;
+
+    const actualTierNumber = tierNumber || (container.children.length + 1);
+    const rowId = `edit-contract-tier-${contractId}-${actualTierNumber}`;
+
+    // Check if tier already exists
+    if (document.getElementById(rowId)) {
+      return;
+    }
+
+    const row = document.createElement('div');
+    row.id = rowId;
+    row.className = 'flex items-center gap-2 p-2 border border-border rounded bg-secondary/20';
+
+    row.innerHTML = `
+      <span class="text-sm font-medium w-16">Tier ${actualTierNumber}:</span>
+      <span class="text-xs">&lt;</span>
+      <input type="number"
+             data-tier="${actualTierNumber}"
+             class="contract-tier-threshold w-32 px-2 py-1 text-sm border border-input rounded"
+             value="${threshold}"
+             min="0"
+             placeholder="0">
+      <span class="text-xs text-muted-foreground">units</span>
+      ${
+        actualTierNumber > 1
+          ? `<button type="button" onclick="processGraph.removeContractTierRow('${rowId}')" class="text-red-600 hover:text-red-800 ml-auto">
+             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+             </svg>
+           </button>`
+          : '<span class="w-6"></span>'
+      }
+    `;
+
+    container.appendChild(row);
+  }
+
+  removeContractTierRow(rowId) {
+    const row = document.getElementById(rowId);
+    if (row) {
+      row.remove();
+    }
+  }
+
+  loadContractsForEdit(processId, templateName) {
+    const container = document.getElementById('editContractsContainer');
+    const emptyState = document.getElementById('editContractsEmpty');
+    if (!container) return;
+
+    // Clear existing contracts
+    container.innerHTML = '';
+
+    // Find the specific process being edited
+    const process = this.processes.find(p => p.process_id === processId);
+    if (!process) {
+      container.innerHTML = `
+        <div class="p-8 border-2 border-dashed border-border rounded-lg bg-secondary/10 text-center">
+          <p class="text-sm text-muted-foreground">Error: Process not found</p>
+        </div>
+      `;
+      return;
+    }
+
+    // Create a contract for this specific process
+    const contractIndex = 0;
+    const contractId = `editContract-${contractIndex}`;
+
+    const contractElement = document.createElement('div');
+    contractElement.id = contractId;
+    contractElement.className = 'p-4 bg-card border border-border rounded-md space-y-4';
+
+    // Parse tier thresholds
+    let tierThresholds = {};
+    try {
+      tierThresholds = JSON.parse(process.tier_thresholds || '{}');
+    } catch (e) {
+      tierThresholds = { '1': 1000 }; // Default
+    }
+
+    contractElement.innerHTML = `
+      <div class="flex items-center justify-between">
+        <h5 class="text-sm font-semibold text-foreground flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+          </svg>
+          Contract ${contractIndex + 1}
+        </h5>
+        <button type="button" onclick="processGraph.removeContractFromEdit('${contractId}')"
+                class="text-red-600 hover:text-red-800 p-1.5 hover:bg-red-50 rounded">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-2">Provider *</label>
+        <select id="editContractProvider-${contractId}" required
+                class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent">
+          <option value="">Select a provider</option>
+        </select>
+      </div>
+
+      <!-- Tier Thresholds for this Contract -->
+      <div class="border-t border-border pt-4">
+        <div class="flex items-center justify-between mb-3">
+          <label class="block text-sm font-medium">Volume Tiers for this Contract</label>
+          <button type="button" onclick="processGraph.addContractTierRow('${contractId}')"
+                  class="text-sm px-3 py-1.5 bg-secondary hover:bg-secondary/80 rounded">
+            + Add Tier
+          </button>
+        </div>
+        <div id="editContractTiersContainer-${contractId}" class="space-y-2">
+          <!-- Tier rows will be dynamically added here -->
+        </div>
+        <p class="text-sm text-muted-foreground mt-2">Customize tier thresholds for this provider</p>
+      </div>
+    `;
+
+    container.appendChild(contractElement);
+
+    // Populate provider dropdown and select current provider
+    const providerSelect = document.getElementById(`editContractProvider-${contractId}`);
+    if (providerSelect && this.providers) {
+      this.providers.forEach(provider => {
+        const option = document.createElement('option');
+        option.value = provider.provider_id;
+        option.textContent = provider.company_name;
+        if (provider.provider_id === process.provider_id) {
+          option.selected = true;
+        }
+        providerSelect.appendChild(option);
+      });
+    }
+
+    // Load tier thresholds
+    const tierContainer = document.getElementById(`editContractTiersContainer-${contractId}`);
+    if (tierContainer) {
+      tierContainer.innerHTML = '';
+      const sortedTiers = Object.entries(tierThresholds).sort(([a], [b]) => parseInt(a) - parseInt(b));
+
+      if (sortedTiers.length === 0) {
+        // If no tiers exist, add one default tier
+        this.addContractTierRow(contractId, 1, 1000);
+      } else {
+        sortedTiers.forEach(([tierNum, threshold]) => {
+          this.addContractTierRow(contractId, parseInt(tierNum), threshold);
+        });
+      }
     }
   }
 
@@ -1039,6 +1702,17 @@ class ProcessGraph {
 
     this.editProcess(processId);
     return false;
+  }
+
+  handleEditProcessSubmit(event) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const processId = parseInt(document.getElementById('editProcessId').value);
+    if (!processId) return;
+
+    // Call the editProcess method
+    this.editProcess(processId);
   }
 }
 

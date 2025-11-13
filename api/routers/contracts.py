@@ -611,3 +611,144 @@ async def delete_actual(actual_id: int):
     crud.delete_actual(actual_id)
     return JSONResponse(content={"message": "Actual deleted successfully"})
 
+
+# =====================================
+# CONTRACT API ENDPOINTS
+# =====================================
+
+class ContractCreate(BaseModel):
+    process_name: str
+    provider_id: int
+    contract_name: Optional[str] = None
+    status: Optional[str] = "active"
+
+
+class ContractUpdate(BaseModel):
+    contract_name: Optional[str] = None
+    status: Optional[str] = None
+
+
+class ContractTierCreate(BaseModel):
+    contract_id: int
+    tier_number: int
+    threshold_units: int
+    is_selected: Optional[bool] = False
+
+
+class ContractTierUpdate(BaseModel):
+    threshold_units: Optional[int] = None
+    is_selected: Optional[bool] = None
+
+
+# Contract endpoints
+@router.get("/api/contracts")
+async def get_contracts():
+    """Get all contracts."""
+    crud = get_crud()
+    contracts = crud.get_all_processes()  # Get all processes
+    # Group by process name
+    result = {}
+    for process in contracts:
+        process_name = process['process_name']
+        if process_name not in result:
+            result[process_name] = []
+        result[process_name].append(process)
+    return JSONResponse(content=result)
+
+
+@router.get("/api/contracts/process/{process_name}")
+async def get_contracts_for_process(process_name: str):
+    """Get all contracts for a specific process."""
+    crud = get_crud()
+    contracts = crud.get_contracts_for_process(process_name)
+    return JSONResponse(content=contracts)
+
+
+@router.post("/api/contracts")
+async def create_contract(contract: ContractCreate):
+    """Create a new contract."""
+    crud = get_crud()
+    new_contract = crud.create_contract(
+        process_name=contract.process_name,
+        provider_id=contract.provider_id,
+        contract_name=contract.contract_name,
+        status=contract.status
+    )
+    return JSONResponse(content=new_contract)
+
+
+@router.get("/api/contracts/{contract_id}")
+async def get_contract(contract_id: int):
+    """Get a specific contract."""
+    crud = get_crud()
+    contract = crud.get_contract(contract_id)
+    if not contract:
+        raise HTTPException(status_code=404, detail=f"Contract with ID {contract_id} not found")
+    return JSONResponse(content=contract)
+
+
+@router.put("/api/contracts/{contract_id}")
+async def update_contract(contract_id: int, contract: ContractUpdate):
+    """Update a contract."""
+    crud = get_crud()
+    success = crud.update_contract(
+        contract_id=contract_id,
+        contract_name=contract.contract_name,
+        status=contract.status
+    )
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Contract with ID {contract_id} not found")
+    return JSONResponse(content={"message": "Contract updated successfully"})
+
+
+@router.delete("/api/contracts/{contract_id}")
+async def delete_contract(contract_id: int):
+    """Delete a contract."""
+    crud = get_crud()
+    crud.delete_contract(contract_id)
+    return JSONResponse(content={"message": "Contract deleted successfully"})
+
+
+# Contract Tier endpoints
+@router.get("/api/contract-tiers/{contract_id}")
+async def get_contract_tiers(contract_id: int):
+    """Get all tiers for a specific contract."""
+    crud = get_crud()
+    tiers = crud.get_contract_tiers_for_contract(contract_id)
+    return JSONResponse(content=tiers)
+
+
+@router.post("/api/contract-tiers")
+async def create_contract_tier(tier: ContractTierCreate):
+    """Create a new contract tier."""
+    crud = get_crud()
+    new_tier = crud.create_contract_tier(
+        contract_id=tier.contract_id,
+        tier_number=tier.tier_number,
+        threshold_units=tier.threshold_units,
+        is_selected=tier.is_selected
+    )
+    return JSONResponse(content=new_tier)
+
+
+@router.put("/api/contract-tiers/{contract_tier_id}")
+async def update_contract_tier(contract_tier_id: int, tier: ContractTierUpdate):
+    """Update a contract tier."""
+    crud = get_crud()
+    success = crud.update_contract_tier(
+        contract_tier_id=contract_tier_id,
+        threshold_units=tier.threshold_units,
+        is_selected=tier.is_selected
+    )
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Contract tier with ID {contract_tier_id} not found")
+    return JSONResponse(content={"message": "Contract tier updated successfully"})
+
+
+@router.delete("/api/contract-tiers/{contract_tier_id}")
+async def delete_contract_tier(contract_tier_id: int):
+    """Delete a contract tier."""
+    crud = get_crud()
+    crud.delete_contract_tier(contract_tier_id)
+    return JSONResponse(content={"message": "Contract tier deleted successfully"})
+
