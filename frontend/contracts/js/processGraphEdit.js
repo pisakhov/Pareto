@@ -957,6 +957,53 @@ class ProcessGraph {
         status: process.status
       });
 
+      // Update contract tiers for all contracts in the edit form
+      const contractsContainer = document.getElementById('editContractsContainer');
+      const contractElements = contractsContainer.querySelectorAll('[id^="editContract-"]');
+
+      for (const contractEl of contractElements) {
+        const contractId = contractEl.id.replace('editContract-', '');
+        const tierInputs = contractEl.querySelectorAll('.contract-tier-threshold');
+
+        // Get current tiers from database to know which ones to update/delete
+        const existingTiers = await dataService.loadContractTiers(contractId);
+        const updatedTiers = [];
+
+        // Process each tier input
+        for (const input of tierInputs) {
+          const tierNumber = parseInt(input.dataset.tier);
+          const threshold = parseInt(input.value) || 0;
+
+          // Check if this tier already exists
+          const existingTier = existingTiers.find(t => t.tier_number === tierNumber);
+
+          if (existingTier) {
+            // Update existing tier
+            await dataService.updateContractTier(existingTier.contract_tier_id, {
+              threshold_units: threshold,
+              is_selected: existingTier.is_selected
+            });
+          } else {
+            // Create new tier
+            await dataService.createContractTier({
+              contract_id: parseInt(contractId),
+              tier_number: tierNumber,
+              threshold_units: threshold,
+              is_selected: false
+            });
+          }
+
+          updatedTiers.push(tierNumber);
+        }
+
+        // Delete tiers that were removed
+        for (const existingTier of existingTiers) {
+          if (!updatedTiers.includes(existingTier.tier_number)) {
+            await dataService.deleteContractTier(existingTier.contract_tier_id);
+          }
+        }
+      }
+
       // Update local process object
       process.process_name = processName.trim();
       process.description = description.trim();
@@ -1574,9 +1621,9 @@ class ProcessGraph {
         `;
       } else {
         // Render each contract
-        contracts.forEach(contract => {
-          this.renderContractInEdit(container, contract);
-        });
+        for (const contract of contracts) {
+          await this.renderContractInEdit(container, contract);
+        }
       }
 
       // Only show provider selection if we have contracts to work with
@@ -1593,21 +1640,13 @@ class ProcessGraph {
     }
   }
 
-  renderContractInEdit(container, contract) {
+  async renderContractInEdit(container, contract) {
     const contractId = `editContract-${contract.contract_id}`;
 
     const contractElement = document.createElement('div');
     contractElement.id = contractId;
     contractElement.className = 'p-4 bg-card border border-border rounded-md space-y-4';
     contractElement.dataset.providerId = contract.provider_id;
-
-    // Parse tier thresholds
-    let tierThresholds = {};
-    try {
-      tierThresholds = JSON.parse(contract.tier_thresholds || '{}');
-    } catch (e) {
-      tierThresholds = { '1': 1000 }; // Default
-    }
 
     contractElement.innerHTML = `
       <div class="flex items-center justify-between">
@@ -1643,19 +1682,28 @@ class ProcessGraph {
 
     container.appendChild(contractElement);
 
-    // Load tier thresholds
+    // Load tier thresholds from the database
     const tierContainer = document.getElementById(`editContractTiersContainer-${contractId}`);
     if (tierContainer) {
       tierContainer.innerHTML = '';
-      const sortedTiers = Object.entries(tierThresholds).sort(([a], [b]) => parseInt(a) - parseInt(b));
+      try {
+        // Fetch contract tiers from the database
+        const contractTiers = await dataService.loadContractTiers(contract.contract_id);
 
-      if (sortedTiers.length === 0) {
-        // If no tiers exist, add one default tier
+        if (contractTiers.length === 0) {
+          // If no tiers exist in database, add one default tier
+          this.addContractTierRow(contractId, 1, 1000);
+        } else {
+          // Sort tiers by tier_number and render them
+          const sortedTiers = contractTiers.sort((a, b) => a.tier_number - b.tier_number);
+          sortedTiers.forEach(tier => {
+            this.addContractTierRow(contractId, tier.tier_number, tier.threshold_units);
+          });
+        }
+      } catch (error) {
+        console.error('Error loading contract tiers:', error);
+        // If error loading tiers, show default tier
         this.addContractTierRow(contractId, 1, 1000);
-      } else {
-        sortedTiers.forEach(([tierNum, threshold]) => {
-          this.addContractTierRow(contractId, parseInt(tierNum), threshold);
-        });
       }
     }
   }
