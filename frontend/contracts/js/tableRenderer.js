@@ -243,20 +243,48 @@ class TableRenderer {
     // Get filtered items based on current process
     const items = this.getFilteredItems();
 
-    if (this.data.providers.length === 0 || items.length === 0) {
+    // Get contracts for current process
+    const contracts = await this.getContractsForCurrentProcess();
+
+    // Case 1: We have items - show the provider-item matrix
+    if (this.data.providers.length > 0 && items.length > 0) {
+      const html = await this.createRelationshipMatrixHTML();
+      matrix.innerHTML = html;
+    }
+    // Case 2: No items but we have contracts - show contracts view
+    else if (contracts.length > 0) {
+      const html = await this.createContractsMatrixHTML(contracts);
+      matrix.innerHTML = html;
+    }
+    // Case 3: No items and no contracts - show empty state
+    else {
       const currentProcessId = window.CURRENT_PROCESS_ID;
       if (currentProcessId) {
-        matrix.innerHTML =
-          '<p class="text-center text-muted-foreground py-8">No items found for this process</p>';
+        matrix.innerHTML = `
+          <div class="text-center py-12">
+            <div class="mx-auto w-16 h-16 mb-4 text-muted-foreground">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+              </svg>
+            </div>
+            <h3 class="text-lg font-semibold text-foreground mb-2">No items or contracts yet</h3>
+            <p class="text-sm text-muted-foreground mb-6">Add items or contracts to get started</p>
+            <div class="flex justify-center gap-3">
+              <button onclick="window.modalManager.showItemModal()" class="inline-flex items-center px-4 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 transition-colors">
+                Add Item
+              </button>
+              <button onclick="showProcessModal()" class="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors">
+                Add Contract
+              </button>
+            </div>
+          </div>
+        `;
       } else {
         matrix.innerHTML =
           '<p class="text-center text-muted-foreground py-8">No data available for relationship matrix</p>';
       }
       return;
     }
-
-    const html = await this.createRelationshipMatrixHTML();
-    matrix.innerHTML = html;
   }
 
   async createRelationshipMatrixHTML() {
@@ -488,6 +516,238 @@ class TableRenderer {
       })
     );
     return tierData;
+  }
+
+  // Get contracts for the current process
+  async getContractsForCurrentProcess() {
+    const currentProcessId = window.CURRENT_PROCESS_ID;
+    if (!currentProcessId) return [];
+
+    try {
+      const response = await fetch(`/api/processes/${currentProcessId}`);
+      const process = await response.json();
+
+      // Get contracts for this process
+      const contractsResponse = await fetch(`/api/contracts/process/${process.process_name}`);
+      return await contractsResponse.json();
+    } catch (error) {
+      console.error('Error fetching contracts:', error);
+      return [];
+    }
+  }
+
+  // Create contracts matrix HTML (2-column layout: Provider + Tiers stacked)
+  async createContractsMatrixHTML(contracts) {
+    // Group contracts by provider and fetch their tiers
+    const providerContracts = {};
+    const contractTiers = {};
+
+    // Fetch tiers for each contract
+    for (const contract of contracts) {
+      try {
+        const response = await fetch(`/api/contract-tiers/${contract.contract_id}`);
+        contractTiers[contract.contract_id] = await response.json();
+      } catch (error) {
+        contractTiers[contract.contract_id] = [];
+      }
+    }
+
+    // Group by provider
+    contracts.forEach(contract => {
+      if (!providerContracts[contract.provider_id]) {
+        providerContracts[contract.provider_id] = {
+          provider_name: contract.provider_name,
+          provider_id: contract.provider_id,
+          contracts: []
+        };
+      }
+      providerContracts[contract.provider_id].contracts.push({
+        ...contract,
+        tiers: contractTiers[contract.contract_id] || []
+      });
+    });
+
+    // Store provider contracts for later use in tier selection
+    this.data.providerContracts = providerContracts;
+
+    const providers = Object.values(providerContracts);
+
+    if (providers.length === 0) {
+      return '<p class="text-center text-muted-foreground py-8">No contracts found for this process</p>';
+    }
+
+    let html = `
+      <div class="bg-card rounded-lg border border-border overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="border-collapse text-sm w-full">
+            <thead>
+              <tr class="bg-secondary/50">
+                <th class="border border-border px-2 py-3 bg-secondary font-medium text-left w-[80px]">Provider</th>
+                <th class="border border-border px-4 py-3 bg-secondary font-medium text-left min-w-[400px]">Tiers</th>
+              </tr>
+            </thead>
+            <tbody>
+    `;
+
+    // Provider rows
+    providers.forEach(provider => {
+      html += `
+              <tr class="hover:bg-secondary/20">
+                <td class="border border-border px-0 py-4 font-medium bg-secondary/30 align-middle">
+                  <div class="h-full flex items-center justify-center">
+                    <div class="font-semibold text-foreground -rotate-90 whitespace-nowrap text-sm tracking-wide">${provider.provider_name}</div>
+                  </div>
+                </td>
+                <td class="border border-border px-4 py-4 align-top">
+      `;
+
+      // Stack all tiers vertically for this provider
+      html += '<div class="flex flex-col gap-2">';
+
+      // Get all tiers sorted by tier_number
+      const allTiers = [];
+      provider.contracts.forEach(contract => {
+        contract.tiers.forEach(tier => {
+          allTiers.push({
+            tier_number: tier.tier_number,
+            threshold_units: tier.threshold_units,
+            contract_name: contract.contract_name,
+            is_selected: tier.is_selected
+          });
+        });
+      });
+
+      allTiers.sort((a, b) => a.tier_number - b.tier_number);
+
+      allTiers.forEach(tier => {
+        // Find the contract_tier_id for this tier
+        let contractTierId = null;
+        provider.contracts.forEach(contract => {
+          const foundTier = contract.tiers.find(t => t.tier_number === tier.tier_number);
+          if (foundTier && contractTierId === null) {
+            contractTierId = foundTier.contract_tier_id;
+          }
+        });
+
+        html += `
+          <div
+            class="text-sm cursor-pointer transition-colors rounded-md ${tier.is_selected ? 'bg-blue-50 hover:bg-blue-50 px-3 py-2' : 'hover:bg-accent px-3 py-2'}"
+            onclick="window.tableRenderer.selectTier(${contractTierId}, ${tier.tier_number}, '${provider.provider_name}', ${provider.provider_id})"
+            title="Click to select this tier"
+          >
+            <span class="font-medium text-foreground">T${tier.tier_number}:</span>
+            <span class="text-foreground">&lt; ${tier.threshold_units.toLocaleString()} units</span>
+            <span class="text-muted-foreground"> - ${tier.contract_name}</span>
+          </div>
+        `;
+      });
+
+      if (allTiers.length === 0) {
+        html += '<span class="text-muted-foreground text-xs">No tiers configured</span>';
+      }
+
+      html += '</div>';
+
+      html += `
+                </td>
+              </tr>
+      `;
+    });
+
+    html += `
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    return html;
+  }
+
+  // Handle tier selection (only one tier per provider)
+  async selectTier(contractTierId, tierNumber, providerName, providerId) {
+    // Show confirmation dialog
+    const confirmed = confirm(
+      `Select Tier ${tierNumber} for ${providerName}?\n\n` +
+      `This will change the pricing tier for this provider.`
+    );
+
+    if (!confirmed) {
+      return; // User cancelled
+    }
+
+    try {
+      // Show loading state
+      if (window.uiManager) {
+        window.uiManager.showNotification(`Selecting Tier ${tierNumber} for ${providerName}...`, 'info');
+      }
+
+      // Get all tier IDs for this provider from stored data
+      const providerData = this.data.providerContracts[providerId];
+      if (!providerData) {
+        throw new Error('Provider data not found');
+      }
+
+      // Get all contract tier IDs for this provider
+      const tierIdsToDeselect = [];
+      providerData.contracts.forEach(contract => {
+        contract.tiers.forEach(tier => {
+          tierIdsToDeselect.push(tier.contract_tier_id);
+        });
+      });
+
+      // Deselect all tiers for this provider first
+      await Promise.all(tierIdsToDeselect.map(async (tierId) => {
+        try {
+          const response = await fetch(`/api/contract-tiers/${tierId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              is_selected: false
+            })
+          });
+          if (!response.ok) {
+            console.error(`Failed to deselect tier ${tierId}`);
+          }
+        } catch (error) {
+          console.error(`Error deselecting tier ${tierId}:`, error);
+        }
+      }));
+
+      // Small delay to ensure database updates
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Then select the clicked tier
+      const response = await fetch(`/api/contract-tiers/${contractTierId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          is_selected: true
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update tier selection');
+      }
+
+      // Show success notification
+      if (window.uiManager) {
+        window.uiManager.showNotification(`Tier ${tierNumber} selected for ${providerName}`, 'success');
+      }
+
+      // Refresh the relationship matrix to show updated selection
+      await this.renderRelationshipMatrix();
+
+    } catch (error) {
+      console.error('Error selecting tier:', error);
+      if (window.uiManager) {
+        window.uiManager.showNotification(`Error selecting tier: ${error.message}`, 'error');
+      }
+    }
   }
 
   // Utility method to render all tables
