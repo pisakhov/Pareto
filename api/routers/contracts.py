@@ -175,14 +175,6 @@ async def create_offer(offer: OfferCreate):
     """Create a new offer."""
     crud = get_crud()
 
-    print(f"[API] Received offer data:")
-    print(f"  item_id: {offer.item_id}")
-    print(f"  provider_id: {offer.provider_id}")
-    print(f"  process_id: {offer.process_id}")
-    print(f"  tier_number: {offer.tier_number}")
-    print(f"  price_per_unit: {offer.price_per_unit}")
-    print(f"  status: {offer.status}")
-
     new_offer = crud.create_offer(
         item_id=offer.item_id,
         provider_id=offer.provider_id,
@@ -192,7 +184,6 @@ async def create_offer(offer: OfferCreate):
         status=offer.status,
     )
 
-    print(f"[API] Created offer successfully")
     return JSONResponse(content=new_offer)
 
 

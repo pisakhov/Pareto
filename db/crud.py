@@ -220,24 +220,13 @@ class CRUDOperations(DatabaseSchema):
         now = datetime.now().isoformat()
         offer_id = conn.execute("SELECT nextval('offer_seq')").fetchone()[0]
 
-        print(f"[DEBUG] Creating offer:")
-        print(f"  offer_id: {offer_id}")
-        print(f"  item_id: {item_id}")
-        print(f"  provider_id: {provider_id}")
-        print(f"  process_id: {process_id}")
-        print(f"  tier_number: {tier_number}")
-        print(f"  price_per_unit: {price_per_unit}")
-        print(f"  status: {status}")
-
         # Note: process_id is added later via ALTER TABLE, so it's at the END of the column order
         conn.execute(
             "INSERT INTO offers (offer_id, item_id, provider_id, tier_number, price_per_unit, status, date_creation, date_last_update, process_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [offer_id, item_id, provider_id, tier_number, price_per_unit, status, now, now, process_id]
         )
-        print(f"[DEBUG] Offer created successfully")
 
         result = self.get_offer(offer_id)
-        print(f"[DEBUG] Retrieved offer: {result}")
         return result
 
     def get_offer(self, offer_id: int) -> Optional[Dict[str, Any]]:

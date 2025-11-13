@@ -1548,9 +1548,7 @@ class ProcessGraph {
 
     // Fetch contracts for this process
     try {
-      console.log('[EDIT] Fetching contracts for process:', process.process_name);
       const contracts = await dataService.loadContractsForProcess(process.process_name);
-      console.log('[EDIT] Fetched contracts:', contracts);
 
       // Clear existing contracts
       container.innerHTML = '';
@@ -1568,9 +1566,7 @@ class ProcessGraph {
         `;
       } else {
         // Render each contract
-        console.log('[EDIT] Rendering', contracts.length, 'contracts');
         contracts.forEach(contract => {
-          console.log('[EDIT] Rendering contract:', contract);
           this.renderContractInEdit(container, contract);
         });
       }
@@ -1592,14 +1588,10 @@ class ProcessGraph {
   renderContractInEdit(container, contract) {
     const contractId = `editContract-${contract.contract_id}`;
 
-    console.log('[EDIT] Creating contract element for:', contract.contract_name, 'in container:', !!container);
-
     const contractElement = document.createElement('div');
     contractElement.id = contractId;
     contractElement.className = 'p-4 bg-card border border-border rounded-md space-y-4';
     contractElement.dataset.providerId = contract.provider_id;
-
-    console.log('[EDIT] Contract element created:', contractElement);
 
     // Parse tier thresholds
     let tierThresholds = {};
@@ -1641,9 +1633,7 @@ class ProcessGraph {
       </div>
     `;
 
-    console.log('[EDIT] InnerHTML set, appending to container');
     container.appendChild(contractElement);
-    console.log('[EDIT] Contract appended. Container children count:', container.children.length);
 
     // Load tier thresholds
     const tierContainer = document.getElementById(`editContractTiersContainer-${contractId}`);
@@ -1684,7 +1674,6 @@ class ProcessGraph {
     // Find the provider selection section (it's the PREVIOUS sibling before container)
     let providerSelectionSection = container.previousElementSibling;
     if (!providerSelectionSection) {
-      console.error('[EDIT] Provider selection section not found in HTML template');
       return;
     }
 
