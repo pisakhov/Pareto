@@ -188,16 +188,56 @@ class ProcessGraph {
 
     // Fetch all contract counts once, grouped by process name
     const contractCounts = {};
+    const contractTierInfo = {}; // { processName: { contractCount, minTiers, maxTiers, allSameTierCount } }
     const uniqueProcessNames = [...new Set(this.processes.map(p => p.process_name))];
 
-    // Fetch contracts for each unique process name
+    // Fetch contracts and tier counts for each unique process name
     for (const processName of uniqueProcessNames) {
       try {
         const contracts = await dataService.loadContractsForProcess(processName);
-        contractCounts[processName] = contracts.length;
+        const contractCount = contracts.length;
+
+        if (contractCount === 0) {
+          contractTierInfo[processName] = {
+            contractCount: 0,
+            minTiers: null,
+            maxTiers: null,
+            allSameTierCount: null
+          };
+        } else {
+          // Fetch tier counts for each contract
+          const tierCounts = [];
+          for (const contract of contracts) {
+            try {
+              const tiers = await dataService.loadContractTiers(contract.contract_id);
+              tierCounts.push(tiers.length);
+            } catch (error) {
+              console.error('Error fetching tiers for contract:', contract.contract_id, error);
+              tierCounts.push(0);
+            }
+          }
+
+          // Calculate min and max tier counts
+          const minTiers = Math.min(...tierCounts);
+          const maxTiers = Math.max(...tierCounts);
+          const allSame = tierCounts.every(count => count === tierCounts[0]);
+
+          contractTierInfo[processName] = {
+            contractCount,
+            minTiers,
+            maxTiers,
+            allSameTierCount: allSame ? tierCounts[0] : null
+          };
+        }
       } catch (error) {
         console.error('Error fetching contracts for process:', processName, error);
         contractCounts[processName] = 0;
+        contractTierInfo[processName] = {
+          contractCount: 0,
+          minTiers: null,
+          maxTiers: null,
+          allSameTierCount: null
+        };
       }
     }
 
@@ -216,8 +256,25 @@ class ProcessGraph {
       const provider = this.providers?.find(p => p.provider_id === process.provider_id);
       const providerName = provider ? provider.company_name : 'Unknown Provider';
 
-      // Get contract count from our fetched data
-      const contractCount = contractCounts[process.process_name] || 0;
+      // Get contract and tier info from our fetched data
+      const tierInfo = contractTierInfo[process.process_name] || {
+        contractCount: 0,
+        minTiers: null,
+        maxTiers: null,
+        allSameTierCount: null
+      };
+
+      // Build the contracts and tiers display text
+      let contractsTiersText = '';
+      if (tierInfo.contractCount === 0) {
+        contractsTiersText = '0 Contracts';
+      } else if (tierInfo.allSameTierCount !== null && tierInfo.allSameTierCount > 0) {
+        contractsTiersText = `${tierInfo.contractCount} ${tierInfo.contractCount !== 1 ? 'Contracts' : 'Contract'} • ${tierInfo.allSameTierCount} ${tierInfo.allSameTierCount !== 1 ? 'Tiers' : 'Tier'} ${tierInfo.contractCount !== 1 ? 'each' : ''}`;
+      } else if (tierInfo.minTiers === tierInfo.maxTiers && tierInfo.minTiers > 0) {
+        contractsTiersText = `${tierInfo.contractCount} ${tierInfo.contractCount !== 1 ? 'Contracts' : 'Contract'} • ${tierInfo.minTiers} ${tierInfo.minTiers !== 1 ? 'Tiers' : 'Tier'} ${tierInfo.contractCount !== 1 ? 'each' : ''}`;
+      } else {
+        contractsTiersText = `${tierInfo.contractCount} ${tierInfo.contractCount !== 1 ? 'Contracts' : 'Contract'} • ${tierInfo.minTiers}-${tierInfo.maxTiers} ${tierInfo.maxTiers !== 1 ? 'Tiers' : 'Tier'} each`;
+      }
 
       processItem.innerHTML = `
         <div class="flex items-start justify-between">
@@ -225,14 +282,15 @@ class ProcessGraph {
             <h4 class="font-semibold text-base mb-1">${process.process_name}</h4>
             <p class="text-xs text-muted-foreground mb-3">${process.description || 'No description'}</p>
 
-            <div class="flex items-center gap-2 text-sm">
-              <div class="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="flex items-center gap-3">
+              <div class="flex items-center gap-2">
+                <svg class="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
                 </svg>
-                <span class="font-medium">${contractCount}</span>
-                <span>contract${contractCount !== 1 ? 's' : ''}</span>
+                <span class="text-sm font-medium">${tierInfo.contractCount} ${tierInfo.contractCount !== 1 ? 'Contracts' : 'Contract'}</span>
               </div>
+              <div class="text-muted-foreground">•</div>
+              <span class="text-xs text-muted-foreground font-medium">${tierInfo.minTiers === tierInfo.maxTiers ? `${tierInfo.minTiers} ${tierInfo.minTiers !== 1 ? 'Tiers' : 'Tier'} ${tierInfo.contractCount !== 1 ? 'each' : ''}` : `${tierInfo.minTiers}-${tierInfo.maxTiers} ${tierInfo.maxTiers !== 1 ? 'Tiers' : 'Tier'} each`}</span>
             </div>
           </div>
 
