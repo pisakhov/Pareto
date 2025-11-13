@@ -230,7 +230,13 @@ class ModalManager {
   updateModalTitle(titleId, title) {
     const titleElement = document.getElementById(titleId);
     if (titleElement) {
-      titleElement.textContent = title;
+      // Check if there's a span inside the title element for the text
+      const textSpan = titleElement.querySelector('span[id$="TitleText"]');
+      if (textSpan) {
+        textSpan.textContent = title;
+      } else {
+        titleElement.textContent = title;
+      }
     }
   }
 

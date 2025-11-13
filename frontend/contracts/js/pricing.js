@@ -538,7 +538,12 @@ function showItemModal(callback = null) {
   // Reset form
   form.reset();
   editingItemId = null;
-  title.textContent = "Add Item";
+  const titleTextSpan = title.querySelector('span[id$="TitleText"]');
+  if (titleTextSpan) {
+    titleTextSpan.textContent = "Add Item";
+  } else {
+    title.textContent = "Add Item";
+  }
 
   // Show modal
   modal.classList.remove("hidden");
@@ -804,7 +809,13 @@ async function editProvider(providerId) {
     document.getElementById("providerStatus").value = provider.status;
 
     // Update modal title
-    document.getElementById("providerModalTitle").textContent = "Edit Provider";
+    const titleElement = document.getElementById("providerModalTitle");
+    const textSpan = titleElement.querySelector('span[id$="TitleText"]');
+    if (textSpan) {
+      textSpan.textContent = "Edit Provider";
+    } else {
+      titleElement.textContent = "Edit Provider";
+    }
 
     editingProviderId = providerId;
 
@@ -991,7 +1002,13 @@ async function editItem(itemId) {
     document.getElementById("itemStatus").value = item.status;
 
     // Update modal title
-    document.getElementById("itemModalTitle").textContent = "Edit Item";
+    const itemTitleElement = document.getElementById("itemModalTitle");
+    const itemTextSpan = itemTitleElement.querySelector('span[id$="TitleText"]');
+    if (itemTextSpan) {
+      itemTextSpan.textContent = "Edit Item";
+    } else {
+      itemTitleElement.textContent = "Edit Item";
+    }
 
     editingItemId = itemId;
 
