@@ -1048,7 +1048,7 @@ class CRUDOperations(DatabaseSchema):
     # CONTRACT CRUD OPERATIONS
     # =====================================
 
-    def create_contract(self, process_name: str, provider_id: int, contract_name: str = None, status: str = "active") -> Any:
+    def create_contract(self, process_id: int, provider_id: int, contract_name: str = None, status: str = "active") -> Any:
         conn = self._get_connection()
         now = datetime.now().isoformat()
         contract_id = conn.execute("SELECT nextval('contract_seq')").fetchone()[0]
@@ -1059,55 +1059,59 @@ class CRUDOperations(DatabaseSchema):
             contract_name = f"{provider['company_name']} Contract" if provider else f"Contract {contract_id}"
 
         conn.execute(
-            "INSERT INTO contracts (contract_id, process_name, provider_id, contract_name, status, date_creation, date_last_update) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            [contract_id, process_name, provider_id, contract_name, status, now, now]
+            "INSERT INTO contracts (contract_id, process_id, provider_id, contract_name, status, date_creation, date_last_update) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [contract_id, process_id, provider_id, contract_name, status, now, now]
         )
         return self.get_contract(contract_id)
 
     def get_contract(self, contract_id: int) -> Optional[Dict[str, Any]]:
         conn = self._get_connection()
         result = conn.execute("""
-            SELECT c.contract_id, c.process_name, c.provider_id, c.contract_name, c.status, c.date_creation, c.date_last_update,
-                   p.company_name as provider_name
+            SELECT c.contract_id, c.process_id, c.provider_id, c.contract_name, c.status, c.date_creation, c.date_last_update,
+                   p.company_name as provider_name, pr.process_name
             FROM contracts c
             JOIN providers p ON c.provider_id = p.provider_id
+            JOIN processes pr ON c.process_id = pr.process_id
             WHERE c.contract_id = ?
         """, [contract_id]).fetchone()
 
         if result:
             return {
                 "contract_id": result[0],
-                "process_name": result[1],
+                "process_id": result[1],
                 "provider_id": result[2],
                 "contract_name": result[3],
                 "status": result[4],
                 "date_creation": result[5],
                 "date_last_update": result[6],
-                "provider_name": result[7]
+                "provider_name": result[7],
+                "process_name": result[8]
             }
         return None
 
-    def get_contracts_for_process(self, process_name: str) -> List[Dict[str, Any]]:
+    def get_contracts_for_process(self, process_id: int) -> List[Dict[str, Any]]:
         conn = self._get_connection()
         results = conn.execute("""
-            SELECT c.contract_id, c.process_name, c.provider_id, c.contract_name, c.status, c.date_creation, c.date_last_update,
-                   p.company_name as provider_name
+            SELECT c.contract_id, c.process_id, c.provider_id, c.contract_name, c.status, c.date_creation, c.date_last_update,
+                   p.company_name as provider_name, pr.process_name
             FROM contracts c
             JOIN providers p ON c.provider_id = p.provider_id
-            WHERE c.process_name = ?
+            JOIN processes pr ON c.process_id = pr.process_id
+            WHERE c.process_id = ?
             ORDER BY c.contract_name
-        """, [process_name]).fetchall()
+        """, [process_id]).fetchall()
 
         return [
             {
                 "contract_id": row[0],
-                "process_name": row[1],
+                "process_id": row[1],
                 "provider_id": row[2],
                 "contract_name": row[3],
                 "status": row[4],
                 "date_creation": row[5],
                 "date_last_update": row[6],
-                "provider_name": row[7]
+                "provider_name": row[7],
+                "process_name": row[8]
             }
             for row in results
         ]

@@ -22,7 +22,7 @@ class ProcessGraph {
     await this.loadProviders();
     this.setupEventListeners();
     this.setupResizeHandle();
-    this.render();
+    await this.render();
     this.autoLayout();
     this.setupFormEventHandlers();
   }
@@ -141,8 +141,8 @@ class ProcessGraph {
     });
   }
 
-  render() {
-    this.renderProcessList();
+  async render() {
+    await this.renderProcessList();
     this.renderGraph();
     this.updateStats();
   }
@@ -183,52 +183,71 @@ class ProcessGraph {
     }
   }
 
-  renderProcessList() {
+  async renderProcessList() {
     this.processList.innerHTML = '';
 
+    // Fetch all contract counts once, grouped by process name
+    const contractCounts = {};
+    const uniqueProcessNames = [...new Set(this.processes.map(p => p.process_name))];
+
+    // Fetch contracts for each unique process name
+    for (const processName of uniqueProcessNames) {
+      try {
+        const contracts = await dataService.loadContractsForProcess(processName);
+        contractCounts[processName] = contracts.length;
+      } catch (error) {
+        console.error('Error fetching contracts for process:', processName, error);
+        contractCounts[processName] = 0;
+      }
+    }
+
+    // Render each process with its contract count
     this.processes.forEach(process => {
+      const isSelected = this.selectedProcess === process.process_id;
+
       const processItem = document.createElement('div');
-      processItem.className = 'bg-card border border-border rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer';
+      processItem.className = `bg-card border rounded-lg p-3 transition-all cursor-pointer ${
+        isSelected
+          ? 'border-blue-500 shadow-lg shadow-blue-500/20'
+          : 'border-border hover:shadow-md'
+      }`;
 
       // Get provider name from the providers array
       const provider = this.providers?.find(p => p.provider_id === process.provider_id);
       const providerName = provider ? provider.company_name : 'Unknown Provider';
 
-      // Count contracts for this process
-      const contractCount = this.getContractCountForProcess(process.process_id);
+      // Get contract count from our fetched data
+      const contractCount = contractCounts[process.process_name] || 0;
 
       processItem.innerHTML = `
-        <div class="flex items-center justify-between mb-2">
-          <h4 class="font-semibold text-sm">${process.process_name}</h4>
-          <div class="flex gap-1">
-            <button onclick="event.stopPropagation(); processGraph.showEditProcessModal(${process.process_id})" class="p-1 hover:bg-accent rounded">
-              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="flex items-start justify-between">
+          <div class="flex-1">
+            <h4 class="font-semibold text-base mb-1">${process.process_name}</h4>
+            <p class="text-xs text-muted-foreground mb-3">${process.description || 'No description'}</p>
+
+            <div class="flex items-center gap-2 text-sm">
+              <div class="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                </svg>
+                <span class="font-medium">${contractCount}</span>
+                <span>contract${contractCount !== 1 ? 's' : ''}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex gap-1 ml-2">
+            <button onclick="event.stopPropagation(); processGraph.showEditProcessModal(${process.process_id})" class="p-2 hover:bg-accent rounded-md transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
               </svg>
             </button>
-            <button onclick="event.stopPropagation(); processGraph.deleteProcess(${process.process_id})" class="p-1 hover:bg-accent rounded text-red-600">
-              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button onclick="event.stopPropagation(); processGraph.deleteProcess(${process.process_id})" class="p-2 hover:bg-accent rounded-md transition-colors text-red-600">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
               </svg>
             </button>
           </div>
-        </div>
-        <p class="text-xs text-muted-foreground mb-3">${process.description || 'No description'}</p>
-        <div class="space-y-2">
-          <div class="flex items-center gap-2 text-xs text-muted-foreground">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-            </svg>
-            <span class="font-medium">${contractCount}</span>
-            <span>contract${contractCount !== 1 ? 's' : ''} configured</span>
-          </div>
-        </div>
-        <div class="mt-2 flex items-center gap-2">
-          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-            process.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-800'
-          }">
-            ${process.status}
-          </span>
         </div>
       `;
 
@@ -569,11 +588,11 @@ class ProcessGraph {
         await this.createConnection(this.connectionSource.process_id, process.process_id);
         this.connectionSource = null;
         this.showConnectionIndicator(false);
-        this.render();
+        await this.render();
       }
     } else {
       this.selectedProcess = process.process_id;
-      this.render();
+      await this.render();
     }
   }
 
@@ -693,10 +712,10 @@ class ProcessGraph {
     }
   }
 
-  handleCanvasMouseDown(e) {
+  async handleCanvasMouseDown(e) {
     if (e.target === this.canvas) {
       this.selectedProcess = null;
-      this.render();
+      await this.render();
     }
   }
 
@@ -818,13 +837,41 @@ class ProcessGraph {
         return;
       }
 
-      // Validate each contract
+      // Create the process FIRST to get its ID
+      // Use tier thresholds from the first contract as the default
+      const firstContractEl = contractElements[0];
+      const firstTierInputs = firstContractEl.querySelectorAll('.add-contract-tier-threshold');
+      const defaultTierThresholds = {};
+      firstTierInputs.forEach(input => {
+        const tierNumber = input.dataset.tier;
+        const value = parseInt(input.value) || 0;
+        defaultTierThresholds[tierNumber] = value;
+      });
+
+      const newProcess = await dataService.createProcess({
+        process_name: processName.trim(),
+        description: description.trim(),
+        provider_id: 0,  // Will be set per-contract
+        tier_thresholds: JSON.stringify(defaultTierThresholds),
+        status: 'active'
+      });
+
+      // Calculate random position
+      const canvasWidth = 1200;
+      const canvasHeight = 800;
+      const margin = 100;
+
+      newProcess.x = Math.random() * (canvasWidth - margin * 2) + margin;
+      newProcess.y = Math.random() * (canvasHeight - margin * 2) + margin;
+      this.processes.push(newProcess);
+
+      // Now create contracts for this process
       let createdContracts = 0;
       for (const contractEl of contractElements) {
         const contractId = contractEl.id;
-        const providerSelect = document.getElementById(`addContractProvider-${contractId}`);
+        const providerId = parseInt(contractEl.dataset.providerId);
 
-        if (!providerSelect || !providerSelect.value) {
+        if (!providerId) {
           uiManager.showNotification('Each contract must have a provider selected', 'error');
           return;
         }
@@ -838,10 +885,10 @@ class ProcessGraph {
           tierThresholds[tierNumber] = value;
         });
 
-        // Create contract using dataService
+        // Create contract using dataService with process_id
         const newContract = await dataService.createContract({
-          process_name: processName.trim(),
-          provider_id: parseInt(providerSelect.value),
+          process_id: newProcess.process_id,
+          provider_id: providerId,
           status: 'active'
         });
 
@@ -855,24 +902,6 @@ class ProcessGraph {
           });
         }
 
-        // Also create a process record for the graph
-        const newProcess = await dataService.createProcess({
-          process_name: processName.trim(),
-          description: description.trim(),
-          provider_id: parseInt(providerSelect.value),
-          tier_thresholds: JSON.stringify(tierThresholds),
-          status: 'active'
-        });
-
-        // Calculate random position
-        const canvasWidth = 1200;
-        const canvasHeight = 800;
-        const margin = 100;
-
-        newProcess.x = Math.random() * (canvasWidth - margin * 2) + margin;
-        newProcess.y = Math.random() * (canvasHeight - margin * 2) + margin;
-
-        this.processes.push(newProcess);
         createdContracts++;
       }
 
@@ -885,7 +914,7 @@ class ProcessGraph {
 
       // Close modal and refresh
       this.closeAddProcessModal();
-      this.render();
+      await this.render();
     } catch (error) {
       console.error('Error creating process:', error);
       uiManager.showNotification('Failed to create process: ' + error.message, 'error');
@@ -919,33 +948,22 @@ class ProcessGraph {
     }
 
     try {
-      // Get tier thresholds
-      const tierThresholds = {};
-      const tierInputs = document.querySelectorAll('#editTiersContainer .edit-tier-threshold');
-      tierInputs.forEach(input => {
-        const tierNumber = input.dataset.tier;
-        const value = parseInt(input.value) || 0;
-        tierThresholds[tierNumber] = value;
-      });
-
-      const tierThresholdsJson = JSON.stringify(tierThresholds);
-
-      // Update process
+      // Update process (tier thresholds are stored per-contract, not per-process)
       await dataService.updateProcess(processId, {
         process_name: processName.trim(),
         description: description.trim(),
         provider_id: process.provider_id, // Keep existing provider
-        tier_thresholds: tierThresholdsJson,
+        tier_thresholds: '{}', // Empty - not used at process level anymore
         status: process.status
       });
 
       // Update local process object
       process.process_name = processName.trim();
       process.description = description.trim();
-      process.tier_thresholds = tierThresholdsJson;
+      process.tier_thresholds = '{}';
 
       this.closeEditProcessModal();
-      this.render();
+      await this.render();
 
       uiManager.showNotification(
         `Process "${processName.trim()}" updated successfully`,
@@ -977,7 +995,7 @@ class ProcessGraph {
       this.connections = this.connections.filter(
         c => c.from_process_id !== processId && c.to_process_id !== processId
       );
-      this.render();
+      await this.render();
 
       uiManager.showNotification(`Process "${process.process_name}" deleted successfully`, 'success');
     } catch (error) {
@@ -1071,6 +1089,7 @@ class ProcessGraph {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     this.resetAddForm();
+    this.populateAddProviderSelect();
 
     // Focus on process name input
     setTimeout(() => {
@@ -1109,23 +1128,20 @@ class ProcessGraph {
     document.getElementById('newProcessName').value = '';
     document.getElementById('newProcessDescription').value = '';
 
-    // Reset tiers container
-    const tiersContainer = document.getElementById('addTiersContainer');
-    if (tiersContainer) {
-      tiersContainer.innerHTML = `
-        <div class="flex items-center gap-2 p-3 border border-border rounded bg-secondary/20">
-          <span class="text-sm font-medium w-16">Tier 1:</span>
-          <span class="text-xs">&lt;</span>
-          <input type="number"
-                 data-tier="1"
-                 class="tier-threshold w-32 px-2 py-1.5 text-sm border border-input rounded"
-                 value="1000"
-                 min="0"
-                 placeholder="0">
-          <span class="text-sm text-muted-foreground">units</span>
-          <span class="w-6"></span>
-        </div>
-      `;
+    // Clear contracts container
+    const contractsContainer = document.getElementById('addContractsContainer');
+    const emptyState = document.getElementById('addContractsEmpty');
+    if (contractsContainer) {
+      contractsContainer.innerHTML = '';
+    }
+    if (emptyState) {
+      emptyState.style.display = 'block';
+    }
+
+    // Clear provider select
+    const providerSelect = document.getElementById('addNewProviderSelect');
+    if (providerSelect) {
+      providerSelect.value = '';
     }
   }
 
@@ -1163,12 +1179,93 @@ class ProcessGraph {
     container.appendChild(tierRow);
   }
 
-  addContractToAdd() {
+  async populateAddProviderSelect() {
+    const container = document.getElementById('addContractsContainer');
+    const providerSection = container.parentElement;
+    if (!providerSection || !this.providers) return;
+
+    // Get currently selected providers from contracts
+    const existingProviders = new Set();
+    if (container) {
+      const contractElements = container.querySelectorAll('[id^="addContract-"]');
+      contractElements.forEach(el => {
+        const providerId = parseInt(el.dataset.providerId);
+        if (providerId) {
+          existingProviders.add(providerId);
+        }
+      });
+    }
+
+    // Get all active providers not yet added
+    const availableProviders = this.providers.filter(p =>
+      !existingProviders.has(p.provider_id) && p.status === 'active'
+    );
+
+    // Clear the section
+    providerSection.innerHTML = '';
+
+    if (availableProviders.length === 0) {
+      // Show nice message when all providers have contracts
+      providerSection.innerHTML = `
+        <div class="flex items-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span class="font-medium">All providers already have contracts for this process</span>
+        </div>
+      `;
+    } else {
+      // Show normal select and add button
+      providerSection.innerHTML = `
+        <div class="mb-3">
+          <div class="flex items-center gap-3">
+            <select id="addNewProviderSelect" class="flex-1 px-3 py-2 border border-input rounded-md">
+              <option value="">Select a provider</option>
+            </select>
+            <button type="button" onclick="processGraph.addProviderToAdd()"
+                    class="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700">
+              Add
+            </button>
+          </div>
+          <p class="text-xs text-muted-foreground mt-2">Each provider can only have one contract per process</p>
+        </div>
+      `;
+
+      // Populate the select
+      const select = document.getElementById('addNewProviderSelect');
+      availableProviders.forEach(provider => {
+        const option = document.createElement('option');
+        option.value = provider.provider_id;
+        option.textContent = provider.company_name;
+        select.appendChild(option);
+      });
+    }
+  }
+
+  async addProviderToAdd() {
+    const select = document.getElementById('addNewProviderSelect');
+    if (!select) {
+      uiManager.showNotification('No providers available to add', 'error');
+      return;
+    }
+
+    const providerId = parseInt(select.value);
+    if (!providerId) {
+      uiManager.showNotification('Please select a provider', 'error');
+      return;
+    }
+
+    const provider = this.providers.find(p => p.provider_id === providerId);
+    if (!provider) {
+      uiManager.showNotification('Provider not found', 'error');
+      return;
+    }
+
     const container = document.getElementById('addContractsContainer');
     const emptyState = document.getElementById('addContractsEmpty');
     if (!container) return;
 
-    // Hide empty state when adding first contract
+    // Hide empty state
     if (emptyState) {
       emptyState.style.display = 'none';
     }
@@ -1179,6 +1276,7 @@ class ProcessGraph {
     const contractElement = document.createElement('div');
     contractElement.id = contractId;
     contractElement.className = 'p-3 bg-card border border-border rounded-md space-y-3';
+    contractElement.dataset.providerId = providerId;
 
     contractElement.innerHTML = `
       <div class="flex items-center justify-between">
@@ -1186,7 +1284,7 @@ class ProcessGraph {
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
           </svg>
-          Contract ${contractIndex + 1}
+          ${provider.company_name}
         </h5>
         <button type="button" onclick="processGraph.removeContractFromAdd('${contractId}')"
                 class="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded">
@@ -1194,14 +1292,6 @@ class ProcessGraph {
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
           </svg>
         </button>
-      </div>
-
-      <div>
-        <label class="block text-xs font-medium mb-1">Provider *</label>
-        <select id="addContractProvider-${contractId}" required
-                class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent text-sm">
-          <option value="">Select a provider</option>
-        </select>
       </div>
 
       <!-- Tier Thresholds for this Contract -->
@@ -1234,16 +1324,10 @@ class ProcessGraph {
 
     container.appendChild(contractElement);
 
-    // Populate provider dropdown
-    const providerSelect = document.getElementById(`addContractProvider-${contractId}`);
-    if (providerSelect && this.providers) {
-      this.providers.forEach(provider => {
-        const option = document.createElement('option');
-        option.value = provider.provider_id;
-        option.textContent = provider.company_name;
-        providerSelect.appendChild(option);
-      });
-    }
+    // Refresh provider select to exclude this provider
+    this.populateAddProviderSelect();
+    // Clear the select
+    select.value = '';
   }
 
   removeContractFromAdd(contractId) {
@@ -1259,6 +1343,9 @@ class ProcessGraph {
     if (container && container.children.length === 0 && emptyState) {
       emptyState.style.display = 'block';
     }
+
+    // Refresh provider select to include removed provider
+    this.populateAddProviderSelect();
   }
 
   addContractTierRowToAdd(contractId, tierNumber = null, threshold = 0) {
@@ -1341,9 +1428,20 @@ class ProcessGraph {
     document.getElementById('editProcessName').value = '';
     document.getElementById('editProcessDescription').value = '';
 
-    const tiersContainer = document.getElementById('editTiersContainer');
-    if (tiersContainer) {
-      tiersContainer.innerHTML = '';
+    // Clear contracts container
+    const contractsContainer = document.getElementById('editContractsContainer');
+    const emptyState = document.getElementById('editContractsEmpty');
+    if (contractsContainer) {
+      contractsContainer.innerHTML = '';
+    }
+    if (emptyState) {
+      emptyState.style.display = 'block';
+    }
+
+    // Clear provider select
+    const providerSelect = document.getElementById('editNewProviderSelect');
+    if (providerSelect) {
+      providerSelect.value = '';
     }
   }
 
@@ -1363,177 +1461,27 @@ class ProcessGraph {
       descriptionInput.value = process.description || '';
     }
 
-    // Load tiers
-    this.loadTiersForEdit(processId, process.tier_thresholds);
+    // Load contracts
+    this.loadContractsForEdit(processId);
   }
 
-  getContractCountForProcess(processId) {
+  async getContractCountForProcess(processId) {
     // Get process by ID
     const process = this.processes.find(p => p.process_id === processId);
     if (!process) return 0;
 
-    // Count contracts for this process name
-    return this.processes.filter(p => p.process_name === process.process_name).length;
+    try {
+      // Fetch actual contracts for this process
+      const contracts = await dataService.loadContractsForProcess(process.process_name);
+      return contracts.length;
+    } catch (error) {
+      console.error('Error fetching contract count:', error);
+      return 0;
+    }
   }
 
   createNewTemplateFromEdit() {
     // No longer needed - using simple text input
-  }
-
-  loadTiersForEdit(processId, tierThresholdsJson) {
-    const container = document.getElementById('editTiersContainer');
-    if (!container) return;
-
-    container.innerHTML = '';
-
-    let tierThresholds = {};
-    try {
-      tierThresholds = JSON.parse(tierThresholdsJson || '{}');
-    } catch (e) {
-      tierThresholds = { '1': 1000 }; // Default
-    }
-
-    const sortedTiers = Object.entries(tierThresholds).sort(([a], [b]) => parseInt(a) - parseInt(b));
-
-    if (sortedTiers.length === 0) {
-      // If no tiers exist, add one default tier
-      this.addTierToEdit();
-    } else {
-      sortedTiers.forEach(([tierNum, threshold]) => {
-        this.addTierToEdit(parseInt(tierNum), threshold);
-      });
-    }
-  }
-
-  addTierToEdit(tierNumber = null, threshold = 0) {
-    const container = document.getElementById('editTiersContainer');
-    if (!container) return;
-
-    const actualTierNumber = tierNumber || (container.children.length + 1);
-    const tierRow = document.createElement('div');
-    tierRow.className = 'flex items-center gap-2 p-3 border border-border rounded bg-secondary/20';
-
-    tierRow.innerHTML = `
-      <span class="text-sm font-medium w-16">Tier ${actualTierNumber}:</span>
-      <span class="text-xs">&lt;</span>
-      <input type="number"
-             data-tier="${actualTierNumber}"
-             class="edit-tier-threshold w-32 px-2 py-1.5 text-sm border border-input rounded"
-             value="${threshold}"
-             min="0"
-             placeholder="0">
-      <span class="text-sm text-muted-foreground">units</span>
-      ${
-        actualTierNumber > 1
-          ? `<button type="button" onclick="this.parentElement.remove()"
-                    class="text-red-600 hover:text-red-800 ml-auto p-1 hover:bg-red-50 rounded">
-               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-               </svg>
-             </button>`
-          : '<span class="w-6"></span>'
-      }
-    `;
-
-    container.appendChild(tierRow);
-  }
-
-  addContractToEdit() {
-    const container = document.getElementById('editContractsContainer');
-    const emptyState = document.getElementById('editContractsEmpty');
-    if (!container) return;
-
-    // Hide empty state when adding first contract
-    if (emptyState) {
-      emptyState.style.display = 'none';
-    }
-
-    const contractIndex = container.children.length;
-    const contractId = `editContract-${contractIndex}`;
-
-    const contractElement = document.createElement('div');
-    contractElement.id = contractId;
-    contractElement.className = 'p-4 bg-card border border-border rounded-md space-y-4';
-
-    contractElement.innerHTML = `
-      <div class="flex items-center justify-between">
-        <h5 class="text-sm font-semibold text-foreground flex items-center gap-2">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-          </svg>
-          Contract ${contractIndex + 1}
-        </h5>
-        <button type="button" onclick="processGraph.removeContractFromEdit('${contractId}')"
-                class="text-red-600 hover:text-red-800 p-1.5 hover:bg-red-50 rounded">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-          </svg>
-        </button>
-      </div>
-
-      <div>
-        <label class="block text-sm font-medium mb-2">Provider *</label>
-        <select id="editContractProvider-${contractId}" required
-                class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent">
-          <option value="">Select a provider</option>
-        </select>
-      </div>
-
-      <!-- Tier Thresholds for this Contract -->
-      <div class="border-t border-border pt-4">
-        <div class="flex items-center justify-between mb-3">
-          <label class="block text-sm font-medium">Volume Tiers for this Contract</label>
-          <button type="button" onclick="processGraph.addContractTierRow('${contractId}')"
-                  class="text-sm px-3 py-1.5 bg-secondary hover:bg-secondary/80 rounded">
-            + Add Tier
-          </button>
-        </div>
-        <div id="editContractTiersContainer-${contractId}" class="space-y-2">
-          <!-- Default tier -->
-          <div class="flex items-center gap-2 p-3 border border-border rounded bg-secondary/20">
-            <span class="text-sm font-medium w-16">Tier 1:</span>
-            <span class="text-xs">&lt;</span>
-            <input type="number"
-                   data-tier="1"
-                   class="contract-tier-threshold w-32 px-2 py-1.5 text-sm border border-input rounded"
-                   value="1000"
-                   min="0"
-                   placeholder="0">
-            <span class="text-sm text-muted-foreground">units</span>
-            <span class="w-6"></span>
-          </div>
-        </div>
-        <p class="text-sm text-muted-foreground mt-2">Customize tier thresholds for this provider</p>
-      </div>
-    `;
-
-    container.appendChild(contractElement);
-
-    // Populate provider dropdown
-    const providerSelect = document.getElementById(`editContractProvider-${contractId}`);
-    if (providerSelect && this.providers) {
-      this.providers.forEach(provider => {
-        const option = document.createElement('option');
-        option.value = provider.provider_id;
-        option.textContent = provider.company_name;
-        providerSelect.appendChild(option);
-      });
-    }
-  }
-
-  removeContractFromEdit(contractId) {
-    const contract = document.getElementById(contractId);
-    const container = document.getElementById('editContractsContainer');
-    const emptyState = document.getElementById('editContractsEmpty');
-
-    if (contract) {
-      contract.remove();
-    }
-
-    // Show empty state if no contracts left
-    if (container && container.children.length === 0 && emptyState) {
-      emptyState.style.display = 'block';
-    }
   }
 
   addContractTierRow(contractId, tierNumber = null, threshold = 0) {
@@ -1583,13 +1531,9 @@ class ProcessGraph {
     }
   }
 
-  loadContractsForEdit(processId, templateName) {
+  async loadContractsForEdit(processId, templateName) {
     const container = document.getElementById('editContractsContainer');
-    const emptyState = document.getElementById('editContractsEmpty');
     if (!container) return;
-
-    // Clear existing contracts
-    container.innerHTML = '';
 
     // Find the specific process being edited
     const process = this.processes.find(p => p.process_id === processId);
@@ -1602,18 +1546,65 @@ class ProcessGraph {
       return;
     }
 
-    // Create a contract for this specific process
-    const contractIndex = 0;
-    const contractId = `editContract-${contractIndex}`;
+    // Fetch contracts for this process
+    try {
+      console.log('[EDIT] Fetching contracts for process:', process.process_name);
+      const contracts = await dataService.loadContractsForProcess(process.process_name);
+      console.log('[EDIT] Fetched contracts:', contracts);
+
+      // Clear existing contracts
+      container.innerHTML = '';
+
+      if (contracts.length === 0) {
+        // Show empty state - recreate it since we cleared the container
+        container.innerHTML = `
+          <div class="p-8 border-2 border-dashed border-border rounded-lg bg-secondary/10 text-center">
+            <svg class="w-12 h-12 text-muted-foreground mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+            </svg>
+            <p class="text-sm text-muted-foreground">No contracts found for this process</p>
+            <p class="text-xs text-muted-foreground mt-1">Add providers to create contracts</p>
+          </div>
+        `;
+      } else {
+        // Render each contract
+        console.log('[EDIT] Rendering', contracts.length, 'contracts');
+        contracts.forEach(contract => {
+          console.log('[EDIT] Rendering contract:', contract);
+          this.renderContractInEdit(container, contract);
+        });
+      }
+
+      // Only show provider selection if we have contracts to work with
+      if (contracts.length > 0) {
+        await this.populateEditProviderSelect();
+      }
+    } catch (error) {
+      console.error('Error loading contracts:', error);
+      container.innerHTML = `
+        <div class="p-4 bg-red-50 border border-red-200 rounded-md">
+          <p class="text-sm text-red-700">Error loading contracts: ${error.message}</p>
+        </div>
+      `;
+    }
+  }
+
+  renderContractInEdit(container, contract) {
+    const contractId = `editContract-${contract.contract_id}`;
+
+    console.log('[EDIT] Creating contract element for:', contract.contract_name, 'in container:', !!container);
 
     const contractElement = document.createElement('div');
     contractElement.id = contractId;
     contractElement.className = 'p-4 bg-card border border-border rounded-md space-y-4';
+    contractElement.dataset.providerId = contract.provider_id;
+
+    console.log('[EDIT] Contract element created:', contractElement);
 
     // Parse tier thresholds
     let tierThresholds = {};
     try {
-      tierThresholds = JSON.parse(process.tier_thresholds || '{}');
+      tierThresholds = JSON.parse(contract.tier_thresholds || '{}');
     } catch (e) {
       tierThresholds = { '1': 1000 }; // Default
     }
@@ -1624,22 +1615,14 @@ class ProcessGraph {
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
           </svg>
-          Contract ${contractIndex + 1}
+          ${contract.provider_name}
         </h5>
-        <button type="button" onclick="processGraph.removeContractFromEdit('${contractId}')"
+        <button type="button" onclick="processGraph.removeContractFromEdit('${contract.contract_id}')"
                 class="text-red-600 hover:text-red-800 p-1.5 hover:bg-red-50 rounded">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
           </svg>
         </button>
-      </div>
-
-      <div>
-        <label class="block text-sm font-medium mb-2">Provider *</label>
-        <select id="editContractProvider-${contractId}" required
-                class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent">
-          <option value="">Select a provider</option>
-        </select>
       </div>
 
       <!-- Tier Thresholds for this Contract -->
@@ -1658,21 +1641,9 @@ class ProcessGraph {
       </div>
     `;
 
+    console.log('[EDIT] InnerHTML set, appending to container');
     container.appendChild(contractElement);
-
-    // Populate provider dropdown and select current provider
-    const providerSelect = document.getElementById(`editContractProvider-${contractId}`);
-    if (providerSelect && this.providers) {
-      this.providers.forEach(provider => {
-        const option = document.createElement('option');
-        option.value = provider.provider_id;
-        option.textContent = provider.company_name;
-        if (provider.provider_id === process.provider_id) {
-          option.selected = true;
-        }
-        providerSelect.appendChild(option);
-      });
-    }
+    console.log('[EDIT] Contract appended. Container children count:', container.children.length);
 
     // Load tier thresholds
     const tierContainer = document.getElementById(`editContractTiersContainer-${contractId}`);
@@ -1688,6 +1659,160 @@ class ProcessGraph {
           this.addContractTierRow(contractId, parseInt(tierNum), threshold);
         });
       }
+    }
+  }
+
+  async populateEditProviderSelect() {
+    const container = document.getElementById('editContractsContainer');
+    if (!container || !this.providers) return;
+
+    // Get currently selected providers from contracts using data attribute (like Add modal)
+    const existingProviders = new Set();
+    const contractElements = container.querySelectorAll('[id^="editContract-"]');
+    contractElements.forEach(el => {
+      const providerId = parseInt(el.dataset.providerId);
+      if (providerId) {
+        existingProviders.add(providerId);
+      }
+    });
+
+    // Get all active providers not yet added
+    const availableProviders = this.providers.filter(p =>
+      !existingProviders.has(p.provider_id) && p.status === 'active'
+    );
+
+    // Find the provider selection section (it's the PREVIOUS sibling before container)
+    let providerSelectionSection = container.previousElementSibling;
+    if (!providerSelectionSection) {
+      console.error('[EDIT] Provider selection section not found in HTML template');
+      return;
+    }
+
+    // Clear only the provider selection section content, NOT the contracts container
+    providerSelectionSection.innerHTML = '';
+
+    if (availableProviders.length === 0) {
+      // Show nice message when all providers have contracts
+      providerSelectionSection.innerHTML = `
+        <div class="flex items-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span class="font-medium">All providers already have contracts for this process</span>
+        </div>
+      `;
+    } else {
+      // Show normal select and add button
+      providerSelectionSection.innerHTML = `
+        <div class="flex items-center gap-3">
+          <select id="editNewProviderSelect" class="flex-1 px-3 py-2 border border-input rounded-md">
+            <option value="">Select a provider</option>
+          </select>
+          <button type="button" onclick="processGraph.addProviderToEdit()"
+                  class="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700">
+            Add
+          </button>
+        </div>
+        <p class="text-xs text-muted-foreground mt-2">Each provider can only have one contract per process</p>
+      `;
+
+      // Populate the select
+      const select = document.getElementById('editNewProviderSelect');
+      availableProviders.forEach(provider => {
+        const option = document.createElement('option');
+        option.value = provider.provider_id;
+        option.textContent = provider.company_name;
+        select.appendChild(option);
+      });
+    }
+  }
+
+  async addProviderToEdit() {
+    const select = document.getElementById('editNewProviderSelect');
+    if (!select) {
+      uiManager.showNotification('No providers available to add', 'error');
+      return;
+    }
+
+    const providerId = parseInt(select.value);
+    if (!providerId) {
+      uiManager.showNotification('Please select a provider', 'error');
+      return;
+    }
+
+    const processId = parseInt(document.getElementById('editProcessId').value);
+    const process = this.processes.find(p => p.process_id === processId);
+
+    if (!process) {
+      uiManager.showNotification('Process not found', 'error');
+      return;
+    }
+
+    try {
+      // Get tier thresholds from the process
+      let tierThresholds = {};
+      try {
+        tierThresholds = JSON.parse(process.tier_thresholds || '{}');
+      } catch (e) {
+        tierThresholds = { '1': 1000 };
+      }
+
+      // Create contract
+      const newContract = await dataService.createContract({
+        process_id: processId,
+        provider_id: providerId,
+        status: 'active'
+      });
+
+      // Create tiers for this contract
+      for (const [tierNumber, threshold] of Object.entries(tierThresholds)) {
+        await dataService.createContractTier({
+          contract_id: newContract.contract_id,
+          tier_number: parseInt(tierNumber),
+          threshold_units: threshold,
+          is_selected: false
+        });
+      }
+
+      uiManager.showNotification('Contract created successfully', 'success');
+
+      // Reload contracts
+      await this.loadContractsForEdit(processId);
+      // Clear the select
+      select.value = '';
+    } catch (error) {
+      console.error('Error creating contract:', error);
+      uiManager.showNotification('Failed to create contract: ' + error.message, 'error');
+    }
+  }
+
+  async removeContractFromEdit(contractId) {
+    if (!confirm('Are you sure you want to remove this contract?')) {
+      return;
+    }
+
+    try {
+      await dataService.deleteContract(contractId);
+      uiManager.showNotification('Contract removed successfully', 'success');
+
+      // Remove from UI
+      const contractElement = document.getElementById(`editContract-${contractId}`);
+      if (contractElement) {
+        contractElement.remove();
+      }
+
+      // Check if empty state should be shown
+      const container = document.getElementById('editContractsContainer');
+      const emptyState = document.getElementById('editContractsEmpty');
+      if (container && emptyState && container.children.length === 0) {
+        emptyState.style.display = 'block';
+      }
+
+      // Refresh provider select
+      await this.populateEditProviderSelect();
+    } catch (error) {
+      console.error('Error deleting contract:', error);
+      uiManager.showNotification('Failed to delete contract: ' + error.message, 'error');
     }
   }
 

@@ -617,7 +617,7 @@ async def delete_actual(actual_id: int):
 # =====================================
 
 class ContractCreate(BaseModel):
-    process_name: str
+    process_id: int
     provider_id: int
     contract_name: Optional[str] = None
     status: Optional[str] = "active"
@@ -658,10 +658,22 @@ async def get_contracts():
 
 @router.get("/api/contracts/process/{process_name}")
 async def get_contracts_for_process(process_name: str):
-    """Get all contracts for a specific process."""
+    """Get all contracts for a specific process name (all processes with that name)."""
     crud = get_crud()
-    contracts = crud.get_contracts_for_process(process_name)
-    return JSONResponse(content=contracts)
+    # Get ALL processes with this name (not just one)
+    all_processes = crud.get_all_processes()
+    processes_with_name = [p for p in all_processes if p['process_name'] == process_name]
+
+    if not processes_with_name:
+        return JSONResponse(content=[])
+
+    # Get contracts for all processes with this name
+    all_contracts = []
+    for process in processes_with_name:
+        contracts = crud.get_contracts_for_process(process['process_id'])
+        all_contracts.extend(contracts)
+
+    return JSONResponse(content=all_contracts)
 
 
 @router.post("/api/contracts")
@@ -669,7 +681,7 @@ async def create_contract(contract: ContractCreate):
     """Create a new contract."""
     crud = get_crud()
     new_contract = crud.create_contract(
-        process_name=contract.process_name,
+        process_id=contract.process_id,
         provider_id=contract.provider_id,
         contract_name=contract.contract_name,
         status=contract.status
