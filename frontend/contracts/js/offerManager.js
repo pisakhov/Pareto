@@ -187,13 +187,13 @@ class OfferManager {
           <label class="text-sm w-40">${tier.label}</label>
           <span class="text-sm">$</span>
           <input type="number"
-                 step="0.01"
+                 step="0.0001"
                  min="0"
                  value="${currentPrice}"
                  data-provider="${providerId}"
                  data-tier="${tier.index}"
                  class="flex-1 px-2 py-1 text-sm border border-input rounded focus:ring-2 focus:ring-ring"
-                 placeholder="0.00"
+                 placeholder="0.0000"
                  oninput="window.offerManager.updatePrice(${providerId}, ${tier.index}, this.value)">
           ${applyAllButton}
         `;

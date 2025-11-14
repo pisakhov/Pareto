@@ -73,7 +73,9 @@ async def contracts_process_detail(request: Request, process_id: int):
     # Get process details
     process = crud.get_process(process_id)
     if not process:
-        raise HTTPException(status_code=404, detail="Process not found")
+        # Redirect to main contracts page if process not found
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/contracts", status_code=302)
 
     # Get all processes for navigation
     processes = crud.get_all_processes()

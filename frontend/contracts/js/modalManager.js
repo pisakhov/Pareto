@@ -283,3 +283,9 @@ class ModalManager {
 
 // Create singleton instance
 const modalManager = new ModalManager();
+
+// Expose global functions for backward compatibility
+window.showProviderModal = (callback) => modalManager.showProviderModal(callback);
+window.showItemModal = (callback) => modalManager.showItemModal(callback);
+window.closeProviderModal = () => modalManager.closeProviderModal();
+window.closeItemModal = () => modalManager.closeItemModal();

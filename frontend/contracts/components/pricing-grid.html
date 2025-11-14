@@ -33,10 +33,18 @@
     <!-- Providers Section -->
     <div class="bg-card border rounded-lg">
         <div class="p-4 border-b bg-secondary/50">
-            <h2 class="text-lg font-semibold flex items-center justify-between">
-                Providers
-                <span class="text-xs bg-[#023047]/10 text-[#023047] px-2 py-1 rounded-full" id="providerCount">0</span>
-            </h2>
+            <div class="flex items-center justify-between">
+                <h2 class="text-lg font-semibold flex items-center gap-2">
+                    Providers
+                    <span class="text-xs bg-[#023047]/10 text-[#023047] px-2 py-1 rounded-full" id="providerCount">0</span>
+                    <button onclick="showProviderModal()" class="inline-flex items-center gap-1 text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-7 px-2 py-1 bg-gradient-to-r from-[#023047] to-[#03455f] text-white hover:from-[#03455f] hover:to-[#023047] shadow-sm rounded">
+                        <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 5v14M5 12h14"/>
+                        </svg>
+                        <span>Add Provider</span>
+                    </button>
+                </h2>
+            </div>
         </div>
         <div class="overflow-x-auto max-h-96">
             <table class="w-full" role="table" aria-label="Providers list">
