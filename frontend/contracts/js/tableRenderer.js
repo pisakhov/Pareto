@@ -522,7 +522,7 @@ class TableRenderer {
     }
   }
 
-  // Create contracts matrix HTML (3-column layout: Provider + Tiers + Items)
+  // Create contracts matrix HTML (3-column layout: Provider + Merged Tiers + Items)
   async createContractsMatrixHTML(contracts) {
     // Group contracts by provider and fetch their tiers
     const providerContracts = {};
@@ -570,7 +570,7 @@ class TableRenderer {
             <thead>
               <tr class="bg-secondary/50">
                 <th class="border border-border px-2 py-3 bg-secondary font-medium text-left w-[80px]">Provider</th>
-                <th class="border border-border px-4 py-3 bg-secondary font-medium text-left min-w-[400px]">Contract Tiers</th>
+                <th class="border border-border px-4 py-3 bg-secondary font-medium text-left min-w-[300px]">Contract Tiers</th>
     `;
 
     // Add item columns
@@ -586,19 +586,6 @@ class TableRenderer {
 
     // Provider rows
     providers.forEach(provider => {
-      html += `
-              <tr class="hover:bg-secondary/20">
-                <td class="border border-border px-0 py-4 font-medium bg-secondary/30 align-middle">
-                  <div class="h-full flex items-center justify-center">
-                    <div class="font-semibold text-foreground -rotate-90 whitespace-nowrap text-sm tracking-wide">${provider.provider_name}</div>
-                  </div>
-                </td>
-                <td class="border border-border px-4 py-4 align-top">
-      `;
-
-      // Stack all tiers vertically for this provider
-      html += '<div class="flex flex-col gap-2">';
-
       // Get all tiers sorted by tier_number
       const allTiers = [];
       provider.contracts.forEach(contract => {
@@ -607,38 +594,46 @@ class TableRenderer {
             tier_number: tier.tier_number,
             threshold_units: tier.threshold_units,
             contract_name: contract.contract_name,
-            is_selected: tier.is_selected
+            is_selected: tier.is_selected,
+            contract_tier_id: tier.contract_tier_id
           });
         });
       });
 
       allTiers.sort((a, b) => a.tier_number - b.tier_number);
 
-      allTiers.forEach(tier => {
-        // Find the contract_tier_id for this tier
-        let contractTierId = null;
-        provider.contracts.forEach(contract => {
-          const foundTier = contract.tiers.find(t => t.tier_number === tier.tier_number);
-          if (foundTier && contractTierId === null) {
-            contractTierId = foundTier.contract_tier_id;
-          }
-        });
+      html += `
+              <tr class="hover:bg-secondary/20">
+                <td class="border border-border px-0 py-4 font-medium bg-secondary/30 align-middle">
+                  <div class="h-full flex items-center justify-center">
+                    <div class="font-semibold text-foreground -rotate-90 whitespace-nowrap text-sm tracking-wide">${provider.provider_name}</div>
+                  </div>
+                </td>
+                <td class="border border-border px-4 py-2 align-top">
+      `;
 
+      // Stack all tiers vertically for this provider
+      html += '<div class="flex flex-col gap-2">';
+
+      allTiers.forEach((tier, index) => {
+        const isSelected = tier.is_selected;
         html += `
           <div
-            class="text-sm cursor-pointer transition-colors rounded-md ${tier.is_selected ? 'bg-blue-50 hover:bg-blue-50 px-3 py-2' : 'hover:bg-accent px-3 py-2'}"
-            onclick="window.tableRenderer.selectTier(${contractTierId}, ${tier.tier_number}, '${provider.provider_name}', ${provider.provider_id})"
+            class="rounded-md border border-border ${isSelected ? 'bg-blue-50 border-blue-200' : 'bg-card hover:bg-accent'} p-3 cursor-pointer transition-colors"
+            onclick="window.tableRenderer.selectTier(${tier.contract_tier_id}, ${tier.tier_number}, '${provider.provider_name}', ${provider.provider_id})"
             title="Click to select this tier"
           >
-            <span class="font-medium text-foreground">T${tier.tier_number}:</span>
-            <span class="text-foreground">&lt; ${tier.threshold_units.toLocaleString()} units</span>
-            <span class="text-muted-foreground"> - ${tier.contract_name}</span>
+            <div class="text-sm font-medium text-foreground">
+              <span class="text-blue-600 font-semibold">T${tier.tier_number}:</span>
+              <span class="text-foreground"> &lt; ${tier.threshold_units.toLocaleString()} units</span>
+              <span class="text-muted-foreground"> - ${tier.contract_name}</span>
+            </div>
           </div>
         `;
       });
 
       if (allTiers.length === 0) {
-        html += '<span class="text-muted-foreground text-xs">No tiers configured</span>';
+        html += '<span class="text-muted-foreground text-sm">No tiers configured</span>';
       }
 
       html += '</div>';
@@ -647,30 +642,65 @@ class TableRenderer {
                 </td>
       `;
 
-      // Add item cells with tier prices
+      // Add item cells with tier prices - merged vertically
       items.forEach(item => {
         // Get offers for this provider and item
         const currentProcessId = window.CURRENT_PROCESS_ID;
-        const offers = this.data.offers.filter(
-          (o) =>
-            o.provider_id === provider.provider_id &&
-            o.item_id === item.item_id &&
-            (!currentProcessId || o.process_id === currentProcessId)
-        );
+        const offers = this.data.offers
+          .filter(
+            (o) =>
+              o.provider_id === provider.provider_id &&
+              o.item_id === item.item_id &&
+              (!currentProcessId || o.process_id === currentProcessId)
+          )
+          .sort((a, b) => a.tier_number - b.tier_number);
 
         html += `<td class="border border-border px-4 py-2 align-top">`;
 
         if (offers.length > 0) {
-          html += '<div class="flex flex-col gap-1">';
-          offers.forEach(offer => {
-            const inactiveClass = offer.status === "inactive" ? "text-gray-400 line-through" : "text-foreground";
-            html += `<div class="text-xs whitespace-nowrap px-2 py-1 hover:bg-accent rounded cursor-pointer ${inactiveClass}" onclick="event.stopPropagation(); window.formHandler.populateItemForm(${item.item_id})">
-              <span class="font-medium">T${offer.tier_number}</span>: <span class="text-green-600 font-semibold">$${offer.price_per_unit.toFixed(2)}</span>
-            </div>`;
+          html += '<div class="flex flex-col gap-2">';
+
+          // Match offers to tiers
+          allTiers.forEach(tier => {
+            const offer = offers.find(o => o.tier_number === tier.tier_number);
+            const isSelected = tier.is_selected;
+
+            html += `
+              <div
+                class="rounded-md border ${isSelected ? 'bg-blue-50 border-blue-200' : 'bg-card border-border hover:bg-accent'} p-3 transition-colors"
+              >
+                <div class="text-sm font-medium text-foreground">
+                  <span class="text-blue-600 font-semibold">T${tier.tier_number}:</span>
+            `;
+
+            if (offer) {
+              const inactiveClass = offer.status === "inactive" ? "text-gray-400 line-through" : "text-green-600";
+              html += ` <span class="font-semibold ${inactiveClass}">$${offer.price_per_unit.toFixed(2)}</span>`;
+            } else {
+              html += ` <span class="text-muted-foreground">—</span>`;
+            }
+
+            html += `
+                </div>
+              </div>
+            `;
           });
+
           html += "</div>";
         } else {
-          html += '<span class="text-muted-foreground text-xs">—</span>';
+          html += '<div class="flex flex-col gap-2">';
+          allTiers.forEach(tier => {
+            const isSelected = tier.is_selected;
+            html += `
+              <div class="rounded-md border ${isSelected ? 'bg-blue-50 border-blue-200' : 'bg-card border-border hover:bg-accent'} p-3 transition-colors">
+                <div class="text-sm font-medium text-foreground">
+                  <span class="text-blue-600 font-semibold">T${tier.tier_number}:</span>
+                  <span class="text-muted-foreground"> —</span>
+                </div>
+              </div>
+            `;
+          });
+          html += "</div>";
         }
 
         html += '</td>';
