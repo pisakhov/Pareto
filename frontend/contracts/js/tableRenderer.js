@@ -667,7 +667,9 @@ class TableRenderer {
 
             html += `
               <div
-                class="rounded-md border ${isSelected ? 'bg-blue-50 border-blue-200' : 'bg-card border-border hover:bg-accent'} p-3 transition-colors"
+                class="rounded-md border ${isSelected ? 'bg-blue-50 border-blue-200' : 'bg-card border-border hover:bg-accent'} p-3 transition-colors cursor-pointer"
+                onclick="window.formHandler.populateItemForm(${item.item_id})"
+                title="Click to edit item"
               >
                 <div class="text-sm font-medium text-foreground">
                   <span class="text-blue-600 font-semibold">T${tier.tier_number}:</span>
@@ -692,7 +694,7 @@ class TableRenderer {
           allTiers.forEach(tier => {
             const isSelected = tier.is_selected;
             html += `
-              <div class="rounded-md border ${isSelected ? 'bg-blue-50 border-blue-200' : 'bg-card border-border hover:bg-accent'} p-3 transition-colors">
+              <div class="rounded-md border ${isSelected ? 'bg-blue-50 border-blue-200' : 'bg-card border-border hover:bg-accent'} p-3 transition-colors cursor-pointer" onclick="window.formHandler.populateItemForm(${item.item_id})" title="Click to edit item">
                 <div class="text-sm font-medium text-foreground">
                   <span class="text-blue-600 font-semibold">T${tier.tier_number}:</span>
                   <span class="text-muted-foreground"> —</span>
