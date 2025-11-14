@@ -95,7 +95,7 @@ class TableRenderer {
 
     if (this.data.providers.length === 0) {
       tbody.innerHTML =
-        '<tr><td colspan="4" class="text-center py-4 text-muted-foreground">No providers found</td></tr>';
+        '<tr><td colspan="3" class="text-center py-4 text-muted-foreground">No providers found</td></tr>';
       return;
     }
 
@@ -107,14 +107,14 @@ class TableRenderer {
 
   createActionButtons(editHandler, deleteHandler, editLabel = "Edit", deleteLabel = "Delete") {
     return `
-      <div class="flex items-center space-x-1">
-        <button onclick="${editHandler}" class="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-full transition-colors" title="${editLabel}">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+      <div class="flex items-center justify-end space-x-1">
+        <button onclick="${editHandler}" class="inline-flex items-center justify-center w-8 h-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors" title="${editLabel}">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
             <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
           </svg>
         </button>
-        <button onclick="${deleteHandler}" class="p-2 text-gray-500 hover:text-red-600 hover:bg-gray-100 rounded-full transition-colors" title="${deleteLabel}">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
+        <button onclick="${deleteHandler}" class="inline-flex items-center justify-center w-8 h-8 text-muted-foreground hover:text-destructive hover:bg-accent rounded-md transition-colors" title="${deleteLabel}">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
             <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.134-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.067-2.09 1.02-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
           </svg>
         </button>
@@ -124,23 +124,25 @@ class TableRenderer {
 
   createProviderRow(provider) {
     const row = document.createElement("tr");
-    row.className = "hover:bg-secondary/50";
+    const isActive = provider.status?.toLowerCase() === "active";
     const contractCount = provider.contract_count || 0;
+
+    row.className = `hover:bg-[#023047]/5 transition-colors`;
+
     row.innerHTML = `
-            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">${provider.company_name}</td>
-            <td class="px-4 py-3 whitespace-nowrap">
-                <span class="px-2 py-1 text-xs rounded-full ${
-                  provider.status === "active"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-red-100 text-red-800"
-                }">
-                    ${provider.status}
-                </span>
+            <td class="px-4 py-3 whitespace-nowrap text-sm">
+                <div class="flex items-center space-x-2">
+                    <span class="w-2 h-2 rounded-full ${isActive ? "bg-[#023047]" : "bg-red-500"}"></span>
+                    <svg class="w-4 h-4 text-[#023047]/60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m2.25-18v18m13.5-18v18m2.25-18v18M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.25 21h7.5v-17.25c0-3.309-2.691-6-6-6h-3c-3.309 0-6 2.691-6 6V21zM3.375 10.5h17.25c.621 0 1.125-.504 1.125-1.125V6.375c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v3.75c0 .621.504 1.125 1.125 1.125z" />
+                    </svg>
+                    <span class="font-medium ${!isActive ? "line-through text-muted-foreground" : ""}">${provider.company_name}</span>
+                </div>
             </td>
             <td class="px-4 py-3 whitespace-nowrap text-sm text-center">
-                <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">${contractCount}</span>
+                <span class="px-2 py-1 text-xs rounded-full bg-[#023047]/10 text-[#023047] font-medium border border-[#023047]/20">${contractCount}</span>
             </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm">
+            <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
                 ${this.createActionButtons(
                   `window.formHandler.populateProviderForm(${provider.provider_id})`,
                   `window.formHandler.deleteProvider(${provider.provider_id}, this)`,
