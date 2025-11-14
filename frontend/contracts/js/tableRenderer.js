@@ -559,9 +559,15 @@ class TableRenderer {
     this.data.providerContracts = providerContracts;
 
     const providers = Object.values(providerContracts);
+    // Filter out inactive providers
+    const activeProviders = providers.filter(provider => {
+      const providerData = this.data.providers.find(p => p.provider_id === provider.provider_id);
+      return providerData?.status?.toLowerCase() === "active";
+    });
+
     const items = this.getFilteredItems();
 
-    if (providers.length === 0) {
+    if (activeProviders.length === 0) {
       return '<p class="text-center text-muted-foreground py-8">No contracts found for this process</p>';
     }
 
@@ -586,8 +592,8 @@ class TableRenderer {
             <tbody>
     `;
 
-    // Provider rows
-    providers.forEach(provider => {
+    // Provider rows (only active providers)
+    activeProviders.forEach(provider => {
       // Get all tiers sorted by tier_number
       const allTiers = [];
       provider.contracts.forEach(contract => {

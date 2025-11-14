@@ -354,8 +354,8 @@ function renderRelationshipMatrix() {
   });
   html += "</tr></thead><tbody>";
 
-  // Add provider rows
-  providers.forEach((provider) => {
+  // Add provider rows (only active providers)
+  providers.filter(provider => provider.status?.toLowerCase() === "active").forEach((provider) => {
     html += `<tr><td class="border border-border px-2 py-1 bg-secondary font-medium whitespace-nowrap">${provider.company_name}</td>`;
 
     items.forEach((item) => {
