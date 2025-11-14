@@ -125,7 +125,7 @@ class TableRenderer {
   createProviderRow(provider) {
     const row = document.createElement("tr");
     row.className = "hover:bg-secondary/50";
-    const tierCount = provider.tier_count || 0;
+    const contractCount = provider.contract_count || 0;
     row.innerHTML = `
             <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">${provider.company_name}</td>
             <td class="px-4 py-3 whitespace-nowrap">
@@ -138,7 +138,7 @@ class TableRenderer {
                 </span>
             </td>
             <td class="px-4 py-3 whitespace-nowrap text-sm text-center">
-                <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">${tierCount}</span>
+                <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">${contractCount}</span>
             </td>
             <td class="px-4 py-3 whitespace-nowrap text-sm">
                 ${this.createActionButtons(

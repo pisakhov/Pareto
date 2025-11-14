@@ -53,10 +53,23 @@ class CRUDOperations(DatabaseSchema):
         return [result for result in results]
 
     def get_all_providers_with_tier_counts(self) -> List[Dict[str, Any]]:
-        """Get all providers (simplified version, tier counts removed)"""
+        """Get all providers with contract counts"""
         conn = self._get_connection()
         results = conn.execute(
-            "SELECT provider_id, company_name, details, status, date_creation, date_last_update FROM providers ORDER BY company_name"
+            """
+            SELECT
+                p.provider_id,
+                p.company_name,
+                p.details,
+                p.status,
+                p.date_creation,
+                p.date_last_update,
+                COUNT(c.contract_id) as contract_count
+            FROM providers p
+            LEFT JOIN contracts c ON p.provider_id = c.provider_id
+            GROUP BY p.provider_id, p.company_name, p.details, p.status, p.date_creation, p.date_last_update
+            ORDER BY p.company_name
+            """
         ).fetchall()
 
         providers_list = []
@@ -67,7 +80,8 @@ class CRUDOperations(DatabaseSchema):
                 "details": result[2],
                 "status": result[3],
                 "date_creation": result[4],
-                "date_last_update": result[5]
+                "date_last_update": result[5],
+                "contract_count": result[6]
             })
 
         return providers_list
