@@ -108,6 +108,19 @@ class ModalManager {
       window.offerManager.reset();
     }
 
+    // Add event listener for process selection change
+    const processSelect = document.getElementById("itemProcess");
+    if (processSelect && window.offerManager) {
+      // Remove any existing listeners to avoid duplicates
+      processSelect.removeEventListener('change', this.handleProcessChangeBound);
+      // Bind and store the handler
+      this.handleProcessChangeBound = (e) => {
+        const processId = parseInt(e.target.value) || null;
+        window.offerManager.setProcess(processId);
+      };
+      processSelect.addEventListener('change', this.handleProcessChangeBound);
+    }
+
     this.showModal(this.modals.item);
 
     setTimeout(() => {
@@ -174,6 +187,8 @@ class ModalManager {
     const allProviders = window.contractsApp.getProviders();
     if (window.offerManager) {
       window.offerManager.setProviders(allProviders);
+      // Set the process in offerManager before loading existing offers
+      window.offerManager.setProcess(processId);
       await window.offerManager.populateExistingOffers(itemId);
     }
 
@@ -201,6 +216,11 @@ class ModalManager {
       const processLabel = processSelect.previousElementSibling;
       if (processLabel && processLabel.tagName === 'LABEL') {
         processLabel.innerHTML = 'Process *';
+      }
+
+      // Reset the process in offerManager
+      if (window.offerManager) {
+        window.offerManager.setProcess(null);
       }
     }
   }

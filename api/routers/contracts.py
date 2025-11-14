@@ -370,6 +370,38 @@ async def get_tier_thresholds(provider_id: int):
     return JSONResponse(content=tier_data)
 
 
+@router.get("/api/contract-tiers/process/{process_id}/provider/{provider_id}")
+async def get_contract_tiers_by_process_and_provider(process_id: int, provider_id: int):
+    """Get tier thresholds for a specific provider in a specific process."""
+    crud = get_crud()
+    # Get the contract for this process and provider
+    contracts = crud.get_contracts_for_process(process_id)
+    contract = None
+    for c in contracts:
+        if c['provider_id'] == provider_id:
+            contract = c
+            break
+
+    if not contract:
+        return JSONResponse(
+            content={"error": f"No contract found for provider {provider_id} in process {process_id}"},
+            status_code=404
+        )
+
+    # Get tiers for this contract
+    tiers = crud.get_contract_tiers_for_contract(contract['contract_id'])
+
+    # Format tiers as key-value pairs
+    tier_thresholds = {}
+    for tier in tiers:
+        tier_thresholds[str(tier['tier_number'])] = tier['threshold_units']
+
+    return JSONResponse(content={
+        "contract_id": contract['contract_id'],
+        "tier_thresholds": tier_thresholds
+    })
+
+
 # =====================================
 # NEW SCHEMA ENTITY ENDPOINTS
 # =====================================

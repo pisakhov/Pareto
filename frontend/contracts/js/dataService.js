@@ -308,6 +308,12 @@ class DataService {
     return this.delete("contract-tiers", contractTierId);
   }
 
+  async getContractTiersByProcessAndProvider(processId, providerId) {
+    return this.fetchWithErrorHandling(
+      `${this.basePath}/contract-tiers/process/${processId}/provider/${providerId}`
+    );
+  }
+
 }
 
 // Create singleton instance

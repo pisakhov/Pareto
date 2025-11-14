@@ -11,8 +11,13 @@ class OfferManager {
     this.allProvidersAddedMsg = document.getElementById('allProvidersAddedMsg');
     this.validationMsg = document.getElementById('offerValidationMsg');
     this.allProviders = [];
-    
+    this.selectedProcessId = null;
+
     this.setupEventListeners();
+  }
+
+  setProcess(processId) {
+    this.selectedProcessId = processId;
   }
 
   setupEventListeners() {
@@ -28,9 +33,9 @@ class OfferManager {
 
   updateProviderSelect() {
     if (!this.providerSelect) return;
-    
-    this.providerSelect.innerHTML = '<option value="">Select a provider</option>';
-    
+
+    this.providerSelect.innerHTML = '';
+
     const addedProviderIds = Array.from(this.providerOffers.keys());
     const availableProviders = this.allProviders.filter(
       p => !addedProviderIds.includes(p.provider_id) && p.status === 'active'
@@ -76,17 +81,24 @@ class OfferManager {
     const provider = this.allProviders.find(p => p.provider_id === providerId);
     if (!provider) return;
 
-    const tierData = await this.loadProviderTiers(providerId);
-    
+    // Load tiers specific to the selected process
+    let tierData;
+    if (this.selectedProcessId) {
+      tierData = await this.loadContractTiersForProcess(this.selectedProcessId, providerId);
+    } else {
+      // Fallback to old method if no process selected
+      tierData = await this.loadProviderTiers(providerId);
+    }
+
     this.providerOffers.set(providerId, {
       provider: provider,
       tiers: tierData.tiers,
       prices: new Map()
     });
-    
+
     this.render();
     this.updateProviderSelect();
-    
+
     setTimeout(() => {
       const firstInput = this.container.querySelector(`[data-provider="${providerId}"] input[type="number"]`);
       if (firstInput) firstInput.focus();
@@ -96,7 +108,7 @@ class OfferManager {
   async loadProviderTiers(providerId) {
     const response = await fetch(`/api/providers/${providerId}/tier-thresholds`);
     const data = await response.json();
-    
+
     const thresholds = data.thresholds || { '1': 0 };
     const tiers = Object.entries(thresholds)
       .map(([tierNum, threshold]) => ({
@@ -105,7 +117,22 @@ class OfferManager {
         label: `Tier ${tierNum}: < ${threshold.toLocaleString()} files`
       }))
       .sort((a, b) => a.index - b.index);
-    
+
+    return { tiers };
+  }
+
+  async loadContractTiersForProcess(processId, providerId) {
+    const data = await dataService.getContractTiersByProcessAndProvider(processId, providerId);
+
+    const thresholds = data.tier_thresholds || { '1': 0 };
+    const tiers = Object.entries(thresholds)
+      .map(([tierNum, threshold]) => ({
+        index: parseInt(tierNum),
+        threshold: threshold,
+        label: `Tier ${tierNum}: < ${threshold.toLocaleString()} units`
+      }))
+      .sort((a, b) => a.index - b.index);
+
     return { tiers };
   }
 
@@ -257,37 +284,40 @@ class OfferManager {
   }
 
   async populateExistingOffers(itemId) {
-    try {
-      const response = await fetch(`/api/items/${itemId}/providers`);
-      if (!response.ok) return;
-      
-      const providers = await response.json();
-      
-      for (const provider of providers) {
-        const offerResponse = await fetch(`/api/offers?item_id=${itemId}&provider_id=${provider.provider_id}`);
-        if (!offerResponse.ok) continue;
-        
-        const offers = await offerResponse.json();
-        
-        const tierData = await this.loadProviderTiers(provider.provider_id);
-        const pricesMap = new Map();
-        
-        offers.forEach(offer => {
-          pricesMap.set(offer.tier_number, offer.price_per_unit);
-        });
-        
-        this.providerOffers.set(provider.provider_id, {
-          provider: provider,
-          tiers: tierData.tiers,
-          prices: pricesMap
-        });
+    const response = await fetch(`/api/items/${itemId}/providers`);
+    if (!response.ok) return;
+
+    const providers = await response.json();
+
+    for (const provider of providers) {
+      const offerResponse = await fetch(`/api/offers?item_id=${itemId}&provider_id=${provider.provider_id}`);
+      if (!offerResponse.ok) continue;
+
+      const offers = await offerResponse.json();
+
+      // Load tiers based on selected process
+      let tierData;
+      if (this.selectedProcessId) {
+        tierData = await this.loadContractTiersForProcess(this.selectedProcessId, provider.provider_id);
+      } else {
+        tierData = await this.loadProviderTiers(provider.provider_id);
       }
-      
-      this.render();
-      this.updateProviderSelect();
-    } catch (error) {
-      console.error('Error loading existing offers:', error);
+
+      const pricesMap = new Map();
+
+      offers.forEach(offer => {
+        pricesMap.set(offer.tier_number, offer.price_per_unit);
+      });
+
+      this.providerOffers.set(provider.provider_id, {
+        provider: provider,
+        tiers: tierData.tiers,
+        prices: pricesMap
+      });
     }
+
+    this.render();
+    this.updateProviderSelect();
   }
 
   reset() {
