@@ -240,24 +240,14 @@ class TableRenderer {
     const matrix = document.getElementById("relationshipMatrix");
     if (!matrix) return;
 
-    // Get filtered items based on current process
-    const items = this.getFilteredItems();
-
-    // Get contracts for current process
+    // Get contracts for current process (or all if no specific process)
     const contracts = await this.getContractsForCurrentProcess();
 
-    // Case 1: We have items - show the provider-item matrix
-    if (this.data.providers.length > 0 && items.length > 0) {
-      const html = await this.createRelationshipMatrixHTML();
-      matrix.innerHTML = html;
-    }
-    // Case 2: No items but we have contracts - show contracts view
-    else if (contracts.length > 0) {
+    // Show contracts matrix view
+    if (contracts.length > 0) {
       const html = await this.createContractsMatrixHTML(contracts);
       matrix.innerHTML = html;
-    }
-    // Case 3: No items and no contracts - show empty state
-    else {
+    } else {
       const currentProcessId = window.CURRENT_PROCESS_ID;
       if (currentProcessId) {
         matrix.innerHTML = `
@@ -267,12 +257,9 @@ class TableRenderer {
                 <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
               </svg>
             </div>
-            <h3 class="text-lg font-semibold text-foreground mb-2">No items or contracts yet</h3>
-            <p class="text-sm text-muted-foreground mb-6">Add items or contracts to get started</p>
+            <h3 class="text-lg font-semibold text-foreground mb-2">No contracts yet</h3>
+            <p class="text-sm text-muted-foreground mb-6">Create a process with contracts to get started</p>
             <div class="flex justify-center gap-3">
-              <button onclick="window.modalManager.showItemModal()" class="inline-flex items-center px-4 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 transition-colors">
-                Add Item
-              </button>
               <button onclick="showProcessModal()" class="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors">
                 Add Contract
               </button>
@@ -283,7 +270,6 @@ class TableRenderer {
         matrix.innerHTML =
           '<p class="text-center text-muted-foreground py-8">No data available for relationship matrix</p>';
       }
-      return;
     }
   }
 
@@ -536,7 +522,7 @@ class TableRenderer {
     }
   }
 
-  // Create contracts matrix HTML (2-column layout: Provider + Tiers stacked)
+  // Create contracts matrix HTML (3-column layout: Provider + Tiers + Items)
   async createContractsMatrixHTML(contracts) {
     // Group contracts by provider and fetch their tiers
     const providerContracts = {};
@@ -571,6 +557,7 @@ class TableRenderer {
     this.data.providerContracts = providerContracts;
 
     const providers = Object.values(providerContracts);
+    const items = this.getFilteredItems();
 
     if (providers.length === 0) {
       return '<p class="text-center text-muted-foreground py-8">No contracts found for this process</p>';
@@ -583,7 +570,15 @@ class TableRenderer {
             <thead>
               <tr class="bg-secondary/50">
                 <th class="border border-border px-2 py-3 bg-secondary font-medium text-left w-[80px]">Provider</th>
-                <th class="border border-border px-4 py-3 bg-secondary font-medium text-left min-w-[400px]">Tiers</th>
+                <th class="border border-border px-4 py-3 bg-secondary font-medium text-left min-w-[400px]">Contract Tiers</th>
+    `;
+
+    // Add item columns
+    items.forEach(item => {
+      html += `<th class="border border-border px-4 py-3 bg-secondary font-medium text-center min-w-[150px]">${item.item_name}</th>`;
+    });
+
+    html += `
               </tr>
             </thead>
             <tbody>
@@ -650,6 +645,38 @@ class TableRenderer {
 
       html += `
                 </td>
+      `;
+
+      // Add item cells with tier prices
+      items.forEach(item => {
+        // Get offers for this provider and item
+        const currentProcessId = window.CURRENT_PROCESS_ID;
+        const offers = this.data.offers.filter(
+          (o) =>
+            o.provider_id === provider.provider_id &&
+            o.item_id === item.item_id &&
+            (!currentProcessId || o.process_id === currentProcessId)
+        );
+
+        html += `<td class="border border-border px-4 py-2 align-top">`;
+
+        if (offers.length > 0) {
+          html += '<div class="flex flex-col gap-1">';
+          offers.forEach(offer => {
+            const inactiveClass = offer.status === "inactive" ? "text-gray-400 line-through" : "text-foreground";
+            html += `<div class="text-xs whitespace-nowrap px-2 py-1 hover:bg-accent rounded cursor-pointer ${inactiveClass}" onclick="event.stopPropagation(); window.formHandler.populateItemForm(${item.item_id})">
+              <span class="font-medium">T${offer.tier_number}</span>: <span class="text-green-600 font-semibold">$${offer.price_per_unit.toFixed(2)}</span>
+            </div>`;
+          });
+          html += "</div>";
+        } else {
+          html += '<span class="text-muted-foreground text-xs">—</span>';
+        }
+
+        html += '</td>';
+      });
+
+      html += `
               </tr>
       `;
     });
