@@ -88,20 +88,27 @@ class TableRenderer {
 
   // Provider table rendering
   renderProviders() {
-    const tbody = document.getElementById("providersTableBody");
-    if (!tbody) return;
+    const container = document.getElementById("providersCardsContainer");
+    if (!container) return;
 
-    tbody.innerHTML = "";
+    container.innerHTML = "";
 
     if (this.data.providers.length === 0) {
-      tbody.innerHTML =
-        '<tr><td colspan="3" class="text-center py-4 text-muted-foreground">No providers found</td></tr>';
+      container.innerHTML = `
+        <div class="col-span-full flex flex-col items-center justify-center py-12 text-slate-500">
+          <svg class="w-12 h-12 text-slate-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+          <p class="text-sm font-medium">No providers found</p>
+          <p class="text-xs text-slate-400 mt-1">Add your first provider to get started</p>
+        </div>
+      `;
       return;
     }
 
     this.data.providers.forEach((provider) => {
-      const row = this.createProviderRow(provider);
-      tbody.appendChild(row);
+      const card = this.createProviderCard(provider);
+      container.appendChild(card);
     });
   }
 
@@ -122,36 +129,83 @@ class TableRenderer {
     `;
   }
 
-  createProviderRow(provider) {
-    const row = document.createElement("tr");
+  createItemActionButtons(editHandler, deleteHandler, editLabel = "Edit", deleteLabel = "Delete") {
+    return `
+      <div class="flex items-center justify-end gap-2">
+        <button onclick="${editHandler}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 hover:border-slate-400 rounded-md transition-all" title="${editLabel}">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-3.5 h-3.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+          </svg>
+          <span>Edit</span>
+        </button>
+        <button onclick="${deleteHandler}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 hover:bg-red-100 hover:border-red-300 rounded-md transition-all" title="${deleteLabel}">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-3.5 h-3.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.134-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.067-2.09 1.02-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+          </svg>
+          <span>Delete</span>
+        </button>
+      </div>
+    `;
+  }
+
+  createProviderCard(provider) {
     const isActive = provider.status?.toLowerCase() === "active";
     const contractCount = provider.contract_count || 0;
 
-    row.className = `hover:bg-[#023047]/5 transition-colors`;
+    const card = document.createElement("div");
+    card.className = `
+      bg-white border border-slate-200 rounded-xl p-6
+      hover:shadow-lg hover:border-[#023047]/30
+      transition-all duration-200
+      ${!isActive ? 'opacity-60' : ''}
+    `;
 
-    row.innerHTML = `
-            <td class="px-4 py-3 whitespace-nowrap text-sm">
-                <div class="flex items-center space-x-2">
-                    <span class="w-2 h-2 rounded-full ${isActive ? "bg-[#023047]" : "bg-red-500"}"></span>
-                    <svg class="w-4 h-4 text-[#023047]/60" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m2.25-18v18m13.5-18v18m2.25-18v18M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.25 21h7.5v-17.25c0-3.309-2.691-6-6-6h-3c-3.309 0-6 2.691-6 6V21zM3.375 10.5h17.25c.621 0 1.125-.504 1.125-1.125V6.375c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v3.75c0 .621.504 1.125 1.125 1.125z" />
-                    </svg>
-                    <span class="font-medium ${!isActive ? "line-through text-muted-foreground" : ""}">${provider.company_name}</span>
-                </div>
-            </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-center">
-                <span class="px-2 py-1 text-xs rounded-full bg-[#023047]/10 text-[#023047] font-medium border border-[#023047]/20">${contractCount}</span>
-            </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
-                ${this.createActionButtons(
-                  `window.formHandler.populateProviderForm(${provider.provider_id})`,
-                  `window.formHandler.deleteProvider(${provider.provider_id}, this)`,
-                  "Edit Provider",
-                  "Delete Provider"
-                )}
-            </td>
-        `;
-    return row;
+    card.innerHTML = `
+      <div class="flex items-start justify-between mb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-[#023047] to-[#023047]/80 flex items-center justify-center shadow-sm">
+            <svg class="w-6 h-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m2.25-18v18m13.5-18v18m2.25-18v18M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.25 21h7.5v-17.25c0-3.309-2.691-6-6-6h-3c-3.309 0-6 2.691-6 6V21zM3.375 10.5h17.25c.621 0 1.125-.504 1.125-1.125V6.375c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v3.75c0 .621.504 1.125 1.125 1.125z" />
+            </svg>
+          </div>
+          <div>
+            <h3 class="font-semibold text-slate-900 text-base ${!isActive ? 'line-through text-slate-500' : ''}">${provider.company_name}</h3>
+            <div class="flex items-center gap-2 mt-1">
+              <span class="w-2 h-2 rounded-full ${isActive ? "bg-[#023047]" : "bg-red-500"}"></span>
+              <span class="text-xs font-medium ${isActive ? 'text-[#023047]' : 'text-red-600'}">${isActive ? 'Active' : 'Inactive'}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      ${provider.details ? `
+        <p class="text-sm text-slate-600 mb-4 line-clamp-2">${provider.details}</p>
+      ` : '<div class="mb-4"></div>'}
+
+      <div class="flex items-center justify-between pt-4 border-t border-slate-200">
+        <div class="flex items-center gap-2">
+          <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-[#023047]/10 text-[#023047] border border-[#023047]/20">
+            ${contractCount} ${contractCount === 1 ? 'Contract' : 'Contracts'}
+          </span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="${`window.formHandler.populateProviderForm(${provider.provider_id})`}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#023047] bg-[#023047]/10 hover:bg-[#023047]/20 border border-[#023047]/30 hover:border-[#023047]/50 rounded-lg transition-all" title="Edit Provider">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-3.5 h-3.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+            </svg>
+            <span>Edit</span>
+          </button>
+          <button onclick="${`window.formHandler.deleteProvider(${provider.provider_id}, this)`}" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 hover:bg-red-100 hover:border-red-300 rounded-lg transition-all" title="Delete Provider">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-3.5 h-3.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.134-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.067-2.09 1.02-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+            </svg>
+            <span>Delete</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    return card;
   }
 
   // Item table rendering
@@ -163,7 +217,7 @@ class TableRenderer {
 
     if (this.data.items.length === 0) {
       tbody.innerHTML =
-        '<tr><td colspan="4" class="text-center py-4 text-muted-foreground">No items found</td></tr>';
+        '<tr><td colspan="4" class="text-center py-12 text-slate-500"><div class="flex flex-col items-center gap-2"><svg class="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2 2v-5m16 0h-2M4 13h2m13-8l-4-4m0 0l-4 4m4-4v12"/></svg><p class="text-sm font-medium">No items found</p><p class="text-xs text-slate-400">Create your first item to get started</p></div></td></tr>';
       return;
     }
 
@@ -214,18 +268,25 @@ class TableRenderer {
     }
 
     const row = document.createElement("tr");
-    row.className = "hover:bg-secondary/50";
+    row.className = "hover:bg-slate-50/80 transition-colors";
     row.innerHTML = `
-            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">${item.item_name}</td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm">
-                <span class="text-xs px-2 py-1 rounded-full ${processId ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}">${processName}</span>
+            <td class="px-8 py-4 whitespace-nowrap">
+                <div class="flex flex-col">
+                    <span class="text-sm font-semibold text-slate-900">${item.item_name}</span>
+                    ${item.description ? `<span class="text-xs text-slate-500 mt-0.5">${item.description}</span>` : ''}
+                </div>
             </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm">
-                <span class="text-xs text-white bg-[#023047] px-2 py-1 rounded-full mr-2">${providerCount} providers</span>
-                <span class="text-xs text-white bg-[#7f4f24] px-2 py-1 rounded-full">${offerCount} offers</span>
+            <td class="px-8 py-4 whitespace-nowrap">
+                <span class="text-xs font-medium px-3 py-1.5 rounded-full bg-slate-100 text-slate-700">${processName}</span>
             </td>
-            <td class="px-4 py-3 whitespace-nowrap text-sm">
-                ${this.createActionButtons(
+            <td class="px-8 py-4">
+                <div class="flex items-center gap-2">
+                    <span class="inline-flex items-center text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-900 text-white">${providerCount} ${providerCount === 1 ? 'provider' : 'providers'}</span>
+                    <span class="inline-flex items-center text-xs font-medium px-3 py-1.5 rounded-full bg-slate-200 text-slate-700">${offerCount} ${offerCount === 1 ? 'offer' : 'offers'}</span>
+                </div>
+            </td>
+            <td class="px-8 py-4 whitespace-nowrap text-right">
+                ${this.createItemActionButtons(
                   `window.formHandler.populateItemForm(${item.item_id})`,
                   `window.formHandler.deleteItem(${item.item_id}, this)`,
                   "Edit Item",
