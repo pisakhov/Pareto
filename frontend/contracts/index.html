@@ -3,37 +3,39 @@
 {% block title %}Pareto - Contracts{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto">
-    <div class="py-8">
-        <div class="flex items-center justify-between">
-            <div class="space-y-1">
-                <div class="flex items-center gap-3">
+<div class="max-w-7xl mx-auto mb-8">
+    <div class="bg-card border border-border rounded-xl shadow-sm">
+        <div class="p-6 border-b border-border bg-gradient-to-r from-[#023047]/5 to-[#023047]/10">
+            <div class="flex items-center justify-between">
+                <div class="space-y-1">
+                    <div class="flex items-center gap-3">
+                        {% if current_process %}
+                            <h1 class="text-3xl font-semibold tracking-tight text-slate-900">
+                                {{ current_process.process_name }}
+                            </h1>
+                        {% else %}
+                            <h1 class="text-3xl font-semibold tracking-tight text-slate-900">
+                                Contracts
+                            </h1>
+                        {% endif %}
+                        <button onclick="showProcessModal()" class="inline-flex items-center gap-2 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white hover:from-emerald-700 hover:to-emerald-600 shadow-md hover:shadow-lg rounded-lg">
+                            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="12" r="2"/>
+                                <path d="M7 6L17 12M7 18L17 12"/>
+                            </svg>
+                            <span>Manage Processes</span>
+                        </button>
+                    </div>
                     {% if current_process %}
-                        <h1 class="text-3xl font-semibold tracking-tight text-foreground">
-                            {{ current_process.process_name }}
-                        </h1>
-                    {% else %}
-                        <h1 class="text-3xl font-semibold tracking-tight text-foreground">
-                            Contracts
-                        </h1>
+                        <p class="text-base text-slate-600">
+                            {{ current_process.description|default("No description available") }}
+                        </p>
                     {% endif %}
-                    <button onclick="showProcessModal()" class="inline-flex items-center gap-1 rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-8 px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white hover:from-emerald-700 hover:to-emerald-600 shadow-sm">
-                        <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="12" r="2"/>
-                            <path d="M7 6L17 12M7 18L17 12"/>
-                        </svg>
-                        <span>Manage Processes</span>
-                    </button>
                 </div>
-                {% if current_process %}
-                    <p class="text-base text-muted-foreground">
-                        {{ current_process.description|default("No description available") }}
-                    </p>
-                {% endif %}
-            </div>
 
-            <!-- Action Buttons -->
-            <div class="flex flex-wrap">
+                <!-- Action Buttons -->
+                <div class="flex flex-wrap">
+                </div>
             </div>
         </div>
     </div>
