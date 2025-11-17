@@ -17,22 +17,32 @@ class ProcessGraphView {
 
   async loadData() {
     try {
+      console.log('🔵 [ProcessGraphView] Loading data...');
       const [processes, connections] = await Promise.all([
         dataService.loadProcesses(),
         dataService.loadProcessGraph()
       ]);
 
+      console.log('✅ [ProcessGraphView] Loaded processes:', processes.length);
+      console.log('✅ [ProcessGraphView] Loaded connections:', connections.length);
+      console.log('📊 [ProcessGraphView] Processes:', processes);
+      console.log('🔗 [ProcessGraphView] Connections:', connections);
+
       this.processes = processes;
       this.connections = connections;
 
     } catch (error) {
-      console.error('🌐 ProcessFlowView - Error loading data:', error);
+      console.error('❌ [ProcessGraphView] Error loading data:', error);
       this.processes = [];
       this.connections = [];
     }
   }
 
   autoLayout() {
+    console.log('🔵 [ProcessGraphView] Starting autoLayout...');
+    console.log('📊 [ProcessGraphView] Total processes:', this.processes.length);
+    console.log('🔗 [ProcessGraphView] Total connections:', this.connections.length);
+
     const nodeMap = new Map();
     const levels = new Map();
     const visited = new Set();
@@ -90,6 +100,11 @@ class ProcessGraphView {
       levelGroups.get(level).push(id);
     });
 
+    console.log('🎯 [ProcessGraphView] Level groups:', levelGroups.size);
+    levelGroups.forEach((nodeIds, level) => {
+      console.log(`  📌 Level ${level}:`, nodeIds.length, 'nodes');
+    });
+
     // Canvas-relative positioning (assuming 1043x200 canvas)
     const canvasWidth = 1043;
     const canvasHeight = 200;
@@ -97,6 +112,9 @@ class ProcessGraphView {
     const marginY = 30;
     const levelWidth = 250;
     const nodeSpacing = 60;
+
+    console.log('🎨 [ProcessGraphView] Canvas size:', { width: canvasWidth, height: canvasHeight });
+    console.log('📏 [ProcessGraphView] Layout settings:', { marginX, marginY, levelWidth, nodeSpacing });
 
     // Calculate total width needed for centering
     const totalWidth = (levelGroups.size - 1) * levelWidth;
@@ -106,36 +124,76 @@ class ProcessGraphView {
       nodeIds.forEach((nodeId, index) => {
         const process = this.processes.find(p => p.process_id === nodeId);
         if (process) {
-          const x = startX + (level * levelWidth);
-          const y = marginY + (index * nodeSpacing);
-          process.x = x;
-          process.y = y;
+          // X position based on level (horizontal flow)
+          process.x = startX + (level * levelWidth);
+
+          // Y position centered around middle of canvas (like processGraphEdit.js)
+          // This distributes nodes vertically within the level
+          process.y = canvasHeight / 2 + ((index - (nodeIds.length - 1) / 2) * nodeSpacing);
+
+          console.log(`📍 [ProcessGraphView] Node "${process.process_name}" (ID: ${process.process_id}):`, {
+            level,
+            index,
+            x: process.x,
+            y: process.y
+          });
         }
       });
+    });
+
+    console.log('✅ [ProcessGraphView] AutoLayout complete - Final node positions:');
+    this.processes.forEach(p => {
+      console.log(`  • ${p.process_name}: x=${Math.round(p.x)}, y=${Math.round(p.y)}`);
     });
   }
 
   render() {
+    console.log('🎨 [ProcessGraphView] Starting render...');
+
     const navGraph = document.getElementById('processGraphNav');
     if (!navGraph) {
+      console.error('❌ [ProcessGraphView] processGraphNav element not found!');
       return;
     }
+
+    console.log('✅ [ProcessGraphView] processGraphNav element found');
 
     const canvas = navGraph.querySelector('svg');
     const nodesLayer = navGraph.querySelector('#nodesLayerNav');
     const connectionsLayer = navGraph.querySelector('#connectionsLayerNav');
 
+    if (!canvas) {
+      console.error('❌ [ProcessGraphView] SVG canvas not found!');
+    } else {
+      console.log('✅ [ProcessGraphView] SVG canvas found:', {
+        width: canvas.clientWidth,
+        height: canvas.clientHeight
+      });
+    }
+
     if (!nodesLayer || !connectionsLayer) {
+      console.error('❌ [ProcessGraphView] Layers not found:', {
+        nodesLayer: !!nodesLayer,
+        connectionsLayer: !!connectionsLayer
+      });
       return;
     }
+
+    console.log('✅ [ProcessGraphView] Layers found:', {
+      nodesLayer: !!nodesLayer,
+      connectionsLayer: !!connectionsLayer
+    });
 
     // Clear existing nodes and connections
     nodesLayer.innerHTML = '';
     connectionsLayer.innerHTML = '';
 
     if (this.processes.length === 0) {
+      console.warn('⚠️ [ProcessGraphView] No processes to render');
       return;
     }
+
+    console.log('🔵 [ProcessGraphView] Rendering', this.processes.length, 'nodes and', this.connections.length, 'connections');
 
     // Create a map of process_id to process data
     const processMap = {};
@@ -153,7 +211,13 @@ class ProcessGraphView {
     const currentProcessId = this.getCurrentProcessId();
 
     // Render nodes using positions from autoLayout
+    console.log('🔵 [ProcessGraphView] Starting to render nodes...');
     this.processes.forEach((process, idx) => {
+      console.log(`📍 [ProcessGraphView] Rendering node ${idx + 1}/${this.processes.length}: "${process.process_name}" at`, {
+        x: process.x,
+        y: process.y
+      });
+
       const nodeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
       nodeGroup.setAttribute('data-process-id', process.process_id);
       nodeGroup.style.cursor = 'pointer';
@@ -207,14 +271,28 @@ class ProcessGraphView {
       nodesLayer.appendChild(nodeGroup);
     });
 
+    console.log('✅ [ProcessGraphView] All nodes rendered');
+
     // Render connections
+    console.log('🔵 [ProcessGraphView] Starting to render connections...');
     this.connections.forEach((conn, index) => {
       const fromProcess = this.processes.find(p => p.process_id === conn.from_process_id);
       const toProcess = this.processes.find(p => p.process_id === conn.to_process_id);
 
       if (!fromProcess || !toProcess) {
+        console.warn(`⚠️ [ProcessGraphView] Connection ${index + 1}/${this.connections.length}: Missing process`, {
+          from: fromProcess ? fromProcess.process_name : 'NOT FOUND',
+          to: toProcess ? toProcess.process_name : 'NOT FOUND'
+        });
         return;
       }
+
+      console.log(`🔗 [ProcessGraphView] Connection ${index + 1}/${this.connections.length}:`, {
+        from: fromProcess.process_name,
+        to: toProcess.process_name,
+        fromPos: { x: fromProcess.x, y: fromProcess.y },
+        toPos: { x: toProcess.x, y: toProcess.y }
+      });
 
       // Use positions from autoLayout
       const fromX = (fromProcess.x || (canvasWidth - nodeWidth) / 2) + nodeWidth;
@@ -235,6 +313,8 @@ class ProcessGraphView {
       connectionsLayer.appendChild(path);
     });
 
+    console.log('✅ [ProcessGraphView] All connections rendered');
+    console.log('✅ [ProcessGraphView] Render complete!');
   }
 
   getCurrentProcessId() {
