@@ -7,6 +7,17 @@ class ProcessGraphView {
   constructor() {
     this.processes = [];
     this.connections = [];
+    this.offsetX = 0;
+    this.offsetY = 0;
+    this.isDragging = false;
+    this.startX = 0;
+    this.startY = 0;
+    this.boundaries = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+    this.canvasElement = null;
+    this.transformGroup = null;
+    this.homeButton = null;
+    this.defaultOffsetX = 0;
+    this.defaultOffsetY = 0;
   }
 
   async init() {
@@ -145,6 +156,10 @@ class ProcessGraphView {
     this.processes.forEach(p => {
       console.log(`  • ${p.process_name}: x=${Math.round(p.x)}, y=${Math.round(p.y)}`);
     });
+
+    // Store default offset for reset
+    this.defaultOffsetX = 0;
+    this.defaultOffsetY = 0;
   }
 
   render() {
@@ -158,16 +173,16 @@ class ProcessGraphView {
 
     console.log('✅ [ProcessGraphView] processGraphNav element found');
 
-    const canvas = navGraph.querySelector('svg');
+    this.canvasElement = navGraph.querySelector('svg');
     const nodesLayer = navGraph.querySelector('#nodesLayerNav');
     const connectionsLayer = navGraph.querySelector('#connectionsLayerNav');
 
-    if (!canvas) {
+    if (!this.canvasElement) {
       console.error('❌ [ProcessGraphView] SVG canvas not found!');
     } else {
       console.log('✅ [ProcessGraphView] SVG canvas found:', {
-        width: canvas.clientWidth,
-        height: canvas.clientHeight
+        width: this.canvasElement.clientWidth,
+        height: this.canvasElement.clientHeight
       });
     }
 
@@ -184,9 +199,31 @@ class ProcessGraphView {
       connectionsLayer: !!connectionsLayer
     });
 
-    // Clear existing nodes and connections
+    // Calculate boundaries before rendering
+    this.calculateBoundaries();
+
+    // Create transform group
+    this.transformGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    this.transformGroup.setAttribute('id', 'graphTransformGroup');
+
+    // Move existing layers into transform group
+    const connectionsClone = connectionsLayer.cloneNode(true);
+    const nodesClone = nodesLayer.cloneNode(true);
+
+    this.transformGroup.appendChild(connectionsClone);
+    this.transformGroup.appendChild(nodesClone);
+
+    // Clear original layers
     nodesLayer.innerHTML = '';
     connectionsLayer.innerHTML = '';
+
+    // Add transform group to canvas
+    const canvas = this.canvasElement;
+    canvas.appendChild(this.transformGroup);
+
+    // Clear existing nodes and connections from clones
+    nodesClone.innerHTML = '';
+    connectionsClone.innerHTML = '';
 
     if (this.processes.length === 0) {
       console.warn('⚠️ [ProcessGraphView] No processes to render');
@@ -226,6 +263,14 @@ class ProcessGraphView {
       const x = process.x || (canvasWidth - nodeWidth) / 2;
       const y = process.y || (canvasHeight - nodeHeight) / 2;
 
+      // Truncate text if too long
+      const maxTextWidth = nodeWidth - 20; // 10px padding on each side
+      const charWidth = 7; // Approximate character width
+      const maxChars = Math.floor(maxTextWidth / charWidth);
+      const displayText = process.process_name.length > maxChars
+        ? process.process_name.substring(0, maxChars) + '...'
+        : process.process_name;
+
       // Node background
       const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       rect.setAttribute('x', x);
@@ -249,7 +294,7 @@ class ProcessGraphView {
 
       nodeGroup.appendChild(rect);
 
-      // Process name text
+      // Process name text with truncation
       const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       text.setAttribute('x', x + nodeWidth / 2);
       text.setAttribute('y', y + nodeHeight / 2 + 5);
@@ -258,7 +303,15 @@ class ProcessGraphView {
       text.setAttribute('font-weight', '500');
       text.setAttribute('fill', process.process_id === currentProcessId ? '#ffffff' : '#0f172a');
       text.setAttribute('pointer-events', 'none');
-      text.textContent = process.process_name;
+      text.textContent = displayText;
+
+      // Add title tooltip to show full text on hover
+      if (process.process_name.length > maxChars) {
+        const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+        title.textContent = process.process_name;
+        text.appendChild(title);
+      }
+
       nodeGroup.appendChild(text);
 
       // Add click handler
@@ -268,7 +321,7 @@ class ProcessGraphView {
         }
       });
 
-      nodesLayer.appendChild(nodeGroup);
+      nodesClone.appendChild(nodeGroup);
     });
 
     console.log('✅ [ProcessGraphView] All nodes rendered');
@@ -310,10 +363,68 @@ class ProcessGraphView {
       path.setAttribute('stroke', '#94a3b8');
       path.setAttribute('stroke-width', '2');
       path.setAttribute('marker-end', 'url(#arrowhead-nav)');
-      connectionsLayer.appendChild(path);
+      connectionsClone.appendChild(path);
     });
 
     console.log('✅ [ProcessGraphView] All connections rendered');
+
+    // Calculate and set default offset based on actual canvas size
+    // autoLayout assumes 1043px canvas, but actual is canvasWidth
+    // This ensures default view matches what autoLayout intended
+    const assumedCanvasWidth = 1043;
+    const assumedStartX = Math.max(40, (assumedCanvasWidth - ((3 - 1) * 250)) / 2);
+    const actualCenter = Math.max(40, (canvasWidth - ((3 - 1) * 250)) / 2);
+    this.defaultOffsetX = actualCenter - assumedStartX;
+    this.defaultOffsetY = 0;
+
+    console.log('🎯 [ProcessGraphView] Default offset calculated:', {
+      assumedCanvasWidth,
+      actualCanvasWidth: canvasWidth,
+      assumedStartX,
+      actualCenter,
+      defaultOffsetX: this.defaultOffsetX,
+      defaultOffsetY: this.defaultOffsetY
+    });
+
+    // Set initial offset to default
+    this.offsetX = this.defaultOffsetX;
+    this.offsetY = this.defaultOffsetY;
+
+    // Add home button
+    this.addHomeButton(navGraph);
+
+    // Add drag event listeners
+    this.canvasElement.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+    this.canvasElement.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+    this.canvasElement.addEventListener('mouseup', () => this.handleMouseUp());
+    this.canvasElement.addEventListener('mouseleave', () => this.handleMouseUp());
+
+    // Add touch event listeners for mobile support
+    this.canvasElement.addEventListener('touchstart', (e) => {
+      const touch = e.touches[0];
+      this.handleMouseDown(touch);
+      e.preventDefault();
+    }, { passive: false });
+
+    this.canvasElement.addEventListener('touchmove', (e) => {
+      const touch = e.touches[0];
+      this.handleMouseMove(touch);
+      e.preventDefault();
+    }, { passive: false });
+
+    this.canvasElement.addEventListener('touchend', () => this.handleMouseUp());
+
+    // Apply initial transform
+    this.applyTransform();
+
+    // Show home button if not at default position
+    if (this.offsetX !== this.defaultOffsetX || this.offsetY !== this.defaultOffsetY) {
+      this.showHomeButton();
+    }
+
+    // Set initial cursor style to grab (hand cursor)
+    this.canvasElement.style.cursor = 'grab';
+
     console.log('✅ [ProcessGraphView] Render complete!');
   }
 
@@ -321,6 +432,144 @@ class ProcessGraphView {
     // Extract process ID from URL path
     const match = window.location.pathname.match(/\/contracts\/(\d+)/);
     return match ? parseInt(match[1]) : null;
+  }
+
+  calculateBoundaries() {
+    if (this.processes.length === 0) {
+      this.boundaries = { minX: -500, maxX: 500, minY: -500, maxY: 500 };
+      return;
+    }
+
+    const nodeWidth = 120;
+    const nodeHeight = 50;
+
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+
+    this.processes.forEach(process => {
+      const x = process.x || 0;
+      const y = process.y || 0;
+
+      minX = Math.min(minX, x - nodeWidth / 2);
+      maxX = Math.max(maxX, x + nodeWidth / 2);
+      minY = Math.min(minY, y - nodeHeight / 2);
+      maxY = Math.max(maxY, y + nodeHeight / 2);
+    });
+
+    // Add 500px margin on all sides for extensive dragging capability
+    this.boundaries = {
+      minX: minX - 500,
+      maxX: maxX + 500,
+      minY: minY - 500,
+      maxY: maxY + 500
+    };
+
+    console.log('🎯 [ProcessGraphView] Boundaries:', this.boundaries);
+  }
+
+  resetView() {
+    this.offsetX = this.defaultOffsetX;
+    this.offsetY = this.defaultOffsetY;
+    this.applyTransform();
+    this.hideHomeButton();
+    console.log('🏠 [ProcessGraphView] View reset to default');
+  }
+
+  applyTransform() {
+    if (this.transformGroup) {
+      this.transformGroup.setAttribute('transform', `translate(${this.offsetX}, ${this.offsetY})`);
+    }
+  }
+
+  handleMouseDown(event) {
+    // Only start dragging if not clicking on a node
+    if (event.target.closest('.process-nav-node')) {
+      return;
+    }
+
+    this.isDragging = true;
+    this.startX = event.clientX - this.offsetX;
+    this.startY = event.clientY - this.offsetY;
+    this.canvasElement.style.cursor = 'grabbing';
+
+    console.log('🖱️ [ProcessGraphView] Started dragging');
+    event.preventDefault();
+  }
+
+  handleMouseMove(event) {
+    if (!this.isDragging) return;
+
+    const newOffsetX = event.clientX - this.startX;
+    const newOffsetY = event.clientY - this.startY;
+
+    const canvasWidth = this.canvasElement.clientWidth || 800;
+    const canvasHeight = this.canvasElement.clientHeight || 200;
+
+    this.offsetX = Math.min(
+      Math.max(newOffsetX, canvasWidth - this.boundaries.maxX),
+      -this.boundaries.minX
+    );
+
+    this.offsetY = Math.min(
+      Math.max(newOffsetY, canvasHeight - this.boundaries.maxY),
+      -this.boundaries.minY
+    );
+
+    // Show/hide home button based on current position
+    if (this.offsetX === this.defaultOffsetX && this.offsetY === this.defaultOffsetY) {
+      this.hideHomeButton();
+    } else {
+      this.showHomeButton();
+    }
+
+    this.applyTransform();
+    event.preventDefault();
+  }
+
+  handleMouseUp() {
+    if (this.isDragging) {
+      this.isDragging = false;
+      this.canvasElement.style.cursor = 'grab';
+      console.log('✅ [ProcessGraphView] Stopped dragging');
+    }
+  }
+
+  addHomeButton(navGraph) {
+    // Remove existing home button if present
+    const existingBtn = navGraph.querySelector('.graph-home-btn');
+    if (existingBtn) {
+      existingBtn.remove();
+    }
+
+    const homeBtn = document.createElement('button');
+    homeBtn.className = 'graph-home-btn absolute top-2 right-2 p-2 bg-card border border-border rounded-md hover:bg-accent transition-colors shadow-sm z-10 opacity-0 pointer-events-none';
+    homeBtn.innerHTML = `
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+      </svg>
+    `;
+    homeBtn.title = 'Reset to default view';
+    homeBtn.onclick = () => this.resetView();
+
+    navGraph.appendChild(homeBtn);
+    this.homeButton = homeBtn;
+    console.log('🏠 [ProcessGraphView] Home button added');
+  }
+
+  showHomeButton() {
+    if (this.homeButton) {
+      this.homeButton.style.opacity = '1';
+      this.homeButton.style.pointerEvents = 'auto';
+    }
+  }
+
+  hideHomeButton() {
+    if (this.homeButton) {
+      this.homeButton.style.opacity = '0';
+      this.homeButton.style.pointerEvents = 'none';
+    }
   }
 }
 
