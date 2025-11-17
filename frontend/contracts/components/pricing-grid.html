@@ -1,26 +1,23 @@
 <!-- Provider Grid -->
 <div class="grid grid-cols-1 gap-6 mb-8">
-    <div class="bg-card border rounded-lg">
-        <div class="p-4 border-b bg-secondary/50">
+    <div class="bg-card border border-border rounded-xl shadow-sm">
+        <div class="p-6 border-b border-border bg-gradient-to-r from-[#023047]/5 to-[#023047]/10">
             <div class="flex items-center justify-between">
                 <div>
-                    <h2 class="text-xl font-bold">Provider Grid</h2>
+                    <h2 class="text-xl font-semibold text-slate-900 flex items-center gap-3">
+                        Provider Grid
+                    </h2>
                     {% if current_process %}
-                    <p class="text-sm text-muted-foreground">
+                    <p class="text-sm text-slate-600 mt-1">
                         Comparing offers for process: <span class="font-semibold text-[#023047]">{{ current_process.process_name }}</span>
                     </p>
                     {% else %}
-                    <p class="text-sm text-muted-foreground">Compare contract pricing and item availability across all providers</p>
+                    <p class="text-sm text-slate-600 mt-1">Compare contract pricing and item availability across all providers</p>
                     {% endif %}
                 </div>
-                {% if current_process %}
-                <div class="text-right">
-                    <span class="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full">Process-filtered view</span>
-                </div>
-                {% endif %}
             </div>
         </div>
-        <div class="p-4 overflow-x-auto">
+        <div>
             <div id="relationshipMatrix" class="min-w-full">
                 <!-- Relationship matrix will be rendered here -->
             </div>

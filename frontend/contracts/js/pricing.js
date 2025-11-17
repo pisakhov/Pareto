@@ -346,7 +346,7 @@ function renderRelationshipMatrix() {
   }
 
   let html =
-    '<div class="overflow-x-auto"><table class="w-full border-collapse text-sm"><thead><tr><th class="border border-border px-2 py-1 bg-secondary font-medium">Provider \\ Item</th>';
+    '<table class="w-full border-collapse text-sm"><thead><tr><th class="border border-border px-2 py-1 bg-secondary font-medium">Provider \\ Item</th>';
 
   // Add item headers
   items.forEach((item) => {
@@ -382,7 +382,7 @@ function renderRelationshipMatrix() {
     html += "</tr>";
   });
 
-  html += "</tbody></table></div>";
+  html += "</tbody></table>";
   matrix.innerHTML = html;
 }
 

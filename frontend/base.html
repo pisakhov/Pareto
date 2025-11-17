@@ -269,10 +269,15 @@
     <footer class="border-t bg-card">
         <div class="container mx-auto px-4 py-6">
             <div class="flex justify-center">
-                <p class="text-muted-foreground text-sm">© 2024 Pareto. Efficient point for productivity.</p>
+                <p class="text-muted-foreground text-sm">© <span id="currentYear"></span> Pareto. Efficient point for productivity.</p>
             </div>
         </div>
     </footer>
+
+    <script>
+        // Set current year dynamically
+        document.getElementById('currentYear').textContent = new Date().getFullYear();
+    </script>
 
 </body>
 </html>

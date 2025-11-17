@@ -7,29 +7,33 @@
     <div class="py-8">
         <div class="flex items-center justify-between">
             <div class="space-y-1">
+                <div class="flex items-center gap-3">
+                    {% if current_process %}
+                        <h1 class="text-3xl font-semibold tracking-tight text-foreground">
+                            {{ current_process.process_name }}
+                        </h1>
+                    {% else %}
+                        <h1 class="text-3xl font-semibold tracking-tight text-foreground">
+                            Contracts
+                        </h1>
+                    {% endif %}
+                    <button onclick="showProcessModal()" class="inline-flex items-center gap-1 rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-8 px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white hover:from-emerald-700 hover:to-emerald-600 shadow-sm">
+                        <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="12" r="2"/>
+                            <path d="M7 6L17 12M7 18L17 12"/>
+                        </svg>
+                        <span>Manage Processes</span>
+                    </button>
+                </div>
                 {% if current_process %}
-                    <h1 class="text-3xl font-semibold tracking-tight text-foreground">
-                        {{ current_process.process_name }}
-                    </h1>
                     <p class="text-base text-muted-foreground">
                         {{ current_process.description|default("No description available") }}
                     </p>
-                {% else %}
-                    <h1 class="text-3xl font-semibold tracking-tight text-foreground">
-                        Contracts
-                    </h1>
                 {% endif %}
             </div>
 
             <!-- Action Buttons -->
             <div class="flex flex-wrap">
-                <button onclick="showProcessModal()" class="inline-flex items-center gap-1 rounded-md text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-8 px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white hover:from-emerald-700 hover:to-emerald-600 shadow-sm">
-                    <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="12" r="2"/>
-                        <path d="M7 6L17 12M7 18L17 12"/>
-                    </svg>
-                    <span>Manage Processes</span>
-                </button>
             </div>
         </div>
     </div>
