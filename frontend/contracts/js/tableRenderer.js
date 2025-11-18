@@ -4,7 +4,7 @@
 
 function findCurrentTier(total, thresholds) {
   const tierKeys = Object.keys(thresholds).map(t => parseInt(t)).sort((a, b) => a - b);
-  
+
   for (let i = 0; i < tierKeys.length; i++) {
     const tier = tierKeys[i];
     const bound = thresholds[tier];
@@ -12,7 +12,7 @@ function findCurrentTier(total, thresholds) {
       return { tierNumber: tier, aboveMax: false };
     }
   }
-  
+
   const lastTier = tierKeys[tierKeys.length - 1];
   return { tierNumber: lastTier, aboveMax: true };
 }
@@ -21,13 +21,13 @@ function buildTooltipHTML(total, products, currentTier, aboveMax) {
   const prefix = aboveMax ? `Above T${currentTier} • ` : '';
   let html = `<div class="tier-tooltip">`;
   html += `<div style="font-weight: 600; margin-bottom: 4px;">${prefix}Current: ${total.toLocaleString()} files</div>`;
-  
+
   if (products && products.length > 0) {
     products.forEach(p => {
       html += `<div style="font-size: 10px; opacity: 0.9;">• ${p.name}: ${p.count.toLocaleString()}</div>`;
     });
   }
-  
+
   html += `</div>`;
   return html;
 }
@@ -287,11 +287,11 @@ class TableRenderer {
             </td>
             <td class="px-8 py-4 whitespace-nowrap text-right">
                 ${this.createItemActionButtons(
-                  `window.formHandler.populateItemForm(${item.item_id})`,
-                  `window.formHandler.deleteItem(${item.item_id}, this)`,
-                  "Edit Item",
-                  "Delete Item"
-                )}
+      `window.formHandler.populateItemForm(${item.item_id})`,
+      `window.formHandler.deleteItem(${item.item_id}, this)`,
+      "Edit Item",
+      "Delete Item"
+    )}
             </td>
         `;
     return row;
@@ -362,10 +362,10 @@ class TableRenderer {
         const allocationData = allocations?.[provider.provider_id]?.[item.item_id];
         const allocationTotal = allocationData?.total || 0;
         const allocationProducts = allocationData?.products || [];
-        
+
         if (allocationTotal > 0) {
           totalFiles += allocationTotal;
-          
+
           // Aggregate products across all items
           allocationProducts.forEach(product => {
             if (productMap.has(product.name)) {
@@ -376,18 +376,18 @@ class TableRenderer {
           });
         }
       });
-      
+
       // Convert map to array
       const productBreakdown = Array.from(productMap.entries()).map(([name, count]) => ({
         name,
         count
       }));
-      
+
       providerTotals.set(provider.provider_id, {
         total: totalFiles,
         breakdown: productBreakdown
       });
-      
+
       // Determine provider's tier based on TOTAL files
       if (totalFiles > 0 && Object.keys(thresholds).length > 0) {
         const tierResult = findCurrentTier(totalFiles, thresholds);
@@ -397,7 +397,7 @@ class TableRenderer {
         }
       }
     });
-    
+
     let html =
       '<div class="overflow-x-auto"><table class="border-collapse text-sm w-auto"><thead><tr><th class="border border-border px-4 py-2 bg-secondary font-medium whitespace-nowrap">Provider \ Item</th>';
 
@@ -414,13 +414,13 @@ class TableRenderer {
       const tierInfo = providerTierData[provider.provider_id] || {};
       const thresholds = tierInfo.thresholds || {};
       const basePrices = tierInfo.base_prices || {};
-      
+
       const tierKeys = Object.keys(thresholds).map(t => parseInt(t)).sort((a, b) => a - b);
       const exceedsClass = providersExceedingTiers.has(provider.provider_id) ? ' provider-exceeds-tiers' : '';
-      
+
       const providerTotal = providerTotals.get(provider.provider_id);
       const currentTier = providerCurrentTiers.get(provider.provider_id);
-      
+
       // Build tooltip content showing breakdown
       let tooltipContent = '';
       if (providerTotal && providerTotal.total > 0) {
@@ -435,7 +435,7 @@ class TableRenderer {
         }
         tooltipContent += `</div>`;
       }
-      
+
       let tierDisplay = '';
       if (tierKeys.length > 0) {
         tierDisplay = '<div class="flex flex-col gap-1">';
@@ -443,19 +443,19 @@ class TableRenderer {
           const files = thresholds[tier];
           const base = basePrices[tier];
           const baseText = base ? ` • $${base.toFixed(2)}` : '';
-          
+
           // Highlight current tier
           const isCurrentTier = currentTier && tier === currentTier.tierNumber;
           const tierClass = isCurrentTier ? ' current-tier' : '';
           const tierTooltip = isCurrentTier ? tooltipContent : '';
-          
+
           tierDisplay += `<div class="text-xs whitespace-nowrap px-2 py-1 rounded text-muted-foreground font-normal" style="position: relative;">
             <span class="font-medium${tierClass}">T${tier}${tierTooltip}</span>: &lt;${files.toLocaleString()}${baseText}
           </div>`;
         });
         tierDisplay += '</div>';
       }
-      
+
       html += `<tr class="hover:bg-secondary/20"><td class="border border-border p-0 bg-secondary/50 font-medium">
         <div class="flex h-full">
           <div class="flex items-center justify-center px-3 border-r border-border bg-secondary/30 min-w-[2rem]${exceedsClass}">
@@ -500,32 +500,32 @@ class TableRenderer {
         // Get provider's overall tier (calculated from total across all items)
         const providerTier = providerCurrentTiers.get(provider.provider_id);
         const providerTotal = providerTotals.get(provider.provider_id);
-        
+
         // Get allocation data for THIS specific item only
         const itemAllocationData = allocations?.[provider.provider_id]?.[item.item_id];
         const itemTotal = itemAllocationData?.total || 0;
         const itemProducts = itemAllocationData?.products || [];
-        
+
         html += `<td class="border border-border px-4 py-2 text-center align-top ${cellClass} ${cursorClass}" ${clickHandler}>`;
         if (offers.length > 0) {
           html += '<div class="flex flex-col gap-1">';
           offers.forEach((offer) => {
             const inactiveClass =
               offer.status === "inactive" ? "text-gray-400 line-through" : "text-foreground";
-            
+
             // Highlight if this offer tier matches provider's overall tier
             const isCurrentTier = providerTier && offer.tier_number === providerTier.tierNumber;
             const tierClass = isCurrentTier ? ' current-tier' : '';
-            
+
             // Build tooltip for current tier showing THIS ITEM's products only
             let tooltipHTML = '';
             if (isCurrentTier && itemTotal > 0) {
               tooltipHTML = buildTooltipHTML(itemTotal, itemProducts, providerTier.tierNumber, providerTier.aboveMax);
             }
-            
+
             html += `<div class="text-xs whitespace-nowrap px-2 py-1 hover:bg-accent rounded cursor-pointer ${inactiveClass}" onclick="event.stopPropagation(); window.formHandler.populateItemForm(${item.item_id})">
-              <span class="font-medium${tierClass}">T${offer.tier_number}${tooltipHTML}</span> • <span class="text-green-600 font-semibold">$${offer.price_per_unit.toFixed(2)}</span>
-            </div>`;
+                <span class="font-medium${tierClass}">T${offer.tier_number}${tooltipHTML}</span> • <span class="text-green-600 font-semibold">$${offer.price_per_unit.toFixed(4)}</span>
+              </div>`;
           });
           html += "</div>";
           if (hasMissingOffers) {
@@ -746,7 +746,7 @@ class TableRenderer {
 
             if (offer) {
               const inactiveClass = offer.status === "inactive" ? "text-gray-400 line-through" : "text-green-600";
-              html += ` <span class="font-semibold ${inactiveClass}">$${offer.price_per_unit.toFixed(2)}</span>`;
+              html += ` <span class="font-semibold ${inactiveClass}">$${offer.price_per_unit.toFixed(4)}</span>`;
             } else {
               html += ` <span class="text-muted-foreground">—</span>`;
             }

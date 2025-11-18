@@ -154,10 +154,17 @@ async def delete_provider(provider_id: int):
 
 # Offer endpoints
 @router.get("/api/offers")
-async def get_offers():
-    """Get all offers with provider information."""
+async def get_offers(
+    item_id: Optional[int] = Query(None),
+    provider_id: Optional[int] = Query(None)
+):
+    """Get offers, optionally filtered by item and/or provider."""
     crud = get_crud()
-    offers = crud.get_all_offers()
+    if item_id is not None or provider_id is not None:
+        offers = crud.get_offers_filtered(item_id=item_id, provider_id=provider_id)
+    else:
+        offers = crud.get_all_offers()
+
     for offer in offers:
         if "tier_number" in offer:
             offer["tier_number"] = offer.pop("tier_number")

@@ -321,7 +321,7 @@ class DatabaseSchema:
                 item_id INTEGER NOT NULL,
                 provider_id INTEGER NOT NULL,
                 tier_number INTEGER NOT NULL,
-                price_per_unit DECIMAL(10,4) NOT NULL,
+                price_per_unit DECIMAL(10,6) NOT NULL,
                 status VARCHAR DEFAULT 'active',
                 date_creation VARCHAR NOT NULL,
                 date_last_update VARCHAR NOT NULL

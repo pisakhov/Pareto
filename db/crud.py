@@ -291,6 +291,46 @@ class CRUDOperations(DatabaseSchema):
             for row in results
         ]
 
+    def get_offers_filtered(self, item_id: Optional[int] = None, provider_id: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Get offers filtered by item_id and/or provider_id"""
+        conn = self._get_connection()
+        query = """
+            SELECT o.*, p.company_name as provider_name, i.item_name, pr.process_name
+            FROM offers o
+            JOIN providers p ON o.provider_id = p.provider_id
+            JOIN items i ON o.item_id = i.item_id
+            JOIN processes pr ON o.process_id = pr.process_id
+            WHERE 1=1
+        """
+        params = []
+        if item_id is not None:
+            query += " AND o.item_id = ?"
+            params.append(item_id)
+        if provider_id is not None:
+            query += " AND o.provider_id = ?"
+            params.append(provider_id)
+            
+        query += " ORDER BY p.company_name, i.item_name, o.tier_number"
+        
+        results = conn.execute(query, params).fetchall()
+        return [
+            {
+                "offer_id": row[0],
+                "item_id": row[1],
+                "provider_id": row[2],
+                "tier_number": row[3],
+                "price_per_unit": float(row[4]),
+                "status": row[5],
+                "date_creation": row[6],
+                "date_last_update": row[7],
+                "process_id": row[8],
+                "provider_name": row[9],
+                "item_name": row[10],
+                "process_name": row[11],
+            }
+            for row in results
+        ]
+
     def get_offers_by_provider(self, provider_id: int) -> List[Dict[str, Any]]:
         """Get all offers for a specific provider"""
         conn = self._get_connection()

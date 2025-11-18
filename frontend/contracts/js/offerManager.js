@@ -40,7 +40,7 @@ class OfferManager {
     const availableProviders = this.allProviders.filter(
       p => !addedProviderIds.includes(p.provider_id) && p.status === 'active'
     );
-    
+
     // Show/hide controls based on availability
     if (availableProviders.length === 0) {
       // Hide the select and button, show the completion message
@@ -58,7 +58,7 @@ class OfferManager {
       if (this.allProvidersAddedMsg) {
         this.allProvidersAddedMsg.classList.add('hidden');
       }
-      
+
       // Populate the select
       availableProviders.forEach(provider => {
         const option = document.createElement('option');
@@ -72,7 +72,7 @@ class OfferManager {
   async handleAddProvider() {
     const providerId = parseInt(this.providerSelect.value);
     if (!providerId) return;
-    
+
     await this.addProviderOffer(providerId);
     this.providerSelect.value = '';
   }
@@ -144,19 +144,19 @@ class OfferManager {
 
   render() {
     if (!this.container) return;
-    
+
     if (this.providerOffers.size === 0) {
       this.container.innerHTML = '<p class="text-sm text-muted-foreground text-center py-4 col-span-full">No providers added yet</p>';
       return;
     }
-    
+
     this.container.innerHTML = '';
-    
+
     this.providerOffers.forEach((data, providerId) => {
       const providerBlock = document.createElement('div');
       providerBlock.className = 'border border-border rounded-lg p-4 bg-secondary/10 flex flex-col';
       providerBlock.dataset.provider = providerId;
-      
+
       const header = document.createElement('div');
       header.className = 'flex items-center justify-between mb-3';
       header.innerHTML = `
@@ -166,10 +166,10 @@ class OfferManager {
         </button>
       `;
       providerBlock.appendChild(header);
-      
+
       const tiersGrid = document.createElement('div');
       tiersGrid.className = 'space-y-2';
-      
+
       data.tiers.forEach((tier, tierIdx) => {
         const tierRow = document.createElement('div');
         tierRow.className = 'flex items-center gap-2';
@@ -187,7 +187,7 @@ class OfferManager {
           <label class="text-sm w-40">${tier.label}</label>
           <span class="text-sm">$</span>
           <input type="number"
-                 step="0.0001"
+                 step="0.000001"
                  min="0"
                  value="${currentPrice}"
                  data-provider="${providerId}"
@@ -200,7 +200,7 @@ class OfferManager {
 
         tiersGrid.appendChild(tierRow);
       });
-      
+
       providerBlock.appendChild(tiersGrid);
       this.container.appendChild(providerBlock);
     });
@@ -244,7 +244,7 @@ class OfferManager {
 
   validateAllTiers() {
     let allFilled = true;
-    
+
     for (const [providerId, data] of this.providerOffers) {
       for (const tier of data.tiers) {
         if (!data.prices.has(tier.index) || data.prices.get(tier.index) <= 0) {
@@ -254,7 +254,7 @@ class OfferManager {
       }
       if (!allFilled) break;
     }
-    
+
     if (this.validationMsg) {
       if (!allFilled && this.providerOffers.size > 0) {
         this.validationMsg.classList.remove('hidden');
@@ -262,7 +262,7 @@ class OfferManager {
         this.validationMsg.classList.add('hidden');
       }
     }
-    
+
     return allFilled;
   }
 
@@ -290,10 +290,8 @@ class OfferManager {
     const providers = await response.json();
 
     for (const provider of providers) {
-      const offerResponse = await fetch(`/api/offers?item_id=${itemId}&provider_id=${provider.provider_id}`);
-      if (!offerResponse.ok) continue;
-
-      const offers = await offerResponse.json();
+      const offers = await window.dataService.getOffersFiltered(itemId, provider.provider_id);
+      if (!offers) continue;
 
       // Load tiers based on selected process
       let tierData;

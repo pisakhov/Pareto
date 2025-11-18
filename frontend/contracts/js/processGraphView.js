@@ -18,6 +18,8 @@ class ProcessGraphView {
     this.homeButton = null;
     this.defaultOffsetX = 0;
     this.defaultOffsetY = 0;
+    this.toggleButton = null;
+    this.isMenuMode = true;
   }
 
   async init() {
@@ -277,7 +279,9 @@ class ProcessGraphView {
       rect.setAttribute('y', y);
       rect.setAttribute('width', nodeWidth);
       rect.setAttribute('height', nodeHeight);
-      rect.setAttribute('rx', '8');
+      rect.setAttribute('height', nodeHeight);
+      rect.setAttribute('rx', '12');
+      rect.setAttribute('filter', 'url(#node-shadow)');
 
       // Style based on current process
       if (process.process_id === currentProcessId) {
@@ -393,6 +397,9 @@ class ProcessGraphView {
     // Add home button
     this.addHomeButton(navGraph);
 
+    // Add toggle button
+    this.addToggleButton(navGraph);
+
     // Add drag event listeners
     this.canvasElement.addEventListener('mousedown', (e) => this.handleMouseDown(e));
     this.canvasElement.addEventListener('mousemove', (e) => this.handleMouseMove(e));
@@ -426,6 +433,9 @@ class ProcessGraphView {
     this.canvasElement.style.cursor = 'grab';
 
     console.log('✅ [ProcessGraphView] Render complete!');
+
+    // Apply initial view mode
+    this.applyViewMode();
   }
 
   getCurrentProcessId() {
@@ -544,7 +554,7 @@ class ProcessGraphView {
     }
 
     const homeBtn = document.createElement('button');
-    homeBtn.className = 'graph-home-btn absolute top-2 right-2 p-2 bg-card border border-border rounded-md hover:bg-accent transition-colors shadow-sm z-10 opacity-0 pointer-events-none';
+    homeBtn.className = 'graph-home-btn absolute top-4 right-4 p-2 bg-card border border-border rounded-md hover:bg-accent transition-colors shadow-sm z-10 opacity-0 pointer-events-none text-muted-foreground';
     homeBtn.innerHTML = `
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
@@ -556,6 +566,78 @@ class ProcessGraphView {
     navGraph.appendChild(homeBtn);
     this.homeButton = homeBtn;
     console.log('🏠 [ProcessGraphView] Home button added');
+  }
+
+  addToggleButton(navGraph) {
+    // Remove existing toggle button if present
+    const existingBtn = navGraph.parentElement.querySelector('.view-toggle-btn');
+    if (existingBtn) {
+      existingBtn.remove();
+    }
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'view-toggle-btn absolute top-4 left-4 p-2 bg-card border border-border rounded-md hover:bg-accent transition-colors shadow-sm z-20 flex items-center gap-2 text-muted-foreground';
+    toggleBtn.innerHTML = `
+      <svg class="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
+      </svg>
+    `;
+    toggleBtn.title = 'Toggle Menu View';
+    toggleBtn.onclick = () => this.toggleView();
+
+    // Append to the parent container (bg-card) so it stays visible when graph is hidden
+    navGraph.parentElement.appendChild(toggleBtn);
+    this.toggleButton = toggleBtn;
+
+    // Set initial icon based on default mode
+    if (this.isMenuMode) {
+      this.toggleButton.innerHTML = `
+        <svg class="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
+        </svg>
+      `;
+    }
+
+    console.log('🔄 [ProcessGraphView] Toggle button added');
+  }
+
+  toggleView() {
+    this.isMenuMode = !this.isMenuMode;
+    this.applyViewMode();
+  }
+
+  applyViewMode() {
+    const graphContainer = document.getElementById('processGraphNav');
+
+    if (this.isMenuMode) {
+      // Show Menu
+      if (window.processMenuView) window.processMenuView.show();
+      if (graphContainer) graphContainer.classList.add('opacity-0', 'pointer-events-none');
+
+      // Update icon to 'Graph' (to switch back to graph)
+      if (this.toggleButton) {
+        this.toggleButton.innerHTML = `
+          <svg class="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
+          </svg>
+        `;
+        this.toggleButton.title = 'Switch to Graph View';
+      }
+    } else {
+      // Show Graph
+      if (window.processMenuView) window.processMenuView.hide();
+      if (graphContainer) graphContainer.classList.remove('opacity-0', 'pointer-events-none');
+
+      // Update icon to 'Grid' (to switch to menu)
+      if (this.toggleButton) {
+        this.toggleButton.innerHTML = `
+          <svg class="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
+          </svg>
+        `;
+        this.toggleButton.title = 'Switch to Menu View';
+      }
+    }
   }
 
   showHomeButton() {
