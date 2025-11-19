@@ -69,10 +69,10 @@ class ModalManager {
     this.resetProviderForm();
     this.editingStates.providerId = null;
     this.updateModalTitle("providerModalTitle", "Add Provider");
-    
+
     window.tierManager.clearTiers();
     window.tierManager.addTierRow(1, 0, 0);
-    
+
     this.showModal(this.modals.provider);
 
     setTimeout(() => {
@@ -200,11 +200,33 @@ class ModalManager {
   resetProviderForm() {
     const form = document.getElementById("providerForm");
     if (form) form.reset();
+
+    // Reset toggle to default (Active)
+    const statusToggle = document.getElementById("providerStatusToggle");
+    const statusInput = document.getElementById("providerStatus");
+    const statusLabel = document.getElementById("providerStatusLabel");
+
+    if (statusToggle && statusInput && statusLabel) {
+      statusToggle.checked = true;
+      statusInput.value = "active";
+      statusLabel.textContent = "Active";
+    }
   }
 
   resetItemForm() {
     const form = document.getElementById("itemForm");
     if (form) form.reset();
+
+    // Reset toggle to default (Active)
+    const statusToggle = document.getElementById("itemStatusToggle");
+    const statusInput = document.getElementById("itemStatus");
+    const statusLabel = document.getElementById("itemStatusLabel");
+
+    if (statusToggle && statusInput && statusLabel) {
+      statusToggle.checked = true;
+      statusInput.value = "active";
+      statusLabel.textContent = "Active";
+    }
 
     // Re-enable the process field and restore its label
     const processSelect = document.getElementById("itemProcess");
@@ -232,7 +254,7 @@ class ModalManager {
     processSelect.innerHTML = '<option value="">Select a process</option>';
 
     const processes = await window.contractsApp.getProcesses();
-    console.log('[ModalManager] Available processes:', processes.map(p => ({id: p.process_id, name: p.process_name})));
+    console.log('[ModalManager] Available processes:', processes.map(p => ({ id: p.process_id, name: p.process_name })));
 
     processes.forEach(process => {
       const option = document.createElement("option");

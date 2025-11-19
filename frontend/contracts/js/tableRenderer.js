@@ -267,13 +267,19 @@ class TableRenderer {
       }
     }
 
+    const isActive = item.status === 'active';
+
     const row = document.createElement("tr");
-    row.className = "hover:bg-slate-50/80 transition-colors";
+    row.className = `hover:bg-slate-50/80 transition-colors ${!isActive ? 'opacity-60' : ''}`;
     row.innerHTML = `
             <td class="px-8 py-4 whitespace-nowrap">
                 <div class="flex flex-col">
-                    <span class="text-sm font-semibold text-slate-900">${item.item_name}</span>
+                    <span class="text-sm font-semibold text-slate-900 ${!isActive ? 'line-through text-slate-500' : ''}">${item.item_name}</span>
                     ${item.description ? `<span class="text-xs text-slate-500 mt-0.5">${item.description}</span>` : ''}
+                    <div class="flex items-center gap-2 mt-1">
+                      <span class="w-2 h-2 rounded-full ${isActive ? "bg-[#023047]" : "bg-red-500"}"></span>
+                      <span class="text-xs font-medium ${isActive ? 'text-[#023047]' : 'text-red-600'}">${isActive ? 'Active' : 'Inactive'}</span>
+                    </div>
                 </div>
             </td>
             <td class="px-8 py-4 whitespace-nowrap">

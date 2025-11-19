@@ -21,12 +21,46 @@ class FormHandler {
       providerForm.addEventListener("submit", (e) =>
         this.handleProviderSubmit(e),
       );
+
+      // Provider status toggle
+      const statusToggle = document.getElementById("providerStatusToggle");
+      if (statusToggle) {
+        statusToggle.addEventListener("change", (e) => {
+          const statusInput = document.getElementById("providerStatus");
+          const statusLabel = document.getElementById("providerStatusLabel");
+
+          if (e.target.checked) {
+            statusInput.value = "active";
+            statusLabel.textContent = "Active";
+          } else {
+            statusInput.value = "inactive";
+            statusLabel.textContent = "Inactive";
+          }
+        });
+      }
     }
 
     // Item form
     const itemForm = document.getElementById("itemForm");
     if (itemForm) {
       itemForm.addEventListener("submit", (e) => this.handleItemSubmit(e));
+
+      // Item status toggle
+      const statusToggle = document.getElementById("itemStatusToggle");
+      if (statusToggle) {
+        statusToggle.addEventListener("change", (e) => {
+          const statusInput = document.getElementById("itemStatus");
+          const statusLabel = document.getElementById("itemStatusLabel");
+
+          if (e.target.checked) {
+            statusInput.value = "active";
+            statusLabel.textContent = "Active";
+          } else {
+            statusInput.value = "inactive";
+            statusLabel.textContent = "Inactive";
+          }
+        });
+      }
     }
 
   }
@@ -150,7 +184,18 @@ class FormHandler {
       document.getElementById("providerId").value = provider["provider_id"];
       document.getElementById("companyName").value = provider["company_name"];
       document.getElementById("details").value = provider["details"] || "";
-      document.getElementById("providerStatus").value = provider["status"];
+
+      // Update status toggle
+      const statusToggle = document.getElementById("providerStatusToggle");
+      const statusInput = document.getElementById("providerStatus");
+      const statusLabel = document.getElementById("providerStatusLabel");
+
+      if (statusToggle && statusInput && statusLabel) {
+        const isActive = provider["status"] === "active";
+        statusToggle.checked = isActive;
+        statusInput.value = provider["status"];
+        statusLabel.textContent = isActive ? "Active" : "Inactive";
+      }
 
       this.modalManager.setEditingProviderId(providerId);
       this.modalManager.editProvider(providerId);
@@ -173,7 +218,19 @@ class FormHandler {
     document.getElementById("itemId").value = item["item_id"];
     document.getElementById("itemName").value = item["item_name"];
     document.getElementById("itemDescription").value = item["description"] || "";
-    document.getElementById("itemStatus").value = item["status"];
+    document.getElementById("itemDescription").value = item["description"] || "";
+
+    // Update status toggle
+    const statusToggle = document.getElementById("itemStatusToggle");
+    const statusInput = document.getElementById("itemStatus");
+    const statusLabel = document.getElementById("itemStatusLabel");
+
+    if (statusToggle && statusInput && statusLabel) {
+      const isActive = item["status"] === "active";
+      statusToggle.checked = isActive;
+      statusInput.value = item["status"];
+      statusLabel.textContent = isActive ? "Active" : "Inactive";
+    }
     // DON'T set process here - editItem() will do it after loading options
 
     this.modalManager.setEditingItemId(itemId);
