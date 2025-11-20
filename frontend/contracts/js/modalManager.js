@@ -125,6 +125,17 @@ class ModalManager {
         processSelect.value = window.CURRENT_PROCESS_ID;
         // Trigger change event to update offerManager
         processSelect.dispatchEvent(new Event('change'));
+
+        // Disable the dropdown and show locked label
+        processSelect.disabled = true;
+        processSelect.classList.add("bg-gray-100", "cursor-not-allowed");
+
+        const processLabel = processSelect.previousElementSibling;
+        if (processLabel && processLabel.tagName === 'LABEL') {
+          // Find the process name
+          const processName = processSelect.options[processSelect.selectedIndex]?.text || 'Current Process';
+          processLabel.innerHTML = `Process * <span class="text-xs text-emerald-600 ml-1 font-normal">Locked to ${processName}</span>`;
+        }
       }
     }
 
