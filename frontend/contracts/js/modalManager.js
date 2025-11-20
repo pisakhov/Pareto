@@ -119,6 +119,13 @@ class ModalManager {
         window.offerManager.setProcess(processId);
       };
       processSelect.addEventListener('change', this.handleProcessChangeBound);
+
+      // Default select current process if available
+      if (window.CURRENT_PROCESS_ID) {
+        processSelect.value = window.CURRENT_PROCESS_ID;
+        // Trigger change event to update offerManager
+        processSelect.dispatchEvent(new Event('change'));
+      }
     }
 
     this.showModal(this.modals.item);
