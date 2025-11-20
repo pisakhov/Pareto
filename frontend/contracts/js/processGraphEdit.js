@@ -15,6 +15,12 @@ class ProcessGraph {
     this.nodesLayer = document.getElementById('nodesLayer');
     this.connectionsLayer = document.getElementById('connectionsLayer');
     this.processList = document.getElementById('processList');
+
+    // Viewport dragging state
+    this.isDraggingCanvas = false;
+    this.dragStartX = 0;
+    this.dragStartY = 0;
+    this.homeButton = null;
   }
 
   async init() {
@@ -22,6 +28,7 @@ class ProcessGraph {
     await this.loadProviders();
     this.setupEventListeners();
     this.setupResizeHandle();
+    this.addHomeButton();
     await this.render();
     this.autoLayout();
     this.setupFormEventHandlers();
@@ -44,6 +51,19 @@ class ProcessGraph {
     this.canvas.addEventListener('mousedown', (e) => this.handleCanvasMouseDown(e));
     document.addEventListener('mousemove', (e) => this.handleMouseMove(e));
     document.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+
+    // Touch support for canvas dragging
+    this.canvas.addEventListener('touchstart', (e) => {
+      const touch = e.touches[0];
+      // Mock a mouse event for handleCanvasMouseDown
+      const mockEvent = {
+        target: e.target,
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+        preventDefault: () => e.preventDefault()
+      };
+      this.handleCanvasMouseDown(mockEvent);
+    }, { passive: false });
   }
 
   setupResizeHandle() {
@@ -145,6 +165,47 @@ class ProcessGraph {
     await this.renderProcessList();
     this.renderGraph();
     this.updateStats();
+    this.updateHomeButtonVisibility();
+  }
+
+  addHomeButton() {
+    const container = document.getElementById('canvasContainer');
+    if (!container) return;
+
+    // Remove existing if any
+    const existing = container.querySelector('.graph-edit-home-btn');
+    if (existing) existing.remove();
+
+    const homeBtn = document.createElement('button');
+    homeBtn.className = 'graph-edit-home-btn absolute bottom-4 right-4 p-2 bg-white border border-slate-200 rounded-md hover:bg-slate-50 transition-all shadow-sm z-10 opacity-0 pointer-events-none text-slate-500';
+    homeBtn.innerHTML = `
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+      </svg>
+    `;
+    homeBtn.title = 'Reset View';
+    homeBtn.onclick = () => this.resetView();
+
+    container.appendChild(homeBtn);
+    this.homeButton = homeBtn;
+  }
+
+  resetView() {
+    this.viewTransform = { x: 0, y: 0, scale: 1 };
+    this.renderGraph();
+    this.updateHomeButtonVisibility();
+  }
+
+  updateHomeButtonVisibility() {
+    if (this.homeButton) {
+      if (this.viewTransform.x !== 0 || this.viewTransform.y !== 0) {
+        this.homeButton.style.opacity = '1';
+        this.homeButton.style.pointerEvents = 'auto';
+      } else {
+        this.homeButton.style.opacity = '0';
+        this.homeButton.style.pointerEvents = 'none';
+      }
+    }
   }
 
   addGridPattern() {
@@ -246,11 +307,10 @@ class ProcessGraph {
       const isSelected = this.selectedProcess === process.process_id;
 
       const processItem = document.createElement('div');
-      processItem.className = `bg-card border rounded-lg p-3 transition-all cursor-pointer ${
-        isSelected
+      processItem.className = `bg-card border rounded-lg p-3 transition-all cursor-pointer ${isSelected
           ? 'border-blue-500 shadow-lg shadow-blue-500/20'
           : 'border-border hover:shadow-md'
-      }`;
+        }`;
 
       // Get provider name from the providers array
       const provider = this.providers?.find(p => p.provider_id === process.provider_id);
@@ -752,8 +812,6 @@ class ProcessGraph {
 
       // Boundary constraints (keep nodes within canvas)
       const canvasRect = this.canvas.getBoundingClientRect();
-      const nodeWidth = 160;
-      const nodeHeight = 80;
       const margin = 60;
 
       // Constrain to canvas boundaries
@@ -761,6 +819,11 @@ class ProcessGraph {
       this.draggedNode.y = Math.max(margin, Math.min(newY, canvasRect.height - margin));
 
       this.renderGraph();
+    } else if (this.isDraggingCanvas) {
+      this.viewTransform.x = e.clientX - this.dragStartX;
+      this.viewTransform.y = e.clientY - this.dragStartY;
+      this.renderGraph();
+      this.updateHomeButtonVisibility();
     }
   }
 
@@ -768,12 +831,23 @@ class ProcessGraph {
     if (this.draggedNode) {
       this.draggedNode = null;
     }
+    if (this.isDraggingCanvas) {
+      this.isDraggingCanvas = false;
+      this.canvas.style.cursor = 'move'; // Reset to default move cursor
+    }
   }
 
   async handleCanvasMouseDown(e) {
-    if (e.target === this.canvas) {
+    // Check if clicking on background (canvas or grid rect)
+    if (e.target === this.canvas || e.target.id === 'gridRect') {
       this.selectedProcess = null;
       await this.render();
+
+      // Start canvas dragging
+      this.isDraggingCanvas = true;
+      this.dragStartX = e.clientX - this.viewTransform.x;
+      this.dragStartY = e.clientY - this.viewTransform.y;
+      this.canvas.style.cursor = 'grabbing';
     }
   }
 
@@ -1487,14 +1561,13 @@ class ProcessGraph {
              min="0"
              placeholder="0">
       <span class="text-xs text-muted-foreground">units</span>
-      ${
-        actualTierNumber > 1
-          ? `<button type="button" onclick="processGraph.removeContractTierRowFromAdd('${rowId}')" class="text-red-600 hover:text-red-800 ml-auto">
+      ${actualTierNumber > 1
+        ? `<button type="button" onclick="processGraph.removeContractTierRowFromAdd('${rowId}')" class="text-red-600 hover:text-red-800 ml-auto">
              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
              </svg>
            </button>`
-          : '<span class="w-6"></span>'
+        : '<span class="w-6"></span>'
       }
     `;
 
@@ -1623,14 +1696,13 @@ class ProcessGraph {
              min="0"
              placeholder="0">
       <span class="text-xs text-muted-foreground">units</span>
-      ${
-        actualTierNumber > 1
-          ? `<button type="button" onclick="processGraph.removeContractTierRow('${rowId}')" class="text-red-600 hover:text-red-800 ml-auto">
+      ${actualTierNumber > 1
+        ? `<button type="button" onclick="processGraph.removeContractTierRow('${rowId}')" class="text-red-600 hover:text-red-800 ml-auto">
              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
              </svg>
            </button>`
-          : '<span class="w-6"></span>'
+        : '<span class="w-6"></span>'
       }
     `;
 
