@@ -95,12 +95,12 @@ class ModalManager {
   }
 
   // Item modal operations
-  showItemModal(callback = null) {
+  async showItemModal(callback = null) {
     this.resetItemForm();
     this.editingStates.itemId = null;
     this.updateModalTitle("itemModalTitle", "Add Item");
 
-    this.loadProcessesIntoDropdown();
+    await this.loadProcessesIntoDropdown();
 
     const allProviders = window.contractsApp.getProviders();
     if (window.offerManager) {
