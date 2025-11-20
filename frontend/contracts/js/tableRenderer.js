@@ -530,7 +530,7 @@ class TableRenderer {
             }
 
             html += `<div class="text-xs whitespace-nowrap px-2 py-1 hover:bg-accent rounded cursor-pointer ${inactiveClass}" onclick="event.stopPropagation(); window.formHandler.populateItemForm(${item.item_id})">
-                <span class="font-medium${tierClass}">T${offer.tier_number}${tooltipHTML}</span> • <span class="text-green-600 font-semibold">$${offer.price_per_unit.toFixed(4)}</span>
+                <span class="font-medium${tierClass}">T${offer.tier_number}${tooltipHTML}</span> • <span class="text-green-600 font-semibold">$${parseFloat(offer.price_per_unit.toFixed(4))}</span>
               </div>`;
           });
           html += "</div>";
@@ -752,7 +752,7 @@ class TableRenderer {
 
             if (offer) {
               const inactiveClass = offer.status === "inactive" ? "text-gray-400 line-through" : "text-green-600";
-              html += ` <span class="font-semibold ${inactiveClass}">$${offer.price_per_unit.toFixed(4)}</span>`;
+              html += ` <span class="font-semibold ${inactiveClass}">$${parseFloat(offer.price_per_unit.toFixed(4))}</span>`;
             } else {
               html += ` <span class="text-muted-foreground">—</span>`;
             }
