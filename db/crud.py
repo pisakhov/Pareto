@@ -1196,6 +1196,19 @@ class CRUDOperations(DatabaseSchema):
 
     def delete_contract(self, contract_id: int) -> bool:
         conn = self._get_connection()
+
+        # Get contract details before deleting
+        contract = self.get_contract(contract_id)
+        if not contract:
+            return False
+
+        # Delete all offers for this contract's provider and process
+        # This removes orphaned offers when a contract is deleted
+        conn.execute(
+            "DELETE FROM offers WHERE provider_id = ? AND process_id = ?",
+            [contract['provider_id'], contract['process_id']]
+        )
+
         # Delete tiers first
         conn.execute("DELETE FROM contract_tiers WHERE contract_id = ?", [contract_id])
         # Delete contract
@@ -1268,6 +1281,24 @@ class CRUDOperations(DatabaseSchema):
 
     def delete_contract_tier(self, contract_tier_id: int) -> bool:
         conn = self._get_connection()
+
+        # Get the contract tier details to find matching offers
+        contract_tier = self.get_contract_tier(contract_tier_id)
+        if not contract_tier:
+            return False
+
+        contract = self.get_contract(contract_tier['contract_id'])
+        if not contract:
+            return False
+
+        # Delete all offers for this provider, process, and tier_number
+        # This removes orphaned offers when a tier is deleted
+        conn.execute(
+            "DELETE FROM offers WHERE provider_id = ? AND process_id = ? AND tier_number = ?",
+            [contract['provider_id'], contract['process_id'], contract_tier['tier_number']]
+        )
+
+        # Now delete the contract tier
         result = conn.execute("DELETE FROM contract_tiers WHERE contract_tier_id = ?", [contract_tier_id])
         return result.rowcount > 0
 

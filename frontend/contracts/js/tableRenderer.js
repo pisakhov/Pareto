@@ -290,9 +290,29 @@ class TableRenderer {
   }
 
   createItemRow(item, itemProcessMap) {
-    const providerCount = this.data.providerItems.filter(
+    // Get providers who offer this item
+    const itemProviders = this.data.providerItems.filter(
       (pi) => pi.item_id === item.item_id,
-    ).length;
+    );
+
+    // Build map of provider IDs who offer this item
+    const providerIdsForItem = new Set(itemProviders.map(pi => pi.provider_id));
+
+    console.log('[DEBUG] === createItemRow for item:', item.item_name);
+    console.log('[DEBUG] itemProviders (filtered by item_id):', itemProviders);
+    console.log('[DEBUG] providerIdsForItem:', Array.from(providerIdsForItem));
+
+    // Count tiers per provider for THIS specific item only
+    const providerTierCounts = new Map();
+    this.data.offers
+      .filter(offer => offer.item_id === item.item_id)
+      .forEach(offer => {
+        const count = providerTierCounts.get(offer.provider_id) || 0;
+        providerTierCounts.set(offer.provider_id, count + 1);
+      });
+
+    console.log('[DEBUG] providerTierCounts:', Object.fromEntries(providerTierCounts));
+
     const offerCount = this.data.offers.filter(
       (o) => o.item_id === item.item_id,
     ).length;
@@ -309,6 +329,26 @@ class TableRenderer {
     }
 
     const isActive = item.status === 'active';
+
+    // Build providers list HTML
+    let providersHtml = '';
+    providerIdsForItem.forEach(providerId => {
+      const provider = this.data.providers.find(p => p.provider_id === providerId);
+      const tierCount = providerTierCounts.get(providerId) || 0;
+
+      console.log(`[DEBUG] Provider ${provider.company_name}: tierCount = ${tierCount}`);
+
+      if (provider) {
+        providersHtml += `
+          <div class="text-sm text-slate-900">${provider.company_name}</div>
+          <div class="text-xs text-slate-500 ml-4">└ ${tierCount} ${tierCount === 1 ? 'tier' : 'tiers'}</div>
+        `;
+      }
+    });
+
+    if (!providersHtml) {
+      providersHtml = '<span class="text-xs text-slate-500">No providers</span>';
+    }
 
     const row = document.createElement("tr");
     row.className = `hover:bg-slate-50/80 transition-colors ${!isActive ? 'opacity-60' : ''}`;
@@ -327,9 +367,8 @@ class TableRenderer {
                 <span class="text-xs font-medium px-3 py-1.5 rounded-full bg-slate-100 text-slate-700">${processName}</span>
             </td>
             <td class="px-8 py-4">
-                <div class="flex items-center gap-2">
-                    <span class="inline-flex items-center text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-900 text-white">${providerCount} ${providerCount === 1 ? 'provider' : 'providers'}</span>
-                    <span class="inline-flex items-center text-xs font-medium px-3 py-1.5 rounded-full bg-slate-200 text-slate-700">${offerCount} ${offerCount === 1 ? 'offer' : 'offers'}</span>
+                <div class="flex flex-col gap-0.5">
+                    ${providersHtml}
                 </div>
             </td>
             <td class="px-8 py-4 whitespace-nowrap text-right">
