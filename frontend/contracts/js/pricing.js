@@ -124,77 +124,49 @@ function handleItemSelectChange(event) {
 }
 
 async function loadData() {
-  try {
-    await Promise.all([
-      loadProviders(),
-      loadItems(),
-      loadProviderItems(),
-      loadOffers(),
-    ]);
-    updateProviderSelect();
-    updateItemSelect();
-    updateCounts();
-  } catch (error) {
-    console.error("Error loading data:", error);
-    // Only show notification for critical errors, not for network issues
-    if (error.message && !error.message.includes("Failed to fetch")) {
-      showNotification("Error loading data: " + error.message, "error");
-    }
-  }
+  await Promise.all([
+    loadProviders(),
+    loadItems(),
+    loadProviderItems(),
+    loadOffers(),
+  ]);
+  updateProviderSelect();
+  updateItemSelect();
+  updateCounts();
 }
 
 async function loadProviders() {
-  try {
-    const response = await fetch("/api/providers");
-    if (!response.ok) throw new Error("Failed to load providers");
+  const response = await fetch("/api/providers");
+  if (!response.ok) throw new Error("Failed to load providers");
 
-    providers = await response.json();
-    renderProviders();
-  } catch (error) {
-    console.error("Error loading providers:", error);
-    throw error;
-  }
+  providers = await response.json();
+  renderProviders();
 }
 
 async function loadOffers() {
-  try {
-    const response = await fetch("/api/offers");
-    if (!response.ok) throw new Error("Failed to load offers");
+  const response = await fetch("/api/offers");
+  if (!response.ok) throw new Error("Failed to load offers");
 
-    offers = await response.json();
-    renderOffers();
-    renderAllOffers();
-  } catch (error) {
-    console.error("Error loading offers:", error);
-    throw error;
-  }
+  offers = await response.json();
+  renderOffers();
+  renderAllOffers();
 }
 
 async function loadItems() {
-  try {
-    const response = await fetch("/api/items");
-    if (!response.ok) throw new Error("Failed to load items");
+  const response = await fetch("/api/items");
+  if (!response.ok) throw new Error("Failed to load items");
 
-    items = await response.json();
-    renderItems();
-  } catch (error) {
-    console.error("Error loading items:", error);
-    throw error;
-  }
+  items = await response.json();
+  renderItems();
 }
 
 async function loadProviderItems() {
-  try {
-    const response = await fetch("/api/provider-items");
-    if (!response.ok)
-      throw new Error("Failed to load provider-item relationships");
+  const response = await fetch("/api/provider-items");
+  if (!response.ok)
+    throw new Error("Failed to load provider-item relationships");
 
-    providerItems = await response.json();
-    renderRelationshipMatrix();
-  } catch (error) {
-    console.error("Error loading provider-item relationships:", error);
-    throw error;
-  }
+  providerItems = await response.json();
+  renderRelationshipMatrix();
 }
 
 function renderProviders() {

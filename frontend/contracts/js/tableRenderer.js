@@ -382,11 +382,7 @@ class TableRenderer {
 
   async createRelationshipMatrixHTML() {
     const providerTierData = await this.fetchAllProviderTiers();
-    let allocations = {};
-    try {
-      allocations = await dataService.fetchProviderItemAllocations() || {};
-    } catch (error) {
-    }
+    const allocations = await dataService.fetchProviderItemAllocations() || {};
 
     const items = this.getFilteredItems();
 
@@ -612,17 +608,12 @@ class TableRenderer {
     const currentProcessId = window.CURRENT_PROCESS_ID;
     if (!currentProcessId) return [];
 
-    try {
-      const response = await fetch(`/api/processes/${currentProcessId}`);
-      const process = await response.json();
+    const response = await fetch(`/api/processes/${currentProcessId}`);
+    const process = await response.json();
 
-      // Get contracts for this process
-      const contractsResponse = await fetch(`/api/contracts/process/${process.process_name}`);
-      return await contractsResponse.json();
-    } catch (error) {
-      console.error('Error fetching contracts:', error);
-      return [];
-    }
+    // Get contracts for this process
+    const contractsResponse = await fetch(`/api/contracts/process/${process.process_name}`);
+    return await contractsResponse.json();
   }
 
   // Create contracts matrix HTML (3-column layout: Provider + Merged Tiers + Items)
@@ -633,12 +624,8 @@ class TableRenderer {
 
     // Fetch tiers for each contract
     for (const contract of contracts) {
-      try {
-        const response = await fetch(`/api/contract-tiers/${contract.contract_id}`);
-        contractTiers[contract.contract_id] = await response.json();
-      } catch (error) {
-        contractTiers[contract.contract_id] = [];
-      }
+      const response = await fetch(`/api/contract-tiers/${contract.contract_id}`);
+      contractTiers[contract.contract_id] = await response.json();
     }
 
     // Group by provider
@@ -865,22 +852,15 @@ class TableRenderer {
 
       // Deselect all tiers for this provider first
       await Promise.all(tierIdsToDeselect.map(async (tierId) => {
-        try {
-          const response = await fetch(`/api/contract-tiers/${tierId}`, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              is_selected: false
-            })
-          });
-          if (!response.ok) {
-            console.error(`Failed to deselect tier ${tierId}`);
-          }
-        } catch (error) {
-          console.error(`Error deselecting tier ${tierId}:`, error);
-        }
+        await fetch(`/api/contract-tiers/${tierId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            is_selected: false
+          })
+        });
       }));
 
       // Small delay to ensure database updates
@@ -910,7 +890,6 @@ class TableRenderer {
       await this.renderRelationshipMatrix();
 
     } catch (error) {
-      console.error('Error selecting tier:', error);
       if (window.uiManager) {
         window.uiManager.showNotification(`Error selecting tier: ${error.message}`, 'error');
       }

@@ -127,12 +127,8 @@ class ProcessGraph {
   }
 
   async loadProcesses() {
-    try {
-      this.processes = await dataService.loadProcesses();
-      await this.loadConnections();
-    } catch (error) {
-      this.processes = [];
-    }
+    this.processes = await dataService.loadProcesses();
+    await this.loadConnections();
   }
 
   async loadConnections() {
@@ -254,50 +250,34 @@ class ProcessGraph {
 
     // Fetch contracts and tier counts for each unique process name
     for (const processName of uniqueProcessNames) {
-      try {
-        const contracts = await dataService.loadContractsForProcess(processName);
-        const contractCount = contracts.length;
+      const contracts = await dataService.loadContractsForProcess(processName);
+      const contractCount = contracts.length;
 
-        if (contractCount === 0) {
-          contractTierInfo[processName] = {
-            contractCount: 0,
-            minTiers: null,
-            maxTiers: null,
-            allSameTierCount: null
-          };
-        } else {
-          // Fetch tier counts for each contract
-          const tierCounts = [];
-          for (const contract of contracts) {
-            try {
-              const tiers = await dataService.loadContractTiers(contract.contract_id);
-              tierCounts.push(tiers.length);
-            } catch (error) {
-              console.error('Error fetching tiers for contract:', contract.contract_id, error);
-              tierCounts.push(0);
-            }
-          }
-
-          // Calculate min and max tier counts
-          const minTiers = Math.min(...tierCounts);
-          const maxTiers = Math.max(...tierCounts);
-          const allSame = tierCounts.every(count => count === tierCounts[0]);
-
-          contractTierInfo[processName] = {
-            contractCount,
-            minTiers,
-            maxTiers,
-            allSameTierCount: allSame ? tierCounts[0] : null
-          };
-        }
-      } catch (error) {
-        console.error('Error fetching contracts for process:', processName, error);
-        contractCounts[processName] = 0;
+      if (contractCount === 0) {
         contractTierInfo[processName] = {
           contractCount: 0,
           minTiers: null,
           maxTiers: null,
           allSameTierCount: null
+        };
+      } else {
+        // Fetch tier counts for each contract
+        const tierCounts = [];
+        for (const contract of contracts) {
+          const tiers = await dataService.loadContractTiers(contract.contract_id);
+          tierCounts.push(tiers.length);
+        }
+
+        // Calculate min and max tier counts
+        const minTiers = Math.min(...tierCounts);
+        const maxTiers = Math.max(...tierCounts);
+        const allSame = tierCounts.every(count => count === tierCounts[0]);
+
+        contractTierInfo[processName] = {
+          contractCount,
+          minTiers,
+          maxTiers,
+          allSameTierCount: allSame ? tierCounts[0] : null
         };
       }
     }
@@ -856,12 +836,9 @@ class ProcessGraph {
       return;
     }
 
-    try {
-      await dataService.addProcessEdge(fromProcessId, toProcessId);
-      this.connections.push({ from_process_id: fromProcessId, to_process_id: toProcessId });
-      this.renderGraph();
-    } catch (error) {
-    }
+    await dataService.addProcessEdge(fromProcessId, toProcessId);
+    this.connections.push({ from_process_id: fromProcessId, to_process_id: toProcessId });
+    this.renderGraph();
   }
 
   autoLayout() {
@@ -950,107 +927,102 @@ class ProcessGraph {
   }
 
   async addNewProcess() {
-    try {
-      const processName = document.getElementById('newProcessName').value;
-      const description = document.getElementById('newProcessDescription').value;
+    const processName = document.getElementById('newProcessName').value;
+    const description = document.getElementById('newProcessDescription').value;
 
-      if (!processName.trim()) {
-        uiManager.showNotification('Process name is required', 'error');
-        document.getElementById('newProcessName').focus();
+    if (!processName.trim()) {
+      uiManager.showNotification('Process name is required', 'error');
+      document.getElementById('newProcessName').focus();
+      return;
+    }
+
+    // Get all contracts
+    const contractsContainer = document.getElementById('addContractsContainer');
+    const contractElements = contractsContainer.querySelectorAll('[id^="addContract-"]');
+
+    if (contractElements.length === 0) {
+      uiManager.showNotification('Please add at least one contract', 'error');
+      return;
+    }
+
+    // Create the process FIRST to get its ID
+    // Use tier thresholds from the first contract as the default
+    const firstContractEl = contractElements[0];
+    const firstTierInputs = firstContractEl.querySelectorAll('.add-contract-tier-threshold');
+    const defaultTierThresholds = {};
+    firstTierInputs.forEach(input => {
+      const tierNumber = input.dataset.tier;
+      const value = parseInt(input.value) || 0;
+      defaultTierThresholds[tierNumber] = value;
+    });
+
+    const newProcess = await dataService.createProcess({
+      process_name: processName.trim(),
+      description: description.trim(),
+      provider_id: 0,  // Will be set per-contract
+      tier_thresholds: JSON.stringify(defaultTierThresholds),
+      status: 'active'
+    });
+
+    // Calculate random position
+    const canvasWidth = 1200;
+    const canvasHeight = 800;
+    const margin = 100;
+
+    newProcess.x = Math.random() * (canvasWidth - margin * 2) + margin;
+    newProcess.y = Math.random() * (canvasHeight - margin * 2) + margin;
+    this.processes.push(newProcess);
+
+    // Now create contracts for this process
+    let createdContracts = 0;
+    for (const contractEl of contractElements) {
+      const contractId = contractEl.id;
+      const providerId = parseInt(contractEl.dataset.providerId);
+
+      if (!providerId) {
+        uiManager.showNotification('Each contract must have a provider selected', 'error');
         return;
       }
 
-      // Get all contracts
-      const contractsContainer = document.getElementById('addContractsContainer');
-      const contractElements = contractsContainer.querySelectorAll('[id^="addContract-"]');
-
-      if (contractElements.length === 0) {
-        uiManager.showNotification('Please add at least one contract', 'error');
-        return;
-      }
-
-      // Create the process FIRST to get its ID
-      // Use tier thresholds from the first contract as the default
-      const firstContractEl = contractElements[0];
-      const firstTierInputs = firstContractEl.querySelectorAll('.add-contract-tier-threshold');
-      const defaultTierThresholds = {};
-      firstTierInputs.forEach(input => {
+      // Get tier thresholds for this contract
+      const tierThresholds = {};
+      const tierInputs = contractEl.querySelectorAll('.add-contract-tier-threshold');
+      tierInputs.forEach(input => {
         const tierNumber = input.dataset.tier;
         const value = parseInt(input.value) || 0;
-        defaultTierThresholds[tierNumber] = value;
+        tierThresholds[tierNumber] = value;
       });
 
-      const newProcess = await dataService.createProcess({
-        process_name: processName.trim(),
-        description: description.trim(),
-        provider_id: 0,  // Will be set per-contract
-        tier_thresholds: JSON.stringify(defaultTierThresholds),
+      // Create contract using dataService with process_id
+      const newContract = await dataService.createContract({
+        process_id: newProcess.process_id,
+        provider_id: providerId,
         status: 'active'
       });
 
-      // Calculate random position
-      const canvasWidth = 1200;
-      const canvasHeight = 800;
-      const margin = 100;
-
-      newProcess.x = Math.random() * (canvasWidth - margin * 2) + margin;
-      newProcess.y = Math.random() * (canvasHeight - margin * 2) + margin;
-      this.processes.push(newProcess);
-
-      // Now create contracts for this process
-      let createdContracts = 0;
-      for (const contractEl of contractElements) {
-        const contractId = contractEl.id;
-        const providerId = parseInt(contractEl.dataset.providerId);
-
-        if (!providerId) {
-          uiManager.showNotification('Each contract must have a provider selected', 'error');
-          return;
-        }
-
-        // Get tier thresholds for this contract
-        const tierThresholds = {};
-        const tierInputs = contractEl.querySelectorAll('.add-contract-tier-threshold');
-        tierInputs.forEach(input => {
-          const tierNumber = input.dataset.tier;
-          const value = parseInt(input.value) || 0;
-          tierThresholds[tierNumber] = value;
+      // Create tiers for this contract
+      for (const [tierNumber, threshold] of Object.entries(tierThresholds)) {
+        await dataService.createContractTier({
+          contract_id: newContract.contract_id,
+          tier_number: parseInt(tierNumber),
+          threshold_units: threshold,
+          is_selected: false
         });
-
-        // Create contract using dataService with process_id
-        const newContract = await dataService.createContract({
-          process_id: newProcess.process_id,
-          provider_id: providerId,
-          status: 'active'
-        });
-
-        // Create tiers for this contract
-        for (const [tierNumber, threshold] of Object.entries(tierThresholds)) {
-          await dataService.createContractTier({
-            contract_id: newContract.contract_id,
-            tier_number: parseInt(tierNumber),
-            threshold_units: threshold,
-            is_selected: false
-          });
-        }
-
-        createdContracts++;
       }
 
-      uiManager.showNotification(
-        createdContracts === 1
-          ? `Process "${processName.trim()}" created with 1 contract`
-          : `Process "${processName.trim()}" created with ${createdContracts} contracts`,
-        'success'
-      );
-
-      // Close modal and refresh
-      this.closeAddProcessModal();
-      await this.render();
-    } catch (error) {
-      console.error('Error creating process:', error);
-      uiManager.showNotification('Failed to create process: ' + error.message, 'error');
+      createdContracts++;
     }
+
+    uiManager.showNotification(
+      createdContracts === 1
+        ? `Process "${processName.trim()}" created with 1 contract`
+        : `Process "${processName.trim()}" created with ${createdContracts} contracts`,
+      'success'
+    );
+
+    // Close modal and refresh
+    this.closeAddProcessModal();
+    await this.render();
   }
 
   async editProcess(processId) {
@@ -1180,18 +1152,15 @@ class ProcessGraph {
   }
 
   async deleteEdge(fromProcessId, toProcessId) {
-    try {
-      await dataService.removeProcessEdge(fromProcessId, toProcessId);
-      this.connections = this.connections.filter(
-        c => !(c.from_process_id === fromProcessId && c.to_process_id === toProcessId)
-      );
-      const popup = document.getElementById('edgePopup');
-      if (popup) {
-        popup.style.display = 'none';
-      }
-      this.renderGraph();
-    } catch (error) {
+    await dataService.removeProcessEdge(fromProcessId, toProcessId);
+    this.connections = this.connections.filter(
+      c => !(c.from_process_id === fromProcessId && c.to_process_id === toProcessId)
+    );
+    const popup = document.getElementById('edgePopup');
+    if (popup) {
+      popup.style.display = 'none';
     }
+    this.renderGraph();
   }
 
   toggleConnectionMode() {
@@ -1597,14 +1566,9 @@ class ProcessGraph {
     const process = this.processes.find(p => p.process_id === processId);
     if (!process) return 0;
 
-    try {
-      // Fetch actual contracts for this process
-      const contracts = await dataService.loadContractsForProcess(process.process_name);
-      return contracts.length;
-    } catch (error) {
-      console.error('Error fetching contract count:', error);
-      return 0;
-    }
+    // Fetch actual contracts for this process
+    const contracts = await dataService.loadContractsForProcess(process.process_name);
+    return contracts.length;
   }
 
   createNewTemplateFromEdit() {
@@ -1673,40 +1637,31 @@ class ProcessGraph {
     }
 
     // Fetch contracts for this process
-    try {
-      const contracts = await dataService.loadContractsForProcessId(process.process_id);
+    const contracts = await dataService.loadContractsForProcessId(process.process_id);
 
-      // Clear existing contracts
-      container.innerHTML = '';
+    // Clear existing contracts
+    container.innerHTML = '';
 
-      if (contracts.length === 0) {
-        // Show empty state - recreate it since we cleared the container
-        container.innerHTML = `
-          <div class="p-8 border-2 border-dashed border-border rounded-lg bg-secondary/10 text-center">
-            <svg class="w-12 h-12 text-muted-foreground mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-            </svg>
-            <p class="text-sm text-muted-foreground">No contracts found for this process</p>
-            <p class="text-xs text-muted-foreground mt-1">Add providers to create contracts</p>
-          </div>
-        `;
-      } else {
-        // Render each contract
-        for (const contract of contracts) {
-          await this.renderContractInEdit(container, contract);
-        }
-      }
-
-      // Always populate provider selection so users can add contracts
-      await this.populateEditProviderSelect();
-    } catch (error) {
-      console.error('Error loading contracts:', error);
+    if (contracts.length === 0) {
+      // Show empty state - recreate it since we cleared the container
       container.innerHTML = `
-        <div class="p-4 bg-red-50 border border-red-200 rounded-md">
-          <p class="text-sm text-red-700">Error loading contracts: ${error.message}</p>
+        <div class="p-8 border-2 border-dashed border-border rounded-lg bg-secondary/10 text-center">
+          <svg class="w-12 h-12 text-muted-foreground mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+          </svg>
+          <p class="text-sm text-muted-foreground">No contracts found for this process</p>
+          <p class="text-xs text-muted-foreground mt-1">Add providers to create contracts</p>
         </div>
       `;
+    } else {
+      // Render each contract
+      for (const contract of contracts) {
+        await this.renderContractInEdit(container, contract);
+      }
     }
+
+    // Always populate provider selection so users can add contracts
+    await this.populateEditProviderSelect();
   }
 
   async renderContractInEdit(container, contract) {
@@ -1755,24 +1710,18 @@ class ProcessGraph {
     const tierContainer = document.getElementById(`editContractTiersContainer-${contractId}`);
     if (tierContainer) {
       tierContainer.innerHTML = '';
-      try {
-        // Fetch contract tiers from the database
-        const contractTiers = await dataService.loadContractTiers(contract.contract_id);
+      // Fetch contract tiers from the database
+      const contractTiers = await dataService.loadContractTiers(contract.contract_id);
 
-        if (contractTiers.length === 0) {
-          // If no tiers exist in database, add one default tier
-          this.addContractTierRow(contractId, 1, 1000);
-        } else {
-          // Sort tiers by tier_number and render them
-          const sortedTiers = contractTiers.sort((a, b) => a.tier_number - b.tier_number);
-          sortedTiers.forEach(tier => {
-            this.addContractTierRow(contractId, tier.tier_number, tier.threshold_units);
-          });
-        }
-      } catch (error) {
-        console.error('Error loading contract tiers:', error);
-        // If error loading tiers, show default tier
+      if (contractTiers.length === 0) {
+        // If no tiers exist in database, add one default tier
         this.addContractTierRow(contractId, 1, 1000);
+      } else {
+        // Sort tiers by tier_number and render them
+        const sortedTiers = contractTiers.sort((a, b) => a.tier_number - b.tier_number);
+        sortedTiers.forEach(tier => {
+          this.addContractTierRow(contractId, tier.tier_number, tier.threshold_units);
+        });
       }
     }
   }
@@ -1783,12 +1732,7 @@ class ProcessGraph {
 
     // Ensure providers are loaded
     if (!this.providers || this.providers.length === 0) {
-      try {
-        this.providers = await dataService.loadProviders();
-      } catch (e) {
-        console.error("Failed to load providers", e);
-        this.providers = [];
-      }
+      this.providers = await dataService.loadProviders();
     }
 
     if (!this.providers) this.providers = [];
@@ -1881,42 +1825,32 @@ class ProcessGraph {
       return;
     }
 
-    try {
-      // Get tier thresholds from the process
-      let tierThresholds = {};
-      try {
-        tierThresholds = JSON.parse(process.tier_thresholds || '{}');
-      } catch (e) {
-        tierThresholds = { '1': 1000 };
-      }
+    // Get tier thresholds from the process
+    const tierThresholds = JSON.parse(process.tier_thresholds || '{}');
 
-      // Create contract
-      const newContract = await dataService.createContract({
-        process_id: processId,
-        provider_id: providerId,
-        status: 'active'
+    // Create contract
+    const newContract = await dataService.createContract({
+      process_id: processId,
+      provider_id: providerId,
+      status: 'active'
+    });
+
+    // Create tiers for this contract
+    for (const [tierNumber, threshold] of Object.entries(tierThresholds)) {
+      await dataService.createContractTier({
+        contract_id: newContract.contract_id,
+        tier_number: parseInt(tierNumber),
+        threshold_units: threshold,
+        is_selected: false
       });
-
-      // Create tiers for this contract
-      for (const [tierNumber, threshold] of Object.entries(tierThresholds)) {
-        await dataService.createContractTier({
-          contract_id: newContract.contract_id,
-          tier_number: parseInt(tierNumber),
-          threshold_units: threshold,
-          is_selected: false
-        });
-      }
-
-      uiManager.showNotification('Contract created successfully', 'success');
-
-      // Reload contracts
-      await this.loadContractsForEdit(processId);
-      // Clear the select
-      select.value = '';
-    } catch (error) {
-      console.error('Error creating contract:', error);
-      uiManager.showNotification('Failed to create contract: ' + error.message, 'error');
     }
+
+    uiManager.showNotification('Contract created successfully', 'success');
+
+    // Reload contracts
+    await this.loadContractsForEdit(processId);
+    // Clear the select
+    select.value = '';
   }
 
   async removeContractFromEdit(contractId) {
@@ -1924,29 +1858,24 @@ class ProcessGraph {
       return;
     }
 
-    try {
-      await dataService.deleteContract(contractId);
-      uiManager.showNotification('Contract removed successfully', 'success');
+    await dataService.deleteContract(contractId);
+    uiManager.showNotification('Contract removed successfully', 'success');
 
-      // Remove from UI
-      const contractElement = document.getElementById(`editContract-${contractId}`);
-      if (contractElement) {
-        contractElement.remove();
-      }
-
-      // Check if empty state should be shown
-      const container = document.getElementById('editContractsContainer');
-      const emptyState = document.getElementById('editContractsEmpty');
-      if (container && emptyState && container.children.length === 0) {
-        emptyState.style.display = 'block';
-      }
-
-      // Refresh provider select
-      await this.populateEditProviderSelect();
-    } catch (error) {
-      console.error('Error deleting contract:', error);
-      uiManager.showNotification('Failed to delete contract: ' + error.message, 'error');
+    // Remove from UI
+    const contractElement = document.getElementById(`editContract-${contractId}`);
+    if (contractElement) {
+      contractElement.remove();
     }
+
+    // Check if empty state should be shown
+    const container = document.getElementById('editContractsContainer');
+    const emptyState = document.getElementById('editContractsEmpty');
+    if (container && emptyState && container.children.length === 0) {
+      emptyState.style.display = 'block';
+    }
+
+    // Refresh provider select
+    await this.populateEditProviderSelect();
   }
 
   handleEditProcess(event, processId) {

@@ -14,17 +14,13 @@ class ProcessMenuView {
         if (!this.container) return;
 
         // Load data
-        try {
-            const [processes, connections] = await Promise.all([
-                dataService.loadProcesses(),
-                dataService.loadProcessGraph()
-            ]);
-            this.processes = processes;
-            this.connections = connections;
-            this.render();
-        } catch (error) {
-            console.error('Error loading processes for menu:', error);
-        }
+        const [processes, connections] = await Promise.all([
+            dataService.loadProcesses(),
+            dataService.loadProcessGraph()
+        ]);
+        this.processes = processes;
+        this.connections = connections;
+        this.render();
     }
 
     render() {
