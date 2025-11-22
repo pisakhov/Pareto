@@ -1055,131 +1055,81 @@ class ProcessGraph {
 
   async editProcess(processId) {
     const process = this.processes.find(p => p.process_id === processId);
-    if (!process) {
-      return;
-    }
-
     const processName = document.getElementById('editProcessName').value;
     const description = document.getElementById('editProcessDescription').value;
 
-    if (!processName.trim()) {
-      uiManager.showNotification('Process name is required', 'error');
-      document.getElementById('editProcessName').focus();
-      return;
+    await dataService.updateProcess(processId, {
+      process_name: processName.trim(),
+      description: description.trim(),
+      provider_id: process.provider_id,
+      tier_thresholds: '{}',
+      status: process.status
+    });
+
+    const contractsContainer = document.getElementById('editContractsContainer');
+    const contractElements = contractsContainer.querySelectorAll('[id^="editContract-"]');
+
+    for (const contractEl of contractElements) {
+      const contractId = contractEl.id.replace('editContract-', '');
+      const tierInputs = contractEl.querySelectorAll('.contract-tier-threshold');
+      const existingTiers = await dataService.loadContractTiers(contractId);
+      const updatedTiers = [];
+
+      for (const input of tierInputs) {
+        const tierNumber = parseInt(input.dataset.tier);
+        const threshold = parseInt(input.value) || 0;
+        const existingTier = existingTiers.find(t => t.tier_number === tierNumber);
+
+        if (existingTier) {
+          await dataService.updateContractTier(existingTier.contract_tier_id, {
+            threshold_units: threshold,
+            is_selected: existingTier.is_selected
+          });
+        } else {
+          await dataService.createContractTier({
+            contract_id: parseInt(contractId),
+            tier_number: tierNumber,
+            threshold_units: threshold,
+            is_selected: false
+          });
+        }
+
+        updatedTiers.push(tierNumber);
+      }
+
+      for (const existingTier of existingTiers) {
+        if (!updatedTiers.includes(existingTier.tier_number)) {
+          await dataService.deleteContractTier(existingTier.contract_tier_id);
+        }
+      }
     }
 
-    const duplicate = this.processes.find(p =>
-      p.process_id !== processId &&
-      p.process_name.toLowerCase() === processName.trim().toLowerCase()
+    process.process_name = processName.trim();
+    process.description = description.trim();
+    process.tier_thresholds = '{}';
+
+    this.closeEditProcessModal();
+    await this.render();
+
+    uiManager.showNotification(
+      `Process "${processName.trim()}" updated successfully`,
+      'success'
     );
-
-    if (duplicate) {
-      uiManager.showNotification('A process with this name already exists. Please choose a different name.', 'error');
-      document.getElementById('editProcessName').focus();
-      return;
-    }
-
-    try {
-      // Update process (tier thresholds are stored per-contract, not per-process)
-      await dataService.updateProcess(processId, {
-        process_name: processName.trim(),
-        description: description.trim(),
-        provider_id: process.provider_id, // Keep existing provider
-        tier_thresholds: '{}', // Empty - not used at process level anymore
-        status: process.status
-      });
-
-      // Update contract tiers for all contracts in the edit form
-      const contractsContainer = document.getElementById('editContractsContainer');
-      const contractElements = contractsContainer.querySelectorAll('[id^="editContract-"]');
-
-      for (const contractEl of contractElements) {
-        const contractId = contractEl.id.replace('editContract-', '');
-        const tierInputs = contractEl.querySelectorAll('.contract-tier-threshold');
-
-        // Get current tiers from database to know which ones to update/delete
-        const existingTiers = await dataService.loadContractTiers(contractId);
-        const updatedTiers = [];
-
-        // Process each tier input
-        for (const input of tierInputs) {
-          const tierNumber = parseInt(input.dataset.tier);
-          const threshold = parseInt(input.value) || 0;
-
-          // Check if this tier already exists
-          const existingTier = existingTiers.find(t => t.tier_number === tierNumber);
-
-          if (existingTier) {
-            // Update existing tier
-            await dataService.updateContractTier(existingTier.contract_tier_id, {
-              threshold_units: threshold,
-              is_selected: existingTier.is_selected
-            });
-          } else {
-            // Create new tier
-            await dataService.createContractTier({
-              contract_id: parseInt(contractId),
-              tier_number: tierNumber,
-              threshold_units: threshold,
-              is_selected: false
-            });
-          }
-
-          updatedTiers.push(tierNumber);
-        }
-
-        // Delete tiers that were removed
-        for (const existingTier of existingTiers) {
-          if (!updatedTiers.includes(existingTier.tier_number)) {
-            await dataService.deleteContractTier(existingTier.contract_tier_id);
-          }
-        }
-      }
-
-      // Update local process object
-      process.process_name = processName.trim();
-      process.description = description.trim();
-      process.tier_thresholds = '{}';
-
-      this.closeEditProcessModal();
-      await this.render();
-
-      uiManager.showNotification(
-        `Process "${processName.trim()}" updated successfully`,
-        'success'
-      );
-    } catch (error) {
-      let errorMsg = 'Failed to update process';
-
-      if (error.message.includes('Duplicate key')) {
-        errorMsg = 'A process with this name already exists. Please choose a different name.';
-      } else if (error.message) {
-        errorMsg = error.message;
-      }
-
-      uiManager.showNotification(errorMsg, 'error');
-    }
   }
 
   async deleteProcess(processId) {
     const process = this.processes.find(p => p.process_id === processId);
-    if (!process) return;
-
     const confirmed = uiManager.confirmAction(`Are you sure you want to delete the process "${process.process_name}"?`);
     if (!confirmed) return;
 
-    try {
-      await dataService.deleteProcess(processId);
-      this.processes = this.processes.filter(p => p.process_id !== processId);
-      this.connections = this.connections.filter(
-        c => c.from_process_id !== processId && c.to_process_id !== processId
-      );
-      await this.render();
+    await dataService.deleteProcess(processId);
+    this.processes = this.processes.filter(p => p.process_id !== processId);
+    this.connections = this.connections.filter(
+      c => c.from_process_id !== processId && c.to_process_id !== processId
+    );
+    await this.render();
 
-      uiManager.showNotification(`Process "${process.process_name}" deleted successfully`, 'success');
-    } catch (error) {
-      uiManager.showNotification('Failed to delete process: ' + error.message, 'error');
-    }
+    uiManager.showNotification(`Process "${process.process_name}" deleted successfully`, 'success');
   }
 
   updateStats() {
@@ -1420,27 +1370,20 @@ class ProcessGraph {
   }
 
   async addProviderToAdd() {
-    console.log('🔵 [ADD] Button clicked');
-
     const select = document.getElementById('addNewProviderSelect');
     if (!select) {
-      console.error('❌ [ADD] Select element not found');
       uiManager.showNotification('No providers available to add', 'error');
       return;
     }
 
     const providerId = parseInt(select.value);
-    console.log('🔵 [ADD] Selected provider ID:', providerId);
-
     if (!providerId) {
-      console.warn('⚠️ [ADD] No provider selected');
       uiManager.showNotification('Please select a provider', 'error');
       return;
     }
 
     const provider = this.providers.find(p => p.provider_id === providerId);
     if (!provider) {
-      console.error('❌ [ADD] Provider not found');
       uiManager.showNotification('Provider not found', 'error');
       return;
     }
@@ -1448,7 +1391,6 @@ class ProcessGraph {
     const container = document.getElementById('addContractsContainer');
     const emptyState = document.getElementById('addContractsEmpty');
     if (!container) {
-      console.error('❌ [ADD] Container not found');
       return;
     }
 
@@ -1510,7 +1452,6 @@ class ProcessGraph {
     `;
 
     container.appendChild(contractElement);
-    console.log('✅ [ADD] Provider added:', provider.company_name);
 
     // Refresh provider select to exclude this provider
     this.populateAddProviderSelect();

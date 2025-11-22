@@ -104,43 +104,23 @@ class ContractsApp {
     }
 
     async loadProviders() {
-        try {
-            this.data.providers = await this.components.dataService.loadProviders();
-            this.components.tableRenderer.updateProviders(this.data.providers);
-        } catch (error) {
-            console.error('Error loading providers:', error);
-            throw error;
-        }
+        this.data.providers = await this.components.dataService.loadProviders();
+        this.components.tableRenderer.updateProviders(this.data.providers);
     }
 
     async loadItems() {
-        try {
-            this.data.items = await this.components.dataService.loadItems();
-            this.components.tableRenderer.updateItems(this.data.items);
-        } catch (error) {
-            console.error('Error loading items:', error);
-            throw error;
-        }
+        this.data.items = await this.components.dataService.loadItems();
+        this.components.tableRenderer.updateItems(this.data.items);
     }
 
     async loadOffers() {
-        try {
-            this.data.offers = await this.components.dataService.loadOffers();
-            this.components.tableRenderer.updateOffers(this.data.offers);
-        } catch (error) {
-            console.error('Error loading offers:', error);
-            throw error;
-        }
+        this.data.offers = await this.components.dataService.loadOffers();
+        this.components.tableRenderer.updateOffers(this.data.offers);
     }
 
     async loadProviderItems() {
-        try {
-            this.data.providerItems = await this.components.dataService.loadProviderItems();
-            this.components.tableRenderer.updateProviderItems(this.data.providerItems);
-        } catch (error) {
-            console.error('Error loading provider-item relationships:', error);
-            throw error;
-        }
+        this.data.providerItems = await this.components.dataService.loadProviderItems();
+        this.components.tableRenderer.updateProviderItems(this.data.providerItems);
     }
 
     async loadProcesses() {

@@ -148,11 +148,8 @@ async def update_provider(provider_id: int, provider: ProviderUpdate):
 async def delete_provider(provider_id: int):
     """Delete a provider."""
     crud = get_crud()
-    try:
-        crud.delete_provider(provider_id)
-        return JSONResponse(content={"message": "Provider deleted successfully"})
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    crud.delete_provider(provider_id)
+    return JSONResponse(content={"message": "Provider deleted successfully"})
 
 
 # Offer endpoints
@@ -484,11 +481,8 @@ async def update_process(process_id: int, process: ProcessUpdate):
 async def delete_process(process_id: int):
     """Delete a process."""
     crud = get_crud()
-    try:
-        crud.delete_process(process_id)
-        return JSONResponse(content={"message": "Process deleted successfully"})
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    crud.delete_process(process_id)
+    return JSONResponse(content={"message": "Process deleted successfully"})
 
 
 # Process graph endpoints
@@ -512,10 +506,8 @@ async def add_process_edge(
 ):
     """Add a connection between processes."""
     crud = get_crud()
-    success = crud.add_process_graph_edge(from_process_id, to_process_id)
-    if success:
-        return JSONResponse(content={"message": "Connection added successfully"})
-    return JSONResponse(content={"error": "Failed to add connection"}, status_code=400)
+    crud.add_process_graph_edge(from_process_id, to_process_id)
+    return JSONResponse(content={"message": "Connection added successfully"})
 
 
 @router.delete("/api/process-graph")

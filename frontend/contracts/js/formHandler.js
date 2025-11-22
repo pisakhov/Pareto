@@ -80,31 +80,22 @@ class FormHandler {
       status: formData.get("status"),
     };
 
-    try {
-      let response;
-      const editingProviderId = this.modalManager.getEditingProviderId();
+    const editingProviderId = this.modalManager.getEditingProviderId();
 
-      if (editingProviderId) {
-        response = await this.dataService.updateProvider(
-          editingProviderId,
-          providerData,
-        );
-      } else {
-        response = await this.dataService.createProvider(providerData);
-      }
-
-      this.modalManager.closeProviderModal();
-      await this.loadAllData();
-      this.uiManager.showNotification(
-        editingProviderId
-          ? "Provider updated successfully"
-          : "Provider created successfully",
-        "success",
-      );
-    } catch (error) {
-      console.error("Error saving provider:", error);
-      this.uiManager.showNotification(error.message, "error");
+    if (editingProviderId) {
+      await this.dataService.updateProvider(editingProviderId, providerData);
+    } else {
+      await this.dataService.createProvider(providerData);
     }
+
+    this.modalManager.closeProviderModal();
+    await this.loadAllData();
+    this.uiManager.showNotification(
+      editingProviderId
+        ? "Provider updated successfully"
+        : "Provider created successfully",
+      "success",
+    );
   }
 
   // Item form operations
@@ -119,14 +110,10 @@ class FormHandler {
     const offers = window.offerManager.getOfferData();
     const providerIds = offers.map(o => o.provider_id).filter((v, i, a) => a.indexOf(v) === i);
 
-    // Get process_id from the form element directly (not from FormData)
-    // This is necessary because disabled fields don't get submitted via FormData
     const processSelect = document.getElementById("itemProcess");
     let processId = null;
 
     if (processSelect) {
-      // If the field is disabled (locked in edit mode), get value from DOM
-      // Otherwise, get from FormData
       if (processSelect.disabled) {
         processId = parseInt(processSelect.value);
       } else {
@@ -142,67 +129,54 @@ class FormHandler {
       provider_ids: providerIds,
     };
 
-    try {
-      let response;
-      const editingItemId = this.modalManager.getEditingItemId();
+    const editingItemId = this.modalManager.getEditingItemId();
 
-      if (editingItemId) {
-        response = await this.dataService.updateItem(editingItemId, itemData);
-        await this.dataService.deleteOffersForItem(editingItemId);
-      } else {
-        response = await this.dataService.createItem(itemData);
-      }
-
-      const itemId = editingItemId || response.item_id;
-
-      for (const offer of offers) {
-        await this.dataService.createOffer({
-          item_id: itemId,
-          process_id: itemData.process_id,
-          ...offer
-        });
-      }
-
-      this.modalManager.closeItemModal();
-      await this.loadAllData();
-      this.uiManager.showNotification(
-        editingItemId ? "Item updated successfully" : "Item created successfully",
-        "success",
-      );
-    } catch (error) {
-      console.error("Error saving item:", error);
-      this.uiManager.showNotification(error.message, "error");
+    let response;
+    if (editingItemId) {
+      response = await this.dataService.updateItem(editingItemId, itemData);
+      await this.dataService.deleteOffersForItem(editingItemId);
+    } else {
+      response = await this.dataService.createItem(itemData);
     }
+
+    const itemId = editingItemId || response.item_id;
+
+    for (const offer of offers) {
+      await this.dataService.createOffer({
+        item_id: itemId,
+        process_id: itemData.process_id,
+        ...offer
+      });
+    }
+
+    this.modalManager.closeItemModal();
+    await this.loadAllData();
+    this.uiManager.showNotification(
+      editingItemId ? "Item updated successfully" : "Item created successfully",
+      "success",
+    );
   }
 
 
   // Edit form population
   async populateProviderForm(providerId) {
-    try {
-      const provider = await this.dataService.getProvider(providerId);
+    const provider = await this.dataService.getProvider(providerId);
 
-      document.getElementById("providerId").value = provider["provider_id"];
-      document.getElementById("companyName").value = provider["company_name"];
-      document.getElementById("details").value = provider["details"] || "";
+    document.getElementById("providerId").value = provider["provider_id"];
+    document.getElementById("companyName").value = provider["company_name"];
+    document.getElementById("details").value = provider["details"] || "";
 
-      // Update status toggle
-      const statusToggle = document.getElementById("providerStatusToggle");
-      const statusInput = document.getElementById("providerStatus");
-      const statusLabel = document.getElementById("providerStatusLabel");
+    const statusToggle = document.getElementById("providerStatusToggle");
+    const statusInput = document.getElementById("providerStatus");
+    const statusLabel = document.getElementById("providerStatusLabel");
 
-      if (statusToggle && statusInput && statusLabel) {
-        const isActive = provider["status"] === "active";
-        statusToggle.checked = isActive;
-        statusInput.value = provider["status"];
-        statusLabel.textContent = isActive ? "Active" : "Inactive";
-      }
+    const isActive = provider["status"] === "active";
+    statusToggle.checked = isActive;
+    statusInput.value = provider["status"];
+    statusLabel.textContent = isActive ? "Active" : "Inactive";
 
-      this.modalManager.setEditingProviderId(providerId);
-      this.modalManager.editProvider(providerId);
-    } catch (error) {
-      console.error("Error loading provider:", error);
-      this.uiManager.showNotification("Failed to load provider", "error");
-    }
+    this.modalManager.setEditingProviderId(providerId);
+    this.modalManager.editProvider(providerId);
   }
 
   async populateItemForm(itemId) {
@@ -262,20 +236,10 @@ class FormHandler {
     }
 
     this.setButtonLoading(button, "Deleting...");
-
-    try {
-      await deleteFn(entityId);
-      this.uiManager.showNotification(successMessage, "success");
-      await this.loadAllData();
-    } catch (error) {
-      console.error(`Error deleting ${entityType}:`, error);
-      this.uiManager.showNotification(
-        `Failed to delete ${entityType}: ${error.message}`,
-        "error",
-      );
-    } finally {
-      this.restoreButton(button, "Delete");
-    }
+    await deleteFn(entityId);
+    this.uiManager.showNotification(successMessage, "success");
+    await this.loadAllData();
+    this.restoreButton(button, "Delete");
   }
 
   // Delete operations

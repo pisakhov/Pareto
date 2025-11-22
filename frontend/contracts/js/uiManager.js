@@ -199,56 +199,6 @@ class UIManager {
     }
   }
 
-  // Data validation helpers
-  validateRequiredFields(formData, requiredFields) {
-    const missingFields = requiredFields.filter(
-      (field) => !formData.get(field) || formData.get(field).trim() === "",
-    );
-
-    if (missingFields.length > 0) {
-      this.showNotification(
-        `Please fill in all required fields: ${missingFields.join(", ")}`,
-        "error",
-      );
-      return false;
-    }
-    return true;
-  }
-
-  validateNumericValue(value, min = null, max = null, fieldName = "Value", requireInteger = false) {
-    const num = requireInteger ? parseInt(value) : parseFloat(value);
-
-    if (isNaN(num)) {
-      this.showNotification(
-        `${fieldName} must be a valid ${requireInteger ? "integer" : "number"}`,
-        "error"
-      );
-      return false;
-    }
-
-    if (min !== null && num < min) {
-      this.showNotification(`${fieldName} must be at least ${min}`, "error");
-      return false;
-    }
-
-    if (max !== null && num > max) {
-      this.showNotification(
-        `${fieldName} must be no more than ${max}`,
-        "error",
-      );
-      return false;
-    }
-
-    return true;
-  }
-
-  validateNumber(value, min = null, max = null, fieldName = "Value") {
-    return this.validateNumericValue(value, min, max, fieldName, false);
-  }
-
-  validateInteger(value, min = null, max = null, fieldName = "Value") {
-    return this.validateNumericValue(value, min, max, fieldName, true);
-  }
 
   // Utility to confirm actions
   confirmAction(message) {

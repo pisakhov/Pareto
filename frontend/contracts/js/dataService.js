@@ -7,47 +7,19 @@ class DataService {
   }
 
   async fetchWithErrorHandling(url, options = {}) {
-    try {
-      const response = await fetch(url, options);
+    const response = await fetch(url, options);
+    const contentLength = response.headers.get("Content-Length");
 
-      // Handle responses without a body
-      const contentLength = response.headers.get("Content-Length");
-      if (contentLength === "0" || response.status === 204) {
-        return null;
-      }
-
-      // Check status first to avoid "body stream already read" errors
-      if (!response.ok) {
-        let errorDetail = `Request failed with status ${response.status}`;
-        try {
-          const data = await response.json();
-          if (data && typeof data === 'object' && data.detail) {
-            errorDetail = data.detail;
-          }
-        } catch (e) {
-          try {
-            const text = await response.text();
-            if (text) {
-              errorDetail = text;
-            }
-          } catch (textError) {
-          }
-        }
-        throw new Error(errorDetail);
-      }
-
-      // Read the response body once - only if response is OK
-      let data;
-      try {
-        data = await response.json();
-      } catch (e) {
-        data = await response.text();
-      }
-
-      return data;
-    } catch (error) {
-      throw error;
+    if (contentLength === "0" || response.status === 204) {
+      return null;
     }
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.detail);
+    }
+
+    return response.json();
   }
 
   // Generic CRUD operations

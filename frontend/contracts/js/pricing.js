@@ -652,43 +652,36 @@ async function handleItemSubmit(event) {
     status: formData.get("status"),
   };
 
-  try {
-    let response;
-    if (editingItemId) {
-      // Update existing item
-      response = await fetch(`/api/items/${editingItemId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      });
-    } else {
-      // Create new item
-      response = await fetch("/api/items", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      });
-    }
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || "Failed to save item");
-    }
-
-    closeItemModal();
-    await loadData();
-    showNotification(
-      editingItemId ? "Item updated successfully" : "Item created successfully",
-      "success",
-    );
-  } catch (error) {
-    console.error("Error saving item:", error);
-    showNotification(error.message, "error");
+  let response;
+  if (editingItemId) {
+    response = await fetch(`/api/items/${editingItemId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+  } else {
+    response = await fetch("/api/items", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
   }
+
+  const error = await response.json();
+  if (!response.ok) {
+    throw new Error(error.detail || "Failed to save item");
+  }
+
+  closeItemModal();
+  await loadData();
+  showNotification(
+    editingItemId ? "Item updated successfully" : "Item created successfully",
+    "success",
+  );
 }
 
 async function handleProviderSubmit(event) {
@@ -701,45 +694,38 @@ async function handleProviderSubmit(event) {
     status: formData.get("status"),
   };
 
-  try {
-    let response;
-    if (editingProviderId) {
-      // Update existing provider
-      response = await fetch(`/api/providers/${editingProviderId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      });
-    } else {
-      // Create new provider
-      response = await fetch("/api/providers", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      });
-    }
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || "Failed to save provider");
-    }
-
-    closeProviderModal();
-    await loadData();
-    showNotification(
-      editingProviderId
-        ? "Provider updated successfully"
-        : "Provider created successfully",
-      "success",
-    );
-  } catch (error) {
-    console.error("Error saving provider:", error);
-    showNotification(error.message, "error");
+  let response;
+  if (editingProviderId) {
+    response = await fetch(`/api/providers/${editingProviderId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+  } else {
+    response = await fetch("/api/providers", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
   }
+
+  const error = await response.json();
+  if (!response.ok) {
+    throw new Error(error.detail || "Failed to save provider");
+  }
+
+  closeProviderModal();
+  await loadData();
+  showNotification(
+    editingProviderId
+      ? "Provider updated successfully"
+      : "Provider created successfully",
+    "success",
+  );
 }
 
 async function handleOfferSubmit(event) {
@@ -754,109 +740,81 @@ async function handleOfferSubmit(event) {
     status: formData.get("status"),
   };
 
-  try {
-    let response;
-    if (editingOfferId) {
-      // Update existing offer
-      response = await fetch(`/api/offers/${editingOfferId}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      });
-    } else {
-      // Create new offer
-      response = await fetch("/api/offers", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      });
-    }
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || "Failed to save offer");
-    }
-
-    closeOfferModal();
-    await loadData();
-    showNotification(
-      editingOfferId
-        ? "Offer updated successfully"
-        : "Offer created successfully",
-      "success",
-    );
-  } catch (error) {
-    console.error("Error saving offer:", error);
-    showNotification(error.message, "error");
+  let response;
+  if (editingOfferId) {
+    response = await fetch(`/api/offers/${editingOfferId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+  } else {
+    response = await fetch("/api/offers", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
   }
+
+  const error = await response.json();
+  if (!response.ok) {
+    throw new Error(error.detail || "Failed to save offer");
+  }
+
+  closeOfferModal();
+  await loadData();
+  showNotification(
+    editingOfferId
+      ? "Offer updated successfully"
+      : "Offer created successfully",
+    "success",
+  );
 }
 
 async function editProvider(providerId) {
-  try {
-    const response = await fetch(`/api/providers/${providerId}`);
-    if (!response.ok) throw new Error("Failed to load provider");
+  const response = await fetch(`/api/providers/${providerId}`);
+  const provider = await response.json();
 
-    const provider = await response.json();
+  document.getElementById("providerId").value = provider.provider_id;
+  document.getElementById("companyName").value = provider.company_name;
+  document.getElementById("details").value = provider.details;
+  document.getElementById("providerStatus").value = provider.status;
 
-    // Populate form
-    document.getElementById("providerId").value = provider.provider_id;
-    document.getElementById("companyName").value = provider.company_name;
-    document.getElementById("details").value = provider.details;
-    document.getElementById("providerStatus").value = provider.status;
-
-    // Update modal title
-    const titleElement = document.getElementById("providerModalTitle");
-    const textSpan = titleElement.querySelector('span[id$="TitleText"]');
-    if (textSpan) {
-      textSpan.textContent = "Edit Provider";
-    } else {
-      titleElement.textContent = "Edit Provider";
-    }
-
-    editingProviderId = providerId;
-
-    // Show modal
-    showProviderModal();
-  } catch (error) {
-    console.error("Error loading provider:", error);
-    showNotification("Failed to load provider", "error");
+  const titleElement = document.getElementById("providerModalTitle");
+  const textSpan = titleElement.querySelector('span[id$="TitleText"]');
+  if (textSpan) {
+    textSpan.textContent = "Edit Provider";
+  } else {
+    titleElement.textContent = "Edit Provider";
   }
+
+  editingProviderId = providerId;
+  showProviderModal();
 }
 
 async function editOffer(offerId) {
-  try {
-    const response = await fetch(`/api/offers/${offerId}`);
-    if (!response.ok) throw new Error("Failed to load offer");
+  const response = await fetch(`/api/offers/${offerId}`);
+  const offer = await response.json();
 
-    const offer = await response.json();
+  document.getElementById("offerId").value = offer.offer_id;
+  document.getElementById("itemSelect").value = offer.item_id;
+  document.getElementById("providerSelect").value = offer.provider_id;
+  document.getElementById("unitRange").value = offer.tier_number;
+  document.getElementById("pricePerUnit").value = offer.price_per_unit;
+  document.getElementById("offerStatus").value = offer.status;
 
-    // Populate form
-    document.getElementById("offerId").value = offer.offer_id;
-    document.getElementById("itemSelect").value = offer.item_id;
-    document.getElementById("providerSelect").value = offer.provider_id;
-    document.getElementById("unitRange").value = offer.tier_number;
-    document.getElementById("pricePerUnit").value = offer.price_per_unit;
-    document.getElementById("offerStatus").value = offer.status;
+  document.getElementById("offerModalTitle").textContent = "Edit Offer";
 
-    // Update modal title
-    document.getElementById("offerModalTitle").textContent = "Edit Offer";
+  editingOfferId = offerId;
 
-    editingOfferId = offerId;
-
-    // Update selects and show modal
-    updateItemSelect();
-    updateProviderSelect();
-    const modal = document.getElementById("offerModal");
-    modal.classList.remove("hidden");
-    modal.classList.add("flex");
-  } catch (error) {
-    console.error("Error loading offer:", error);
-    showNotification("Failed to load offer", "error");
-  }
+  updateItemSelect();
+  updateProviderSelect();
+  const modal = document.getElementById("offerModal");
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
 }
 
 async function deleteProvider(providerId, button) {
@@ -868,44 +826,31 @@ async function deleteProvider(providerId, button) {
     return;
   }
 
-  // Show loading state
   const deleteButton = button;
   const originalText = deleteButton.textContent;
   deleteButton.textContent = "Deleting...";
   deleteButton.disabled = true;
 
-  try {
-    const response = await fetch(`/api/providers/${providerId}`, {
-      method: "DELETE",
-    });
+  const response = await fetch(`/api/providers/${providerId}`, {
+    method: "DELETE",
+  });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || "Failed to delete provider");
-    }
-
-    // Show success notification immediately
-    showNotification("Provider deleted successfully", "success");
-
-    // Remove provider from local data immediately to avoid race conditions
-    providers = providers.filter((p) => p.provider_id !== providerId);
-    renderProviders();
-    updateProviderSelect();
-    updateCounts();
-
-    // Reload data in background silently
-    loadData().catch((loadError) => {
-      console.warn("Data reload failed after delete:", loadError);
-      // Silently fall back to local data if reload fails
-    });
-  } catch (error) {
-    console.error("Error deleting provider:", error);
-    showNotification("Failed to delete provider: " + error.message, "error");
-  } finally {
-    // Restore button state
-    deleteButton.textContent = originalText;
-    deleteButton.disabled = false;
+  const error = await response.json();
+  if (!response.ok) {
+    throw new Error(error.detail || "Failed to delete provider");
   }
+
+  showNotification("Provider deleted successfully", "success");
+
+  providers = providers.filter((p) => p.provider_id !== providerId);
+  renderProviders();
+  updateProviderSelect();
+  updateCounts();
+
+  loadData();
+
+  deleteButton.textContent = originalText;
+  deleteButton.disabled = false;
 }
 
 async function deleteOffer(offerId, button) {
@@ -913,44 +858,31 @@ async function deleteOffer(offerId, button) {
     return;
   }
 
-  // Show loading state
   const deleteButton = button;
   const originalText = deleteButton.textContent;
   deleteButton.textContent = "Deleting...";
   deleteButton.disabled = true;
 
-  try {
-    const response = await fetch(`/api/offers/${offerId}`, {
-      method: "DELETE",
-    });
+  const response = await fetch(`/api/offers/${offerId}`, {
+    method: "DELETE",
+  });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || "Failed to delete offer");
-    }
-
-    // Show success notification immediately
-    showNotification("Offer deleted successfully", "success");
-
-    // Remove offer from local data immediately to avoid race conditions
-    offers = offers.filter((o) => o.offer_id !== offerId);
-    renderOffers();
-    renderAllOffers();
-    updateCounts();
-
-    // Reload data in background silently
-    loadData().catch((loadError) => {
-      console.warn("Data reload failed after delete:", loadError);
-      // Silently fall back to local data if reload fails
-    });
-  } catch (error) {
-    console.error("Error deleting offer:", error);
-    showNotification("Failed to delete offer: " + error.message, "error");
-  } finally {
-    // Restore button state
-    deleteButton.textContent = originalText;
-    deleteButton.disabled = false;
+  const error = await response.json();
+  if (!response.ok) {
+    throw new Error(error.detail || "Failed to delete offer");
   }
+
+  showNotification("Offer deleted successfully", "success");
+
+  offers = offers.filter((o) => o.offer_id !== offerId);
+  renderOffers();
+  renderAllOffers();
+  updateCounts();
+
+  loadData();
+
+  deleteButton.textContent = originalText;
+  deleteButton.disabled = false;
 }
 
 function showNotification(message, type = "info") {
@@ -989,35 +921,24 @@ function showNotification(message, type = "info") {
 
 // Item CRUD functions
 async function editItem(itemId) {
-  try {
-    const response = await fetch(`/api/items/${itemId}`);
-    if (!response.ok) throw new Error("Failed to load item");
+  const response = await fetch(`/api/items/${itemId}`);
+  const item = await response.json();
 
-    const item = await response.json();
+  document.getElementById("itemId").value = item.item_id;
+  document.getElementById("itemName").value = item.item_name;
+  document.getElementById("itemDescription").value = item.description;
+  document.getElementById("itemStatus").value = item.status;
 
-    // Populate form
-    document.getElementById("itemId").value = item.item_id;
-    document.getElementById("itemName").value = item.item_name;
-    document.getElementById("itemDescription").value = item.description;
-    document.getElementById("itemStatus").value = item.status;
-
-    // Update modal title
-    const itemTitleElement = document.getElementById("itemModalTitle");
-    const itemTextSpan = itemTitleElement.querySelector('span[id$="TitleText"]');
-    if (itemTextSpan) {
-      itemTextSpan.textContent = "Edit Item";
-    } else {
-      itemTitleElement.textContent = "Edit Item";
-    }
-
-    editingItemId = itemId;
-
-    // Show modal
-    showItemModal();
-  } catch (error) {
-    console.error("Error loading item:", error);
-    showNotification("Failed to load item", "error");
+  const itemTitleElement = document.getElementById("itemModalTitle");
+  const itemTextSpan = itemTitleElement.querySelector('span[id$="TitleText"]');
+  if (itemTextSpan) {
+    itemTextSpan.textContent = "Edit Item";
+  } else {
+    itemTitleElement.textContent = "Edit Item";
   }
+
+  editingItemId = itemId;
+  showItemModal();
 }
 
 async function deleteItem(itemId, button) {
@@ -1029,49 +950,36 @@ async function deleteItem(itemId, button) {
     return;
   }
 
-  // Show loading state
   const deleteButton = button;
   const originalText = deleteButton.textContent;
   deleteButton.textContent = "Deleting...";
   deleteButton.disabled = true;
 
-  try {
-    const response = await fetch(`/api/items/${itemId}`, {
-      method: "DELETE",
-    });
+  const response = await fetch(`/api/items/${itemId}`, {
+    method: "DELETE",
+  });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || "Failed to delete item");
-    }
-
-    // Show success notification immediately
-    showNotification("Item deleted successfully", "success");
-
-    // Remove item from local data immediately to avoid race conditions
-    items = items.filter((i) => i.item_id !== itemId);
-    offers = offers.filter((o) => o.item_id !== itemId);
-    providerItems = providerItems.filter((pi) => pi.item_id !== itemId);
-    renderItems();
-    renderOffers();
-    renderAllOffers();
-    renderRelationshipMatrix();
-    updateItemSelect();
-    updateCounts();
-
-    // Reload data in background silently
-    loadData().catch((loadError) => {
-      console.warn("Data reload failed after delete:", loadError);
-      // Silently fall back to local data if reload fails
-    });
-  } catch (error) {
-    console.error("Error deleting item:", error);
-    showNotification("Failed to delete item: " + error.message, "error");
-  } finally {
-    // Restore button state
-    deleteButton.textContent = originalText;
-    deleteButton.disabled = false;
+  const error = await response.json();
+  if (!response.ok) {
+    throw new Error(error.detail || "Failed to delete item");
   }
+
+  showNotification("Item deleted successfully", "success");
+
+  items = items.filter((i) => i.item_id !== itemId);
+  offers = offers.filter((o) => o.item_id !== itemId);
+  providerItems = providerItems.filter((pi) => pi.item_id !== itemId);
+  renderItems();
+  renderOffers();
+  renderAllOffers();
+  renderRelationshipMatrix();
+  updateItemSelect();
+  updateCounts();
+
+  loadData();
+
+  deleteButton.textContent = originalText;
+  deleteButton.disabled = false;
 }
 
 // Relationship management functions
@@ -1088,25 +996,20 @@ async function saveRelationships() {
     }
   });
 
-  try {
-    const response = await fetch("/api/provider-items/bulk", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ relationships }),
-    });
+  const response = await fetch("/api/provider-items/bulk", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ relationships }),
+  });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || "Failed to save relationships");
-    }
-
-    closeRelationshipModal();
-    await loadData();
-    showNotification("Relationships saved successfully", "success");
-  } catch (error) {
-    console.error("Error saving relationships:", error);
-    showNotification(error.message, "error");
+  const error = await response.json();
+  if (!response.ok) {
+    throw new Error(error.detail || "Failed to save relationships");
   }
+
+  closeRelationshipModal();
+  await loadData();
+  showNotification("Relationships saved successfully", "success");
 }

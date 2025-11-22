@@ -600,12 +600,8 @@ class TableRenderer {
     const tierData = {};
     await Promise.all(
       this.data.providers.map(async (provider) => {
-        try {
-          const response = await fetch(`/api/providers/${provider.provider_id}/tier-thresholds`);
-          tierData[provider.provider_id] = await response.json();
-        } catch (error) {
-          tierData[provider.provider_id] = { thresholds: {}, base_prices: {} };
-        }
+        const response = await fetch(`/api/providers/${provider.provider_id}/tier-thresholds`);
+        tierData[provider.provider_id] = await response.json();
       })
     );
     return tierData;
