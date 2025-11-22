@@ -283,6 +283,12 @@ class DataService {
     );
   }
 
+  async loadContractsForProcessId(processId) {
+    return this.fetchWithErrorHandling(
+      `${this.basePath}/contracts/by-process/${processId}`
+    );
+  }
+
   async createContract(contractData) {
     return this.create("contracts", contractData);
   }

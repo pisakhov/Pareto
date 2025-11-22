@@ -308,8 +308,8 @@ class ProcessGraph {
 
       const processItem = document.createElement('div');
       processItem.className = `bg-card border rounded-lg p-3 transition-all cursor-pointer ${isSelected
-          ? 'border-blue-500 shadow-lg shadow-blue-500/20'
-          : 'border-border hover:shadow-md'
+        ? 'border-blue-500 shadow-lg shadow-blue-500/20'
+        : 'border-border hover:shadow-md'
         }`;
 
       // Get provider name from the providers array
@@ -1733,7 +1733,7 @@ class ProcessGraph {
 
     // Fetch contracts for this process
     try {
-      const contracts = await dataService.loadContractsForProcess(process.process_name);
+      const contracts = await dataService.loadContractsForProcessId(process.process_id);
 
       // Clear existing contracts
       container.innerHTML = '';
@@ -1756,10 +1756,8 @@ class ProcessGraph {
         }
       }
 
-      // Only show provider selection if we have contracts to work with
-      if (contracts.length > 0) {
-        await this.populateEditProviderSelect();
-      }
+      // Always populate provider selection so users can add contracts
+      await this.populateEditProviderSelect();
     } catch (error) {
       console.error('Error loading contracts:', error);
       container.innerHTML = `
@@ -1840,7 +1838,19 @@ class ProcessGraph {
 
   async populateEditProviderSelect() {
     const providerSelectSection = document.getElementById('editProviderSelectSection');
-    if (!providerSelectSection || !this.providers) return;
+    if (!providerSelectSection) return;
+
+    // Ensure providers are loaded
+    if (!this.providers || this.providers.length === 0) {
+      try {
+        this.providers = await dataService.loadProviders();
+      } catch (e) {
+        console.error("Failed to load providers", e);
+        this.providers = [];
+      }
+    }
+
+    if (!this.providers) this.providers = [];
 
     const container = document.getElementById('editContractsContainer');
 
@@ -1864,14 +1874,24 @@ class ProcessGraph {
     // Clear and update the provider selection section
     providerSelectSection.innerHTML = '';
 
-    if (availableProviders.length === 0) {
+    if (this.providers.length === 0) {
+      // No providers in the system
+      providerSelectSection.innerHTML = `
+        <div class="flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+          <span class="font-medium">No active providers found in the system</span>
+        </div>
+      `;
+    } else if (availableProviders.length === 0) {
       // Show nice message when all providers have contracts
       providerSelectSection.innerHTML = `
         <div class="flex items-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
           </svg>
-          <span class="font-medium">All providers already have contracts for this process</span>
+          <span class="font-medium">All active providers already have contracts for this process</span>
         </div>
       `;
     } else {

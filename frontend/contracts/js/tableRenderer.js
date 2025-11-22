@@ -230,6 +230,47 @@ class TableRenderer {
     });
   }
 
+  // Filter items based on search query
+  filterItems(query) {
+    const tbody = document.getElementById("itemsTableBody");
+    if (!tbody) return;
+
+    const searchQuery = query.toLowerCase().trim();
+    const rows = tbody.querySelectorAll("tr");
+
+    if (!searchQuery) {
+      // Show all rows if search is empty
+      rows.forEach(row => {
+        row.style.display = "";
+      });
+      return;
+    }
+
+    // Get process info for filtering
+    const itemProcessMap = this.getItemProcessMap();
+
+    rows.forEach(row => {
+      // Get the item data from the row
+      const itemNameCell = row.querySelector("td:first-child");
+      if (!itemNameCell) return;
+
+      const itemName = itemNameCell.querySelector("span")?.textContent?.toLowerCase() || "";
+      const itemDescription = itemNameCell.querySelectorAll("span")[1]?.textContent?.toLowerCase() || "";
+
+      // Get process name from the second column
+      const processCell = row.querySelector("td:nth-child(2)");
+      const processName = processCell?.textContent?.toLowerCase() || "";
+
+      // Check if any field matches the search query
+      const matches =
+        itemName.includes(searchQuery) ||
+        itemDescription.includes(searchQuery) ||
+        processName.includes(searchQuery);
+
+      row.style.display = matches ? "" : "none";
+    });
+  }
+
   // Helper method to get process info for each item
   getItemProcessMap() {
     const map = new Map();
@@ -329,9 +370,6 @@ class TableRenderer {
             <h3 class="text-lg font-semibold text-foreground mb-2">No contracts yet</h3>
             <p class="text-sm text-muted-foreground mb-6">Create a process with contracts to get started</p>
             <div class="flex justify-center gap-3">
-              <button onclick="showProcessModal()" class="inline-flex items-center px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors">
-                Add Contract
-              </button>
             </div>
           </div>
         `;

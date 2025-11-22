@@ -148,8 +148,11 @@ async def update_provider(provider_id: int, provider: ProviderUpdate):
 async def delete_provider(provider_id: int):
     """Delete a provider."""
     crud = get_crud()
-    crud.delete_provider(provider_id)
-    return JSONResponse(content={"message": "Provider deleted successfully"})
+    try:
+        crud.delete_provider(provider_id)
+        return JSONResponse(content={"message": "Provider deleted successfully"})
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # Offer endpoints
@@ -481,8 +484,11 @@ async def update_process(process_id: int, process: ProcessUpdate):
 async def delete_process(process_id: int):
     """Delete a process."""
     crud = get_crud()
-    crud.delete_process(process_id)
-    return JSONResponse(content={"message": "Process deleted successfully"})
+    try:
+        crud.delete_process(process_id)
+        return JSONResponse(content={"message": "Process deleted successfully"})
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # Process graph endpoints
@@ -706,6 +712,14 @@ async def get_contracts_for_process(process_name: str):
         all_contracts.extend(contracts)
 
     return JSONResponse(content=all_contracts)
+
+
+@router.get("/api/contracts/by-process/{process_id}")
+async def get_contracts_by_process_id(process_id: int):
+    """Get all contracts for a specific process ID."""
+    crud = get_crud()
+    contracts = crud.get_contracts_for_process(process_id)
+    return JSONResponse(content=contracts)
 
 
 @router.post("/api/contracts")

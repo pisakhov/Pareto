@@ -179,7 +179,7 @@ class ModalManager {
     const itemOffers = offers.filter(offer => offer.item_id === itemId);
     const processId = itemOffers.length > 0 ? itemOffers[0].process_id : null;
 
-    console.log('[ModalManager] Editing item:', itemId, 'locking to process:', processId);
+
 
     // Load processes first
     await this.loadProcessesIntoDropdown();
@@ -188,16 +188,11 @@ class ModalManager {
     if (processId) {
       const processSelect = document.getElementById("itemProcess");
       if (processSelect) {
-        console.log('[ModalManager] Setting value to:', processId, 'Available options:', Array.from(processSelect.options).map(opt => `${opt.value}:${opt.text}`));
-
         processSelect.value = processId;
-        console.log('[ModalManager] After set - selectedIndex:', processSelect.selectedIndex, 'value:', processSelect.value);
-        console.log('[ModalManager] Selected option text:', processSelect.options[processSelect.selectedIndex]?.text);
 
         // Double-check the value was set correctly
         setTimeout(() => {
-          console.log('[ModalManager] Final check - value:', processSelect.value, 'selectedIndex:', processSelect.selectedIndex);
-          console.log('[ModalManager] Final check - Display text:', processSelect.options[processSelect.selectedIndex]?.text);
+          // Value check removed
         }, 10);
       }
     }
@@ -267,12 +262,10 @@ class ModalManager {
 
   async loadProcessesIntoDropdown() {
     const processSelect = document.getElementById("itemProcess");
-    console.log('[ModalManager] Before loading - current value:', processSelect.value);
 
     processSelect.innerHTML = '<option value="">Select a process</option>';
 
     const processes = await window.contractsApp.getProcesses();
-    console.log('[ModalManager] Available processes:', processes.map(p => ({ id: p.process_id, name: p.process_name })));
 
     processes.forEach(process => {
       const option = document.createElement("option");
@@ -281,8 +274,7 @@ class ModalManager {
       processSelect.appendChild(option);
     });
 
-    console.log('[ModalManager] After loading - innerHTML:', processSelect.innerHTML);
-    console.log('[ModalManager] After loading - selectedIndex:', processSelect.selectedIndex, 'value:', processSelect.value);
+
   }
 
 

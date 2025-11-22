@@ -106,8 +106,15 @@ class CRUDOperations(DatabaseSchema):
 
     def delete_provider(self, provider_id: int) -> bool:
         conn = self._get_connection()
+        
+        # Check for assigned items
+        item_count = conn.execute("SELECT COUNT(*) FROM provider_items WHERE provider_id = ?", [provider_id]).fetchone()[0]
+        if item_count > 0:
+            raise ValueError("Provider has assigned items. Please remove item assignments first.")
+
         conn.execute("DELETE FROM offers WHERE provider_id = ?", [provider_id])
         conn.execute("DELETE FROM provider_items WHERE provider_id = ?", [provider_id])
+        conn.execute("DELETE FROM contracts WHERE provider_id = ?", [provider_id])
         result = conn.execute("DELETE FROM providers WHERE provider_id = ?", [provider_id])
         return result.rowcount > 0
 
@@ -830,7 +837,19 @@ class CRUDOperations(DatabaseSchema):
 
     def delete_process(self, process_id: int) -> bool:
         conn = self._get_connection()
+        
+        # Check for assigned providers (Contracts) - Only count those with valid providers
+        contract_count = conn.execute("""
+            SELECT COUNT(*) 
+            FROM contracts c 
+            JOIN providers p ON c.provider_id = p.provider_id 
+            WHERE c.process_id = ?
+        """, [process_id]).fetchone()[0]
+        if contract_count > 0:
+            raise ValueError("Process has assigned providers. Please remove provider assignments first.")
+
         conn.execute("DELETE FROM process_providers WHERE process_id = ?", [process_id])
+        conn.execute("DELETE FROM contracts WHERE process_id = ?", [process_id])
         conn.execute("DELETE FROM process_items WHERE process_id = ?", [process_id])
         conn.execute("DELETE FROM process_graph WHERE from_process_id = ? OR to_process_id = ?", [process_id, process_id])
         conn.execute("DELETE FROM offers WHERE process_id = ?", [process_id])

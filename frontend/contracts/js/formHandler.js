@@ -212,8 +212,7 @@ class FormHandler {
     const itemOffers = offers.filter(offer => offer.item_id === itemId);
     const processId = itemOffers.length > 0 ? itemOffers[0].process_id : null;
 
-    console.log('[FormHandler] Editing item:', itemId, 'Process ID:', processId);
-    console.log('[FormHandler] Item details:', item);
+
 
     document.getElementById("itemId").value = item["item_id"];
     document.getElementById("itemName").value = item["item_name"];
@@ -250,7 +249,7 @@ class FormHandler {
           processLabel.innerHTML = 'Process * <span class="text-xs text-amber-600 ml-1">(locked)</span>';
         }
 
-        console.log('[FormHandler] Process field disabled - value:', processSelect.value);
+
       }, 50);
     }
   }
