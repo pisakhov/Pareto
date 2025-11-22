@@ -298,10 +298,6 @@ class TableRenderer {
     // Build map of provider IDs who offer this item
     const providerIdsForItem = new Set(itemProviders.map(pi => pi.provider_id));
 
-    console.log('[DEBUG] === createItemRow for item:', item.item_name);
-    console.log('[DEBUG] itemProviders (filtered by item_id):', itemProviders);
-    console.log('[DEBUG] providerIdsForItem:', Array.from(providerIdsForItem));
-
     // Count tiers per provider for THIS specific item only
     const providerTierCounts = new Map();
     this.data.offers
@@ -310,8 +306,6 @@ class TableRenderer {
         const count = providerTierCounts.get(offer.provider_id) || 0;
         providerTierCounts.set(offer.provider_id, count + 1);
       });
-
-    console.log('[DEBUG] providerTierCounts:', Object.fromEntries(providerTierCounts));
 
     const offerCount = this.data.offers.filter(
       (o) => o.item_id === item.item_id,
@@ -337,8 +331,6 @@ class TableRenderer {
     providerIdsForItem.forEach(providerId => {
       const provider = this.data.providers.find(p => p.provider_id === providerId);
       const tierCount = providerTierCounts.get(providerId) || 0;
-
-      console.log(`[DEBUG] Provider ${provider.company_name}: tierCount = ${tierCount}`);
 
       if (provider) {
         providerList.push(`${provider.company_name}: ${tierCount} ${tierCount === 1 ? 'tier' : 'tiers'}`);
@@ -368,9 +360,7 @@ class TableRenderer {
                 <span class="text-xs font-medium px-3 py-1.5 rounded-full bg-slate-100 text-slate-700">${processName}</span>
             </td>
             <td class="px-8 py-4">
-                <div class="flex flex-col gap-0.5">
-                    ${providersHtml}
-                </div>
+                ${providersHtml}
             </td>
             <td class="px-8 py-4 whitespace-nowrap text-right">
                 ${this.createItemActionButtons(
