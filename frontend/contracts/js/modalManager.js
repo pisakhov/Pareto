@@ -100,6 +100,12 @@ class ModalManager {
     this.editingStates.itemId = null;
     this.updateModalTitle("itemModalTitle", "Add Item");
 
+    // Hide delete button when adding a new item
+    const deleteBtn = document.getElementById("itemDeleteBtn");
+    if (deleteBtn) {
+      deleteBtn.classList.add("hidden");
+    }
+
     await this.loadProcessesIntoDropdown();
 
     const allProviders = window.contractsApp.getProviders();
@@ -153,6 +159,12 @@ class ModalManager {
   closeItemModal() {
     this.hideModal(this.modals.item);
 
+    // Hide delete button when closing modal
+    const deleteBtn = document.getElementById("itemDeleteBtn");
+    if (deleteBtn) {
+      deleteBtn.classList.add("hidden");
+    }
+
     if (window.offerManager) {
       window.offerManager.reset();
     }
@@ -173,6 +185,12 @@ class ModalManager {
   async editItem(itemId) {
     this.editingStates.itemId = itemId;
     this.updateModalTitle("itemModalTitle", "Edit Item");
+
+    // Show delete button when editing an existing item
+    const deleteBtn = document.getElementById("itemDeleteBtn");
+    if (deleteBtn) {
+      deleteBtn.classList.remove("hidden");
+    }
 
     // Get the process ID from offers before loading dropdown
     const offers = await window.dataService.loadOffers();

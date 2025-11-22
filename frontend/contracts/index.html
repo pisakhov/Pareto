@@ -224,15 +224,21 @@
                     </div>
                 </div>
             </div>
-            <div class="flex justify-end space-x-3 p-6 border-t border-border bg-card flex-shrink-0">
-                <button type="button" onclick="window.modalManager.closeItemModal()"
-                    class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
-                    Cancel
+            <div class="flex justify-between items-center p-6 border-t border-border bg-card flex-shrink-0">
+                <button type="button" id="itemDeleteBtn" onclick="window.formHandler.deleteItemFromModal()"
+                    class="hidden inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800 h-10 px-4 py-2">
+                    Delete
                 </button>
-                <button type="submit"
-                    class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-slate-600 text-white hover:bg-slate-600/90">
-                    Save Item
-                </button>
+                <div class="flex space-x-3">
+                    <button type="button" onclick="window.modalManager.closeItemModal()"
+                        class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                        class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-slate-600 text-white hover:bg-slate-600/90">
+                        Save Item
+                    </button>
+                </div>
             </div>
         </form>
     </div>

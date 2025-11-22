@@ -232,7 +232,7 @@ class FormHandler {
   // Generic delete operation
   async deleteEntity(entityId, button, entityType, deleteFn, confirmMessage, successMessage) {
     if (!confirm(confirmMessage)) {
-      return;
+      return false;
     }
 
     this.setButtonLoading(button, "Deleting...");
@@ -240,6 +240,7 @@ class FormHandler {
     this.uiManager.showNotification(successMessage, "success");
     await this.loadAllData();
     this.restoreButton(button, "Delete");
+    return true;
   }
 
   // Delete operations
@@ -263,6 +264,19 @@ class FormHandler {
       "Are you sure you want to delete this item? This will also delete all associated offers and relationships.",
       "Item deleted successfully"
     );
+  }
+
+  async deleteItemFromModal() {
+    const itemId = document.getElementById("itemId").value;
+    if (!itemId) return;
+
+    const deleteButton = document.getElementById("itemDeleteBtn");
+    const result = await this.deleteItem(itemId, deleteButton);
+
+    if (result) {
+      // Close modal on successful delete
+      this.modalManager.closeItemModal();
+    }
   }
 
   // Helper functions
