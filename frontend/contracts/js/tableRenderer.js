@@ -716,7 +716,7 @@ class TableRenderer {
       allTiers.sort((a, b) => a.tier_number - b.tier_number);
 
       html += `
-              <tr class="hover:bg-secondary/20">
+              <tr class="hover:bg-secondary/20 border-t-2 border-slate-300 first:border-t-0">
                 <td class="border border-border px-0 py-4 font-medium bg-secondary/30 align-middle">
                   <div class="h-full flex items-center justify-center">
                     <div class="font-semibold text-foreground -rotate-90 whitespace-nowrap text-sm tracking-wide">${provider.provider_name}</div>
@@ -732,14 +732,13 @@ class TableRenderer {
         const isSelected = tier.is_selected;
         html += `
           <div
-            class="rounded-md border border-border ${isSelected ? 'bg-blue-50 border-blue-200' : 'bg-card hover:bg-accent'} p-3 cursor-pointer transition-colors"
+            class="rounded-md border border-border ${isSelected ? 'bg-green-100 border-green-300' : 'bg-card hover:bg-accent'} p-3 cursor-pointer transition-colors"
             onclick="window.tableRenderer.selectTier(${tier.contract_tier_id}, ${tier.tier_number}, '${provider.provider_name}', ${provider.provider_id})"
             title="Click to select this tier"
           >
             <div class="text-sm font-medium text-foreground">
               <span class="text-blue-600 font-semibold">T${tier.tier_number}:</span>
-              <span class="text-foreground"> &lt; ${tier.threshold_units.toLocaleString()} units</span>
-              <span class="text-muted-foreground"> - ${tier.contract_name}</span>
+              <span class="text-foreground"> &lt; ${tier.threshold_units.toLocaleString()}</span>
             </div>
           </div>
         `;
@@ -780,7 +779,7 @@ class TableRenderer {
 
             html += `
               <div
-                class="rounded-md border ${isSelected ? 'bg-blue-50 border-blue-200' : 'bg-card border-border hover:bg-accent'} p-3 transition-colors cursor-pointer"
+                class="rounded-md border ${isSelected ? 'bg-green-100 border-green-300' : 'bg-card border-border hover:bg-accent'} p-3 transition-colors cursor-pointer"
                 onclick="window.formHandler.populateItemForm(${item.item_id})"
                 title="Click to edit item"
               >
@@ -807,7 +806,7 @@ class TableRenderer {
           allTiers.forEach(tier => {
             const isSelected = tier.is_selected;
             html += `
-              <div class="rounded-md border ${isSelected ? 'bg-blue-50 border-blue-200' : 'bg-card border-border hover:bg-accent'} p-3 transition-colors cursor-pointer" onclick="window.formHandler.populateItemForm(${item.item_id})" title="Click to edit item">
+              <div class="rounded-md border ${isSelected ? 'bg-green-100 border-green-300' : 'bg-card border-border hover:bg-accent'} p-3 transition-colors cursor-pointer" onclick="window.formHandler.populateItemForm(${item.item_id})" title="Click to edit item">
                 <div class="text-sm font-medium text-foreground">
                   <span class="text-blue-600 font-semibold">T${tier.tier_number}:</span>
                   <span class="text-muted-foreground"> —</span>
