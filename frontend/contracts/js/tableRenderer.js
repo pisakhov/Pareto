@@ -330,8 +330,10 @@ class TableRenderer {
 
     const isActive = item.status === 'active';
 
-    // Build providers list HTML
+    // Build providers list HTML - horizontal compact format
     let providersHtml = '';
+    const providerList = [];
+
     providerIdsForItem.forEach(providerId => {
       const provider = this.data.providers.find(p => p.provider_id === providerId);
       const tierCount = providerTierCounts.get(providerId) || 0;
@@ -339,14 +341,13 @@ class TableRenderer {
       console.log(`[DEBUG] Provider ${provider.company_name}: tierCount = ${tierCount}`);
 
       if (provider) {
-        providersHtml += `
-          <div class="text-sm text-slate-900">${provider.company_name}</div>
-          <div class="text-xs text-slate-500 ml-4">└ ${tierCount} ${tierCount === 1 ? 'tier' : 'tiers'}</div>
-        `;
+        providerList.push(`${provider.company_name}: ${tierCount} ${tierCount === 1 ? 'tier' : 'tiers'}`);
       }
     });
 
-    if (!providersHtml) {
+    if (providerList.length > 0) {
+      providersHtml = `<span class="text-sm text-slate-900">${providerList.join(' • ')}</span>`;
+    } else {
       providersHtml = '<span class="text-xs text-slate-500">No providers</span>';
     }
 
