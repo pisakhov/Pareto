@@ -69,9 +69,8 @@ class ProcessGraph {
   setupResizeHandle() {
     const resizeHandle = document.getElementById('resizeHandle');
     const leftSidebar = document.getElementById('leftSidebar');
-    const canvasContainer = document.getElementById('canvasContainer');
 
-    if (!resizeHandle || !leftSidebar || !canvasContainer) return;
+    if (!resizeHandle || !leftSidebar) return;
 
     let isResizing = false;
     let startX = 0;
@@ -87,24 +86,19 @@ class ProcessGraph {
     };
 
     const doResize = (e) => {
-      if (!isResizing) return;
-
       const deltaX = e.clientX - startX;
       let newWidth = startSidebarWidth + deltaX;
 
-      // Calculate min/max as 10% and 90% of viewport
       const viewportWidth = window.innerWidth;
-      const minWidth = viewportWidth * 0.10;  // 10% of viewport
-      const maxWidth = viewportWidth * 0.90;  // 90% of viewport
+      const minWidth = viewportWidth * 0.10;
+      const maxWidth = viewportWidth * 0.90;
 
-      // Constrain width
       newWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
 
       leftSidebar.style.width = `${newWidth}px`;
     };
 
     const stopResize = () => {
-      if (!isResizing) return;
       isResizing = false;
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
@@ -114,7 +108,6 @@ class ProcessGraph {
     document.addEventListener('mousemove', doResize);
     document.addEventListener('mouseup', stopResize);
 
-    // Touch support
     resizeHandle.addEventListener('touchstart', (e) => {
       const touch = e.touches[0];
       startResize(touch);
@@ -1243,10 +1236,6 @@ class ProcessGraph {
     }
   }
 
-  createNewTemplateFromAdd() {
-    // No longer needed - using simple text input
-  }
-
   addTierToAdd() {
     const container = document.getElementById('addTiersContainer');
     if (!container) return;
@@ -1571,10 +1560,6 @@ class ProcessGraph {
     return contracts.length;
   }
 
-  createNewTemplateFromEdit() {
-    // No longer needed - using simple text input
-  }
-
   addContractTierRow(contractId, tierNumber = null, threshold = 0) {
     const container = document.getElementById(`editContractTiersContainer-${contractId}`);
     if (!container) return;
@@ -1854,10 +1839,6 @@ class ProcessGraph {
   }
 
   async removeContractFromEdit(contractId) {
-    if (!confirm('Are you sure you want to remove this contract?')) {
-      return;
-    }
-
     await dataService.deleteContract(contractId);
     uiManager.showNotification('Contract removed successfully', 'success');
 
@@ -1881,11 +1862,6 @@ class ProcessGraph {
   handleEditProcess(event, processId) {
     event.preventDefault();
     event.stopPropagation();
-
-    if (!this) {
-      alert('Error: Process editor not initialized');
-      return false;
-    }
 
     this.editProcess(processId);
     return false;

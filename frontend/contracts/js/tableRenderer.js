@@ -850,80 +850,51 @@ class TableRenderer {
 
   // Handle tier selection (only one tier per provider)
   async selectTier(contractTierId, tierNumber, providerName, providerId) {
-    // Show confirmation dialog
-    const confirmed = confirm(
-      `Select Tier ${tierNumber} for ${providerName}?\n\n` +
-      `This will change the pricing tier for this provider.`
-    );
-
-    if (!confirmed) {
-      return; // User cancelled
+    if (window.uiManager) {
+      window.uiManager.showNotification(`Selecting Tier ${tierNumber} for ${providerName}...`, 'info');
     }
 
-    try {
-      // Show loading state
-      if (window.uiManager) {
-        window.uiManager.showNotification(`Selecting Tier ${tierNumber} for ${providerName}...`, 'info');
-      }
+    const providerData = this.data.providerContracts[providerId];
+    if (!providerData) {
+      return;
+    }
 
-      // Get all tier IDs for this provider from stored data
-      const providerData = this.data.providerContracts[providerId];
-      if (!providerData) {
-        throw new Error('Provider data not found');
-      }
-
-      // Get all contract tier IDs for this provider
-      const tierIdsToDeselect = [];
-      providerData.contracts.forEach(contract => {
-        contract.tiers.forEach(tier => {
-          tierIdsToDeselect.push(tier.contract_tier_id);
-        });
+    const tierIdsToDeselect = [];
+    providerData.contracts.forEach(contract => {
+      contract.tiers.forEach(tier => {
+        tierIdsToDeselect.push(tier.contract_tier_id);
       });
+    });
 
-      // Deselect all tiers for this provider first
-      await Promise.all(tierIdsToDeselect.map(async (tierId) => {
-        await fetch(`/api/contract-tiers/${tierId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            is_selected: false
-          })
-        });
-      }));
-
-      // Small delay to ensure database updates
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Then select the clicked tier
-      const response = await fetch(`/api/contract-tiers/${contractTierId}`, {
+    await Promise.all(tierIdsToDeselect.map(async (tierId) => {
+      await fetch(`/api/contract-tiers/${tierId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          is_selected: true
+          is_selected: false
         })
       });
+    }));
 
-      if (!response.ok) {
-        throw new Error('Failed to update tier selection');
-      }
+    await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Show success notification
-      if (window.uiManager) {
-        window.uiManager.showNotification(`Tier ${tierNumber} selected for ${providerName}`, 'success');
-      }
+    await fetch(`/api/contract-tiers/${contractTierId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        is_selected: true
+      })
+    });
 
-      // Refresh the relationship matrix to show updated selection
-      await this.renderRelationshipMatrix();
-
-    } catch (error) {
-      if (window.uiManager) {
-        window.uiManager.showNotification(`Error selecting tier: ${error.message}`, 'error');
-      }
+    if (window.uiManager) {
+      window.uiManager.showNotification(`Tier ${tierNumber} selected for ${providerName}`, 'success');
     }
+
+    await this.renderRelationshipMatrix();
   }
 
   // Utility method to render all tables

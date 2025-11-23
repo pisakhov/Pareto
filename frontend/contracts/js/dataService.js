@@ -14,11 +14,6 @@ class DataService {
       return null;
     }
 
-    if (!response.ok) {
-      const data = await response.json();
-      throw new Error(data.detail);
-    }
-
     return response.json();
   }
 

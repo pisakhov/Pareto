@@ -78,29 +78,18 @@ class ContractsApp {
         }
     }
 
-    setupModalRelationships() {
-        // No longer needed for offer modal
-    }
-
     // Data loading
     async loadData() {
-        try {
-            await Promise.all([
-                this.loadProviders(),
-                this.loadItems(),
-                this.loadProviderItems(),
-                this.loadOffers(),
-                this.loadProcesses()
-            ]);
+        await Promise.all([
+            this.loadProviders(),
+            this.loadItems(),
+            this.loadProviderItems(),
+            this.loadOffers(),
+            this.loadProcesses()
+        ]);
 
-            this.updateCounts();
-            await this.renderAll();
-        } catch (error) {
-            console.error('Error loading data:', error);
-            if (error.message && !error.message.includes('Failed to fetch')) {
-                this.components.uiManager.showNotification('Error loading data: ' + error.message, 'error');
-            }
-        }
+        this.updateCounts();
+        await this.renderAll();
     }
 
     async loadProviders() {

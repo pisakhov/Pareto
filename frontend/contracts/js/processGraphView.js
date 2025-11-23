@@ -29,24 +29,16 @@ class ProcessGraphView {
   }
 
   async loadData() {
-    try {
-      const [processes, connections] = await Promise.all([
-        dataService.loadProcesses(),
-        dataService.loadProcessGraph()
-      ]);
+    const [processes, connections] = await Promise.all([
+      dataService.loadProcesses(),
+      dataService.loadProcessGraph()
+    ]);
 
-      this.processes = processes;
-      this.connections = connections;
-
-    } catch (error) {
-      console.error('❌ [ProcessGraphView] Error loading data:', error);
-      this.processes = [];
-      this.connections = [];
-    }
+    this.processes = processes;
+    this.connections = connections;
   }
 
   autoLayout() {
-
     const nodeMap = new Map();
     const levels = new Map();
     const visited = new Set();
@@ -104,19 +96,12 @@ class ProcessGraphView {
       levelGroups.get(level).push(id);
     });
 
-
-
-    // Canvas-relative positioning (assuming 1043x200 canvas)
     const canvasWidth = 1043;
     const canvasHeight = 200;
     const marginX = 40;
-    const marginY = 30;
     const levelWidth = 250;
     const nodeSpacing = 60;
 
-
-
-    // Calculate total width needed for centering
     const totalWidth = (levelGroups.size - 1) * levelWidth;
     const startX = Math.max(marginX, (canvasWidth - totalWidth) / 2);
 
@@ -124,20 +109,12 @@ class ProcessGraphView {
       nodeIds.forEach((nodeId, index) => {
         const process = this.processes.find(p => p.process_id === nodeId);
         if (process) {
-          // X position based on level (horizontal flow)
           process.x = startX + (level * levelWidth);
-
-          // Y position centered around middle of canvas (like processGraphEdit.js)
-          // This distributes nodes vertically within the level
-          process.y = canvasHeight / 2 + ((index - (nodeIds.length - 1) / 2) * nodeSpacing);
-
-          // This distributes nodes vertically within the level
           process.y = canvasHeight / 2 + ((index - (nodeIds.length - 1) / 2) * nodeSpacing);
         }
       });
     });
 
-    // Store default offset for reset
     this.defaultOffsetX = 0;
     this.defaultOffsetY = 0;
   }
@@ -145,7 +122,6 @@ class ProcessGraphView {
   render() {
     const navGraph = document.getElementById('processGraphNav');
     if (!navGraph) {
-      console.error('❌ [ProcessGraphView] processGraphNav element not found!');
       return;
     }
 
@@ -153,241 +129,177 @@ class ProcessGraphView {
     const nodesLayer = navGraph.querySelector('#nodesLayerNav');
     const connectionsLayer = navGraph.querySelector('#connectionsLayerNav');
 
-    if (!this.canvasElement) {
-      console.error('❌ [ProcessGraphView] SVG canvas not found!');
-    } else {
-
-
-      if (!nodesLayer || !connectionsLayer) {
-        console.error('❌ [ProcessGraphView] Layers not found:', {
-          nodesLayer: !!nodesLayer,
-          connectionsLayer: !!connectionsLayer
-        });
-        return;
-      }
-
-
-
-      // Calculate boundaries before rendering
-      this.calculateBoundaries();
-
-      // Create transform group
-      this.transformGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-      this.transformGroup.setAttribute('id', 'graphTransformGroup');
-
-      // Move existing layers into transform group
-      const connectionsClone = connectionsLayer.cloneNode(true);
-      const nodesClone = nodesLayer.cloneNode(true);
-
-      this.transformGroup.appendChild(connectionsClone);
-      this.transformGroup.appendChild(nodesClone);
-
-      // Clear original layers
-      nodesLayer.innerHTML = '';
-      connectionsLayer.innerHTML = '';
-
-      // Add transform group to canvas
-      const canvas = this.canvasElement;
-      canvas.appendChild(this.transformGroup);
-
-      // Clear existing nodes and connections from clones
-      nodesClone.innerHTML = '';
-      connectionsClone.innerHTML = '';
-
-      if (this.processes.length === 0) {
-        console.warn('⚠️ [ProcessGraphView] No processes to render');
-        return;
-      }
-
-
-
-      // Create a map of process_id to process data
-      const processMap = {};
-      this.processes.forEach(p => {
-        processMap[p.process_id] = p;
-      });
-
-      const nodeWidth = 120;
-      const nodeHeight = 50;
-      const margin = 40;
-      const canvasWidth = canvas.clientWidth || 800;
-      const canvasHeight = canvas.clientHeight || 200;
-
-      // Get current process ID from URL
-      const currentProcessId = this.getCurrentProcessId();
-
-      // Render nodes using positions from autoLayout
-      this.processes.forEach((process, idx) => {
-
-        const nodeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-        nodeGroup.setAttribute('data-process-id', process.process_id);
-        nodeGroup.style.cursor = 'pointer';
-
-        // Use positions from autoLayout or calculate fallback
-        const x = process.x || (canvasWidth - nodeWidth) / 2;
-        const y = process.y || (canvasHeight - nodeHeight) / 2;
-
-        // Truncate text if too long
-        const maxTextWidth = nodeWidth - 20; // 10px padding on each side
-        const charWidth = 7; // Approximate character width
-        const maxChars = Math.floor(maxTextWidth / charWidth);
-        const displayText = process.process_name.length > maxChars
-          ? process.process_name.substring(0, maxChars) + '...'
-          : process.process_name;
-
-        // Node background
-        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        rect.setAttribute('x', x);
-        rect.setAttribute('y', y);
-        rect.setAttribute('width', nodeWidth);
-        rect.setAttribute('height', nodeHeight);
-        rect.setAttribute('height', nodeHeight);
-        rect.setAttribute('rx', '12');
-        rect.setAttribute('filter', 'url(#node-shadow)');
-
-        // Style based on current process
-        if (process.process_id === currentProcessId) {
-          rect.setAttribute('fill', '#10b981');
-          rect.setAttribute('stroke', '#059669');
-          rect.setAttribute('stroke-width', '2');
-          rect.setAttribute('class', 'process-nav-node process-nav-node-active');
-        } else {
-          rect.setAttribute('fill', '#ffffff');
-          rect.setAttribute('stroke', '#cbd5e1');
-          rect.setAttribute('stroke-width', '1');
-          rect.setAttribute('class', 'process-nav-node');
-        }
-
-        nodeGroup.appendChild(rect);
-
-        // Process name text with truncation
-        const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        text.setAttribute('x', x + nodeWidth / 2);
-        text.setAttribute('y', y + nodeHeight / 2 + 5);
-        text.setAttribute('text-anchor', 'middle');
-        text.setAttribute('font-size', '14');
-        text.setAttribute('font-weight', '500');
-        text.setAttribute('fill', process.process_id === currentProcessId ? '#ffffff' : '#0f172a');
-        text.setAttribute('pointer-events', 'none');
-        text.textContent = displayText;
-
-        // Add title tooltip to show full text on hover
-        if (process.process_name.length > maxChars) {
-          const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-          title.textContent = process.process_name;
-          text.appendChild(title);
-        }
-
-        nodeGroup.appendChild(text);
-
-        // Add click handler
-        nodeGroup.addEventListener('click', () => {
-          if (process.process_id !== currentProcessId) {
-            window.location.href = `/contracts/${process.process_id}`;
-          }
-        });
-
-        nodesClone.appendChild(nodeGroup);
-      });
-
-      // Render connections
-      this.connections.forEach((conn, index) => {
-        const fromProcess = this.processes.find(p => p.process_id === conn.from_process_id);
-        const toProcess = this.processes.find(p => p.process_id === conn.to_process_id);
-
-        if (!fromProcess || !toProcess) {
-          console.warn(`⚠️ [ProcessGraphView] Connection ${index + 1}/${this.connections.length}: Missing process`, {
-            from: fromProcess ? fromProcess.process_name : 'NOT FOUND',
-            to: toProcess ? toProcess.process_name : 'NOT FOUND'
-          });
-          return;
-        }
-
-
-
-        // Use positions from autoLayout
-        const fromX = (fromProcess.x || (canvasWidth - nodeWidth) / 2) + nodeWidth;
-        const fromY = (fromProcess.y || (canvasHeight - nodeHeight) / 2) + nodeHeight / 2;
-        const toX = (toProcess.x || (canvasWidth - nodeWidth) / 2);
-        const toY = (toProcess.y || (canvasHeight - nodeHeight) / 2) + nodeHeight / 2;
-
-        // Create curved path for better visuals
-        const midX = (fromX + toX) / 2;
-        const pathData = `M ${fromX} ${fromY} Q ${midX} ${fromY} ${toX} ${toY}`;
-
-        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        path.setAttribute('d', pathData);
-        path.setAttribute('fill', 'none');
-        path.setAttribute('stroke', '#94a3b8');
-        path.setAttribute('stroke-width', '2');
-        path.setAttribute('marker-end', 'url(#arrowhead-nav)');
-        connectionsClone.appendChild(path);
-      });
-
-
-      // Calculate and set default offset based on actual canvas size
-      // autoLayout assumes 1043px canvas, but actual is canvasWidth
-      // This ensures default view matches what autoLayout intended
-      const assumedCanvasWidth = 1043;
-      const assumedStartX = Math.max(40, (assumedCanvasWidth - ((3 - 1) * 250)) / 2);
-      const actualCenter = Math.max(40, (canvasWidth - ((3 - 1) * 250)) / 2);
-      this.defaultOffsetX = actualCenter - assumedStartX;
-      this.defaultOffsetY = 0;
-
-
-
-      // Set initial offset to default
-      this.offsetX = this.defaultOffsetX;
-      this.offsetY = this.defaultOffsetY;
-
-      // Add home button
-      this.addHomeButton(navGraph);
-
-      // Add toggle button
-      this.addToggleButton(navGraph);
-
-      // Add drag event listeners
-      this.canvasElement.addEventListener('mousedown', (e) => this.handleMouseDown(e));
-      this.canvasElement.addEventListener('mousemove', (e) => this.handleMouseMove(e));
-      this.canvasElement.addEventListener('mouseup', () => this.handleMouseUp());
-      this.canvasElement.addEventListener('mouseleave', () => this.handleMouseUp());
-
-      // Add touch event listeners for mobile support
-      this.canvasElement.addEventListener('touchstart', (e) => {
-        const touch = e.touches[0];
-        this.handleMouseDown(touch);
-        e.preventDefault();
-      }, { passive: false });
-
-      this.canvasElement.addEventListener('touchmove', (e) => {
-        const touch = e.touches[0];
-        this.handleMouseMove(touch);
-        e.preventDefault();
-      }, { passive: false });
-
-      this.canvasElement.addEventListener('touchend', () => this.handleMouseUp());
-
-      // Apply initial transform
-      this.applyTransform();
-
-      // Show home button if not at default position
-      if (this.offsetX !== this.defaultOffsetX || this.offsetY !== this.defaultOffsetY) {
-        this.showHomeButton();
-      }
-
-      // Set initial cursor style to grab (hand cursor)
-      this.canvasElement.style.cursor = 'grab';
-
-      // Set initial cursor style to grab (hand cursor)
-      this.canvasElement.style.cursor = 'grab';
-
-      // Apply initial view mode
-      this.applyViewMode();
+    if (!this.canvasElement || !nodesLayer || !connectionsLayer) {
+      return;
     }
+
+    this.calculateBoundaries();
+
+    this.transformGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    this.transformGroup.setAttribute('id', 'graphTransformGroup');
+
+    const connectionsClone = connectionsLayer.cloneNode(true);
+    const nodesClone = nodesLayer.cloneNode(true);
+
+    this.transformGroup.appendChild(connectionsClone);
+    this.transformGroup.appendChild(nodesClone);
+
+    nodesLayer.innerHTML = '';
+    connectionsLayer.innerHTML = '';
+
+    const canvas = this.canvasElement;
+    canvas.appendChild(this.transformGroup);
+
+    nodesClone.innerHTML = '';
+    connectionsClone.innerHTML = '';
+
+    if (this.processes.length === 0) {
+      return;
+    }
+
+    const processMap = {};
+    this.processes.forEach(p => {
+      processMap[p.process_id] = p;
+    });
+
+    const nodeWidth = 120;
+    const nodeHeight = 50;
+    const canvasWidth = canvas.clientWidth || 800;
+    const canvasHeight = canvas.clientHeight || 200;
+
+    const currentProcessId = this.getCurrentProcessId();
+
+    this.processes.forEach((process, idx) => {
+      const nodeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      nodeGroup.setAttribute('data-process-id', process.process_id);
+      nodeGroup.style.cursor = 'pointer';
+
+      const x = process.x || (canvasWidth - nodeWidth) / 2;
+      const y = process.y || (canvasHeight - nodeHeight) / 2;
+
+      const maxTextWidth = nodeWidth - 20;
+      const charWidth = 7;
+      const maxChars = Math.floor(maxTextWidth / charWidth);
+      const displayText = process.process_name.length > maxChars
+        ? process.process_name.substring(0, maxChars) + '...'
+        : process.process_name;
+
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('x', x);
+      rect.setAttribute('y', y);
+      rect.setAttribute('width', nodeWidth);
+      rect.setAttribute('height', nodeHeight);
+      rect.setAttribute('rx', '12');
+      rect.setAttribute('filter', 'url(#node-shadow)');
+
+      if (process.process_id === currentProcessId) {
+        rect.setAttribute('fill', '#10b981');
+        rect.setAttribute('stroke', '#059669');
+        rect.setAttribute('stroke-width', '2');
+        rect.setAttribute('class', 'process-nav-node process-nav-node-active');
+      } else {
+        rect.setAttribute('fill', '#ffffff');
+        rect.setAttribute('stroke', '#cbd5e1');
+        rect.setAttribute('stroke-width', '1');
+        rect.setAttribute('class', 'process-nav-node');
+      }
+
+      nodeGroup.appendChild(rect);
+
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('x', x + nodeWidth / 2);
+      text.setAttribute('y', y + nodeHeight / 2 + 5);
+      text.setAttribute('text-anchor', 'middle');
+      text.setAttribute('font-size', '14');
+      text.setAttribute('font-weight', '500');
+      text.setAttribute('fill', process.process_id === currentProcessId ? '#ffffff' : '#0f172a');
+      text.setAttribute('pointer-events', 'none');
+      text.textContent = displayText;
+
+      if (process.process_name.length > maxChars) {
+        const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+        title.textContent = process.process_name;
+        text.appendChild(title);
+      }
+
+      nodeGroup.appendChild(text);
+
+      nodeGroup.addEventListener('click', () => {
+        if (process.process_id !== currentProcessId) {
+          window.location.href = `/contracts/${process.process_id}`;
+        }
+      });
+
+      nodesClone.appendChild(nodeGroup);
+    });
+
+    this.connections.forEach((conn, index) => {
+      const fromProcess = this.processes.find(p => p.process_id === conn.from_process_id);
+      const toProcess = this.processes.find(p => p.process_id === conn.to_process_id);
+
+      if (!fromProcess || !toProcess) {
+        return;
+      }
+
+      const fromX = (fromProcess.x || (canvasWidth - nodeWidth) / 2) + nodeWidth;
+      const fromY = (fromProcess.y || (canvasHeight - nodeHeight) / 2) + nodeHeight / 2;
+      const toX = (toProcess.x || (canvasWidth - nodeWidth) / 2);
+      const toY = (toProcess.y || (canvasHeight - nodeHeight) / 2) + nodeHeight / 2;
+
+      const midX = (fromX + toX) / 2;
+      const pathData = `M ${fromX} ${fromY} Q ${midX} ${fromY} ${toX} ${toY}`;
+
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', pathData);
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', '#94a3b8');
+      path.setAttribute('stroke-width', '2');
+      path.setAttribute('marker-end', 'url(#arrowhead-nav)');
+      connectionsClone.appendChild(path);
+    });
+
+    const assumedCanvasWidth = 1043;
+    const assumedStartX = Math.max(40, (assumedCanvasWidth - ((3 - 1) * 250)) / 2);
+    const actualCenter = Math.max(40, (canvasWidth - ((3 - 1) * 250)) / 2);
+    this.defaultOffsetX = actualCenter - assumedStartX;
+    this.defaultOffsetY = 0;
+
+    this.offsetX = this.defaultOffsetX;
+    this.offsetY = this.defaultOffsetY;
+
+    this.addHomeButton(navGraph);
+    this.addToggleButton(navGraph);
+
+    this.canvasElement.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+    this.canvasElement.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+    this.canvasElement.addEventListener('mouseup', () => this.handleMouseUp());
+    this.canvasElement.addEventListener('mouseleave', () => this.handleMouseUp());
+
+    this.canvasElement.addEventListener('touchstart', (e) => {
+      const touch = e.touches[0];
+      this.handleMouseDown(touch);
+      e.preventDefault();
+    }, { passive: false });
+
+    this.canvasElement.addEventListener('touchmove', (e) => {
+      const touch = e.touches[0];
+      this.handleMouseMove(touch);
+      e.preventDefault();
+    }, { passive: false });
+
+    this.canvasElement.addEventListener('touchend', () => this.handleMouseUp());
+
+    this.applyTransform();
+
+    if (this.offsetX !== this.defaultOffsetX || this.offsetY !== this.defaultOffsetY) {
+      this.showHomeButton();
+    }
+
+    this.canvasElement.style.cursor = 'grab';
+    this.applyViewMode();
   }
 
   getCurrentProcessId() {
-    // Extract process ID from URL path
     const match = window.location.pathname.match(/\/contracts\/(\d+)/);
     return match ? parseInt(match[1]) : null;
   }
@@ -416,15 +328,12 @@ class ProcessGraphView {
       maxY = Math.max(maxY, y + nodeHeight / 2);
     });
 
-    // Add 500px margin on all sides for extensive dragging capability
     this.boundaries = {
       minX: minX - 500,
       maxX: maxX + 500,
       minY: minY - 500,
       maxY: maxY + 500
     };
-
-
   }
 
   resetView() {
@@ -432,9 +341,7 @@ class ProcessGraphView {
     this.offsetY = this.defaultOffsetY;
     this.applyTransform();
     this.hideHomeButton();
-
   }
-
 
   applyTransform() {
     if (this.transformGroup) {
@@ -443,7 +350,6 @@ class ProcessGraphView {
   }
 
   handleMouseDown(event) {
-    // Only start dragging if not clicking on a node
     if (event.target.closest('.process-nav-node')) {
       return;
     }
@@ -452,8 +358,6 @@ class ProcessGraphView {
     this.startX = event.clientX - this.offsetX;
     this.startY = event.clientY - this.offsetY;
     this.canvasElement.style.cursor = 'grabbing';
-
-
 
     event.preventDefault();
   }
@@ -477,7 +381,6 @@ class ProcessGraphView {
       -this.boundaries.minY
     );
 
-    // Show/hide home button based on current position
     if (this.offsetX === this.defaultOffsetX && this.offsetY === this.defaultOffsetY) {
       this.hideHomeButton();
     } else {
@@ -492,12 +395,10 @@ class ProcessGraphView {
     if (this.isDragging) {
       this.isDragging = false;
       this.canvasElement.style.cursor = 'grab';
-
     }
   }
 
   addHomeButton(navGraph) {
-    // Remove existing home button if present
     const existingBtn = navGraph.querySelector('.graph-home-btn');
     if (existingBtn) {
       existingBtn.remove();
@@ -515,11 +416,9 @@ class ProcessGraphView {
 
     navGraph.appendChild(homeBtn);
     this.homeButton = homeBtn;
-
   }
 
   addToggleButton(navGraph) {
-    // Remove existing toggle button if present
     const existingBtn = navGraph.parentElement.querySelector('.view-toggle-btn');
     if (existingBtn) {
       existingBtn.remove();
@@ -535,11 +434,9 @@ class ProcessGraphView {
     toggleBtn.title = 'Toggle Menu View';
     toggleBtn.onclick = () => this.toggleView();
 
-    // Append to the parent container (bg-card) so it stays visible when graph is hidden
     navGraph.parentElement.appendChild(toggleBtn);
     this.toggleButton = toggleBtn;
 
-    // Set initial icon based on default mode
     if (this.isMenuMode) {
       this.toggleButton.innerHTML = `
         <svg class="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -547,8 +444,6 @@ class ProcessGraphView {
         </svg>
       `;
     }
-
-
   }
 
   toggleView() {
@@ -560,11 +455,9 @@ class ProcessGraphView {
     const graphContainer = document.getElementById('processGraphNav');
 
     if (this.isMenuMode) {
-      // Show Menu
       if (window.processMenuView) window.processMenuView.show();
       if (graphContainer) graphContainer.classList.add('opacity-0', 'pointer-events-none');
 
-      // Update icon to 'Graph' (to switch back to graph)
       if (this.toggleButton) {
         this.toggleButton.innerHTML = `
           <svg class="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -574,11 +467,9 @@ class ProcessGraphView {
         this.toggleButton.title = 'Switch to Graph View';
       }
     } else {
-      // Show Graph
       if (window.processMenuView) window.processMenuView.hide();
       if (graphContainer) graphContainer.classList.remove('opacity-0', 'pointer-events-none');
 
-      // Update icon to 'Grid' (to switch to menu)
       if (this.toggleButton) {
         this.toggleButton.innerHTML = `
           <svg class="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">

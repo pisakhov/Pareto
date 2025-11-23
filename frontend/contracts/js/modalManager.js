@@ -208,9 +208,8 @@ class ModalManager {
       if (processSelect) {
         processSelect.value = processId;
 
-        // Double-check the value was set correctly
         setTimeout(() => {
-          // Value check removed
+          // Timeout for focus management
         }, 10);
       }
     }
