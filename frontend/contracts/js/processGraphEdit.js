@@ -84,6 +84,8 @@ class ProcessGraph {
     };
 
     const doResize = (e) => {
+      if (!isResizing) return;
+
       const deltaX = e.clientX - startX;
       let newWidth = startSidebarWidth + deltaX;
 
