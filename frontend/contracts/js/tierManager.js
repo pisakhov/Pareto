@@ -9,11 +9,17 @@ class TierManager {
 
   setupEventListeners() {
     const addTierBtn = document.getElementById("addTierBtn");
-    addTierBtn.addEventListener("click", () => this.addTierRow());
+    if (addTierBtn) {
+      addTierBtn.addEventListener("click", () => this.addTierRow());
+    }
   }
 
   addTierRow(tierNumber = null, threshold = 0) {
     const container = document.getElementById("contractTiersContainer");
+    if (!container) {
+      console.warn("contractTiersContainer not found, skipping addTierRow");
+      return;
+    }
 
     const actualTierNumber = tierNumber || this.tierCount + 1;
     const rowId = `tier-row-${actualTierNumber}`;

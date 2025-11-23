@@ -29,6 +29,14 @@ class ContractsApp {
         this.setupModalRelationships();
     }
 
+    setupModalRelationships() {
+        // Setup any relationships between modals and data
+        // This is a placeholder for future modal relationship logic
+        if (this.components.modalManager) {
+            // Any additional modal setup can go here
+        }
+    }
+
     initializeComponents() {
         // Initialize all components
         this.components.dataService = dataService;

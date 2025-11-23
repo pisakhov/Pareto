@@ -1857,9 +1857,6 @@ async function showProcessModal() {
       processGraph = new ProcessGraph();
     }
     await processGraph.init();
-    // Initialize tierManager with a default tier
-    window.tierManager.clearTiers();
-    window.tierManager.addTierRow(1, 1000);
   }
 }
 
