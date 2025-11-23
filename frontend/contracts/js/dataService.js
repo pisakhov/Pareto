@@ -117,15 +117,10 @@ class DataService {
     return this.delete("offers", offerId);
   }
 
-  async getAllOffers() {
-    return this.loadOffers();
-  }
-
   async getOffersFiltered(itemId, providerId) {
     const params = new URLSearchParams();
     if (itemId) params.append("item_id", itemId);
     if (providerId) params.append("provider_id", providerId);
-    // Add timestamp to prevent caching
     params.append("_t", new Date().getTime());
 
     return this.fetchWithErrorHandling(`${this.basePath}/offers?${params.toString()}`);
@@ -137,14 +132,8 @@ class DataService {
     });
   }
 
-  // Provider-Item relationship operations
   async loadProviderItems() {
     return this.fetchWithErrorHandling(`${this.basePath}/provider-items`);
-  }
-
-  async fetchProviderItemAllocations() {
-    const data = await this.fetchWithErrorHandling(`${this.basePath}/providers/allocations`);
-    return data.provider_items;
   }
 
   // =====================================

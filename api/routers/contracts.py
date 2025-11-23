@@ -69,15 +69,7 @@ async def contracts_page(request: Request):
 async def contracts_process_detail(request: Request, process_id: int):
     """Render contracts page for specific process."""
     crud = get_crud()
-
-    # Get process details
     process = crud.get_process(process_id)
-    if not process:
-        # Redirect to main contracts page if process not found
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse(url="/contracts", status_code=302)
-
-    # Get all processes for navigation
     processes = crud.get_all_processes()
 
     return templates.TemplateResponse(
@@ -99,13 +91,6 @@ async def get_providers():
     return JSONResponse(content=providers)
 
 
-@router.get("/api/providers/allocations")
-async def get_provider_allocations():
-    """Get all provider item allocations."""
-    crud = get_crud()
-    allocations = crud.get_all_allocations()
-    return JSONResponse(content=allocations)
-
 
 @router.post("/api/providers")
 async def create_provider(provider: ProviderCreate):
@@ -124,8 +109,6 @@ async def get_provider(provider_id: int):
     """Get a specific provider."""
     crud = get_crud()
     provider = crud.get_provider(provider_id)
-    if not provider:
-        raise HTTPException(status_code=404, detail=f"Provider with ID {provider_id} not found")
     return JSONResponse(content=provider)
 
 
@@ -133,14 +116,12 @@ async def get_provider(provider_id: int):
 async def update_provider(provider_id: int, provider: ProviderUpdate):
     """Update a provider."""
     crud = get_crud()
-    success = crud.update_provider(
+    crud.update_provider(
         provider_id=provider_id,
         company_name=provider.company_name,
         details=provider.details,
         status=provider.status,
     )
-    if not success:
-        raise HTTPException(status_code=404, detail=f"Provider with ID {provider_id} not found")
     return JSONResponse(content={"message": "Provider updated successfully"})
 
 
@@ -200,14 +181,12 @@ async def create_offer(offer: OfferCreate):
 async def update_offer(offer_id: int, offer: OfferUpdate):
     """Update an offer."""
     crud = get_crud()
-    success = crud.update_offer(
+    crud.update_offer(
         offer_id=offer_id,
         tier_number=offer.tier_number,
         price_per_unit=offer.price_per_unit,
         status=offer.status,
     )
-    if not success:
-        raise HTTPException(status_code=404, detail=f"Offer with ID {offer_id} not found")
     return JSONResponse(content={"message": "Offer updated successfully"})
 
 
@@ -216,8 +195,6 @@ async def get_offer(offer_id: int):
     """Get a specific offer."""
     crud = get_crud()
     offer = crud.get_offer(offer_id)
-    if not offer:
-        raise HTTPException(status_code=404, detail=f"Offer with ID {offer_id} not found")
     return JSONResponse(content=offer)
 
 
@@ -321,14 +298,12 @@ async def update_item(item_id: int, item: ItemUpdate):
     """Update an item and its provider associations."""
     crud = get_crud()
 
-    success = crud.update_item(
+    crud.update_item(
         item_id=item_id,
         item_name=item.item_name,
         description=item.description,
         status=item.status,
     )
-    if not success:
-        raise HTTPException(status_code=404, detail=f"Item with ID {item_id} not found")
 
     if item.provider_ids is not None:
         crud.set_providers_for_item(item_id, item.provider_ids)
@@ -383,7 +358,6 @@ async def get_tier_thresholds(provider_id: int):
 async def get_contract_tiers_by_process_and_provider(process_id: int, provider_id: int):
     """Get tier thresholds for a specific provider in a specific process."""
     crud = get_crud()
-    # Get the contract for this process and provider
     contracts = crud.get_contracts_for_process(process_id)
     contract = None
     for c in contracts:
@@ -391,16 +365,8 @@ async def get_contract_tiers_by_process_and_provider(process_id: int, provider_i
             contract = c
             break
 
-    if not contract:
-        return JSONResponse(
-            content={"error": f"No contract found for provider {provider_id} in process {process_id}"},
-            status_code=404
-        )
-
-    # Get tiers for this contract
     tiers = crud.get_contract_tiers_for_contract(contract['contract_id'])
 
-    # Format tiers as key-value pairs
     tier_thresholds = {}
     for tier in tiers:
         tier_thresholds[str(tier['tier_number'])] = tier['threshold_units']

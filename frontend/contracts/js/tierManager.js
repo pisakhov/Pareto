@@ -9,14 +9,11 @@ class TierManager {
 
   setupEventListeners() {
     const addTierBtn = document.getElementById("addTierBtn");
-    if (addTierBtn) {
-      addTierBtn.addEventListener("click", () => this.addTierRow());
-    }
+    addTierBtn.addEventListener("click", () => this.addTierRow());
   }
 
   addTierRow(tierNumber = null, threshold = 0) {
     const container = document.getElementById("contractTiersContainer");
-    if (!container) return;
 
     const actualTierNumber = tierNumber || this.tierCount + 1;
     const rowId = `tier-row-${actualTierNumber}`;

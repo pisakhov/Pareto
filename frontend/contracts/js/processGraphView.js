@@ -121,17 +121,10 @@ class ProcessGraphView {
 
   render() {
     const navGraph = document.getElementById('processGraphNav');
-    if (!navGraph) {
-      return;
-    }
 
     this.canvasElement = navGraph.querySelector('svg');
     const nodesLayer = navGraph.querySelector('#nodesLayerNav');
     const connectionsLayer = navGraph.querySelector('#connectionsLayerNav');
-
-    if (!this.canvasElement || !nodesLayer || !connectionsLayer) {
-      return;
-    }
 
     this.calculateBoundaries();
 

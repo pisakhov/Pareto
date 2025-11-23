@@ -70,8 +70,6 @@ class ProcessGraph {
     const resizeHandle = document.getElementById('resizeHandle');
     const leftSidebar = document.getElementById('leftSidebar');
 
-    if (!resizeHandle || !leftSidebar) return;
-
     let isResizing = false;
     let startX = 0;
     let startSidebarWidth = 0;

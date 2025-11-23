@@ -155,20 +155,8 @@ class ContractsApp {
         return this.data.processes;
     }
 
-    // Component access
     getComponent(name) {
         return this.components[name];
-    }
-
-    // Cleanup method
-    destroy() {
-        // Remove global references
-        delete window.contractsApp;
-        delete window.dataService;
-        delete window.modalManager;
-        delete window.uiManager;
-        delete window.tableRenderer;
-        delete window.formHandler;
     }
 }
 

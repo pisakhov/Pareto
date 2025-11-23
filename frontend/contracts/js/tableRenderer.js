@@ -89,9 +89,6 @@ class TableRenderer {
   // Provider table rendering
   renderProviders() {
     const container = document.getElementById("providersCardsContainer");
-    if (!container) return;
-
-    container.innerHTML = "";
 
     if (this.data.providers.length === 0) {
       container.innerHTML = `
@@ -211,9 +208,6 @@ class TableRenderer {
   // Item table rendering
   renderItems() {
     const tbody = document.getElementById("itemsTableBody");
-    if (!tbody) return;
-
-    tbody.innerHTML = "";
 
     if (this.data.items.length === 0) {
       tbody.innerHTML =
@@ -221,7 +215,6 @@ class TableRenderer {
       return;
     }
 
-    // Get process info for each item
     const itemProcessMap = this.getItemProcessMap();
 
     this.data.items.forEach((item) => {
@@ -233,7 +226,6 @@ class TableRenderer {
   // Filter items based on search query
   filterItems(query) {
     const tbody = document.getElementById("itemsTableBody");
-    if (!tbody) return;
 
     const searchQuery = query.toLowerCase().trim();
     const rows = tbody.querySelectorAll("tr");
@@ -378,12 +370,9 @@ class TableRenderer {
   // Relationship matrix rendering
   async renderRelationshipMatrix() {
     const matrix = document.getElementById("relationshipMatrix");
-    if (!matrix) return;
 
-    // Get contracts for current process (or all if no specific process)
     const contracts = await this.getContractsForCurrentProcess();
 
-    // Show contracts matrix view
     if (contracts.length > 0) {
       const html = await this.createContractsMatrixHTML(contracts);
       matrix.innerHTML = html;
@@ -633,7 +622,6 @@ class TableRenderer {
     return tierData;
   }
 
-  // Get contracts for the current process
   async getContractsForCurrentProcess() {
     const currentProcessId = window.CURRENT_PROCESS_ID;
     if (!currentProcessId) return [];
@@ -641,7 +629,6 @@ class TableRenderer {
     const response = await fetch(`/api/processes/${currentProcessId}`);
     const process = await response.json();
 
-    // Get contracts for this process
     const contractsResponse = await fetch(`/api/contracts/process/${process.process_name}`);
     return await contractsResponse.json();
   }

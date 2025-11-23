@@ -41,21 +41,16 @@ class ModalManager {
     });
   }
 
-  // Generic modal operations
   showModal(modalId) {
     const modal = document.getElementById(modalId);
-    if (modal) {
-      modal.classList.remove("hidden");
-      modal.classList.add("flex");
-    }
+    modal.classList.remove("hidden");
+    modal.classList.add("flex");
   }
 
   hideModal(modalId) {
     const modal = document.getElementById(modalId);
-    if (modal) {
-      modal.classList.add("hidden");
-      modal.classList.remove("flex");
-    }
+    modal.classList.add("hidden");
+    modal.classList.remove("flex");
   }
 
   closeAllModals() {
@@ -277,39 +272,6 @@ class ModalManager {
     }
   }
 
-  async loadProcessesIntoDropdown() {
-    const processSelect = document.getElementById("itemProcess");
-
-    processSelect.innerHTML = '<option value="">Select a process</option>';
-
-    const processes = await window.contractsApp.getProcesses();
-
-    processes.forEach(process => {
-      const option = document.createElement("option");
-      option.value = process.process_id;
-      option.textContent = process.process_name;
-      processSelect.appendChild(option);
-    });
-
-
-  }
-
-
-  // Helper functions
-  updateModalTitle(titleId, title) {
-    const titleElement = document.getElementById(titleId);
-    if (titleElement) {
-      // Check if there's a span inside the title element for the text
-      const textSpan = titleElement.querySelector('span[id$="TitleText"]');
-      if (textSpan) {
-        textSpan.textContent = title;
-      } else {
-        titleElement.textContent = title;
-      }
-    }
-  }
-
-  // Getters for editing states
   getEditingProviderId() {
     return this.editingStates.providerId;
   }

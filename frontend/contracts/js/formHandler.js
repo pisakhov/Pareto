@@ -102,10 +102,6 @@ class FormHandler {
   async handleItemSubmit(event) {
     event.preventDefault();
 
-    if (!window.offerManager.validateAllTiers()) {
-      return;
-    }
-
     const formData = new FormData(event.target);
     const offers = window.offerManager.getOfferData();
     const providerIds = offers.map(o => o.provider_id).filter((v, i, a) => a.indexOf(v) === i);

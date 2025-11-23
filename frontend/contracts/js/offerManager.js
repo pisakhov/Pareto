@@ -21,9 +21,7 @@ class OfferManager {
   }
 
   setupEventListeners() {
-    if (this.addProviderBtn) {
-      this.addProviderBtn.addEventListener('click', () => this.handleAddProvider());
-    }
+    this.addProviderBtn.addEventListener('click', () => this.handleAddProvider());
   }
 
   setProviders(providers) {
@@ -32,8 +30,6 @@ class OfferManager {
   }
 
   updateProviderSelect() {
-    if (!this.providerSelect) return;
-
     this.providerSelect.innerHTML = '';
 
     const addedProviderIds = Array.from(this.providerOffers.keys());
@@ -41,25 +37,13 @@ class OfferManager {
       p => !addedProviderIds.includes(p.provider_id) && p.status === 'active'
     );
 
-    // Show/hide controls based on availability
     if (availableProviders.length === 0) {
-      // Hide the select and button, show the completion message
-      if (this.addProviderControl) {
-        this.addProviderControl.classList.add('hidden');
-      }
-      if (this.allProvidersAddedMsg) {
-        this.allProvidersAddedMsg.classList.remove('hidden');
-      }
+      this.addProviderControl.classList.add('hidden');
+      this.allProvidersAddedMsg.classList.remove('hidden');
     } else {
-      // Show the select and button, hide the completion message
-      if (this.addProviderControl) {
-        this.addProviderControl.classList.remove('hidden');
-      }
-      if (this.allProvidersAddedMsg) {
-        this.allProvidersAddedMsg.classList.add('hidden');
-      }
+      this.addProviderControl.classList.remove('hidden');
+      this.allProvidersAddedMsg.classList.add('hidden');
 
-      // Populate the select
       availableProviders.forEach(provider => {
         const option = document.createElement('option');
         option.value = provider.provider_id;
