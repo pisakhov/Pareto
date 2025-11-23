@@ -290,6 +290,35 @@ class ModalManager {
     this.editingStates.itemId = itemId;
   }
 
+  // Update modal title helper
+  updateModalTitle(titleElementId, title) {
+    const element = document.getElementById(titleElementId);
+    if (element) {
+      element.textContent = title;
+    }
+  }
+
+  // Load processes into dropdown
+  async loadProcessesIntoDropdown() {
+    const select = document.getElementById("itemProcess");
+    if (!select || !window.contractsApp) return;
+
+    const processes = window.contractsApp.getProcesses();
+
+    // Clear existing options except the first one
+    while (select.children.length > 1) {
+      select.removeChild(select.lastChild);
+    }
+
+    // Add processes
+    processes.forEach(process => {
+      const option = document.createElement("option");
+      option.value = process.process_id;
+      option.textContent = process.process_name;
+      select.appendChild(option);
+    });
+  }
+
 }
 
 // Create singleton instance
