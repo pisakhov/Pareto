@@ -235,7 +235,6 @@ class ProcessGraph {
     this.processList.innerHTML = '';
 
     // Fetch all contract counts once, grouped by process name
-    const contractCounts = {};
     const contractTierInfo = {}; // { processName: { contractCount, minTiers, maxTiers, allSameTierCount } }
     const uniqueProcessNames = [...new Set(this.processes.map(p => p.process_name))];
 
@@ -1198,21 +1197,6 @@ class ProcessGraph {
     this.resetAddForm();
   }
 
-  populateTemplateDropdownForAdd() {
-    const templateSelect = document.getElementById('newContractTemplate');
-    if (templateSelect && this.processes) {
-      templateSelect.innerHTML = '<option value="">Select template or create new</option>';
-      // Get unique template names
-      const uniqueTemplates = [...new Set(this.processes.map(p => p.process_name))];
-      uniqueTemplates.forEach(templateName => {
-        const option = document.createElement('option');
-        option.value = templateName;
-        option.textContent = templateName;
-        templateSelect.appendChild(option);
-      });
-    }
-  }
-
   resetAddForm() {
     document.getElementById('newProcessName').value = '';
     document.getElementById('newProcessDescription').value = '';
@@ -1489,14 +1473,6 @@ class ProcessGraph {
     document.getElementById('editProcessId').value = processId;
 
     this.populateEditForm(processId);
-
-    // Focus on template select
-    setTimeout(() => {
-      const templateSelect = document.getElementById('editContractTemplate');
-      if (templateSelect) {
-        templateSelect.focus();
-      }
-    }, 150);
   }
 
   closeEditProcessModal() {
@@ -1546,16 +1522,6 @@ class ProcessGraph {
 
     // Load contracts
     this.loadContractsForEdit(processId);
-  }
-
-  async getContractCountForProcess(processId) {
-    // Get process by ID
-    const process = this.processes.find(p => p.process_id === processId);
-    if (!process) return 0;
-
-    // Fetch actual contracts for this process
-    const contracts = await dataService.loadContractsForProcess(process.process_name);
-    return contracts.length;
   }
 
   addContractTierRow(contractId, tierNumber = null, threshold = 0) {
@@ -1962,8 +1928,6 @@ function toggleAddProcessForm() {
     });
     return;
   }
-
-  processGraph.toggleAddProcessForm();
 }
 
 function toggleEditForm(processId) {

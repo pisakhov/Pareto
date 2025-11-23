@@ -66,7 +66,7 @@ class ModalManager {
     this.updateModalTitle("providerModalTitle", "Add Provider");
 
     window.tierManager.clearTiers();
-    window.tierManager.addTierRow(1, 0, 0);
+    window.tierManager.addTierRow(1, 0);
 
     this.showModal(this.modals.provider);
 

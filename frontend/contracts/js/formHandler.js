@@ -187,7 +187,6 @@ class FormHandler {
     document.getElementById("itemId").value = item["item_id"];
     document.getElementById("itemName").value = item["item_name"];
     document.getElementById("itemDescription").value = item["description"] || "";
-    document.getElementById("itemDescription").value = item["description"] || "";
 
     // Update status toggle
     const statusToggle = document.getElementById("itemStatusToggle");
