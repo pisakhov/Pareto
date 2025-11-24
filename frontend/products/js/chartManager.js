@@ -28,24 +28,32 @@ window.chartManager = (function() {
                     {
                         label: 'Forecast',
                         data: [],
-                        borderColor: 'rgb(34, 197, 94)',
-                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                        borderWidth: 2,
+                        borderColor: 'rgb(251, 146, 60)',
+                        backgroundColor: 'rgba(251, 146, 60, 0.15)',
+                        borderWidth: 3,
                         tension: 0.4,
                         fill: true,
-                        pointRadius: 4,
-                        pointHoverRadius: 6
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        pointBackgroundColor: 'rgb(251, 146, 60)',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointStyle: 'circle'
                     },
                     {
                         label: 'Actuals',
                         data: [],
-                        borderColor: 'rgb(59, 130, 246)',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        borderWidth: 2,
+                        borderColor: 'rgb(37, 91, 227)',
+                        backgroundColor: 'rgba(37, 91, 227, 0.15)',
+                        borderWidth: 3,
                         tension: 0.4,
                         fill: true,
-                        pointRadius: 4,
-                        pointHoverRadius: 6
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        pointBackgroundColor: 'rgb(37, 91, 227)',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        pointStyle: 'circle'
                     }
                 ]
             },

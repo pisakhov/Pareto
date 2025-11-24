@@ -156,7 +156,7 @@ class ForecastManager {
                     min="0"
                     placeholder="0"
                     value="${m.forecastValue}"
-                    class="w-full text-center text-sm font-semibold bg-transparent border border-border rounded px-2 py-2 focus:ring-2 focus:ring-green-400 focus:border-green-400 focus:outline-none ${m.forecastValue ? 'text-green-600' : 'text-muted-foreground'}"
+                    class="w-full text-center text-sm font-semibold bg-transparent border border-border rounded px-2 py-2 focus:ring-2 focus:ring-orange-400 focus:border-orange-400 focus:outline-none ${m.forecastValue ? 'text-orange-600' : 'text-muted-foreground'}"
                     data-month="${m.month}"
                     data-type="forecast"
                 />
@@ -171,7 +171,8 @@ class ForecastManager {
                     min="0"
                     placeholder="0"
                     value="${m.actualValue}"
-                    class="w-full text-center text-sm font-semibold bg-transparent border border-border rounded px-2 py-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 focus:outline-none ${m.actualValue ? 'text-blue-600' : 'text-muted-foreground'}"
+                    class="w-full text-center text-sm font-semibold bg-transparent border border-border rounded px-2 py-2 focus:ring-2 focus:border-[#255be3] focus:outline-none ${m.actualValue ? '' : 'text-muted-foreground'}"
+                    style="${m.actualValue ? 'color: #255be3; border-color: #255be3; --tw-ring-color: #255be3;' : ''}"
                     data-month="${m.month}"
                     data-type="actual"
                 />
@@ -206,10 +207,14 @@ class ForecastManager {
 
             input.addEventListener('input', (e) => {
                 if (e.target.value) {
-                    e.target.classList.add(type === 'forecast' ? 'text-green-600' : 'text-blue-600');
+                    if (type === 'forecast') {
+                        e.target.style.color = '#fb923c';
+                    } else {
+                        e.target.style.color = '#255be3';
+                    }
                     e.target.classList.remove('text-muted-foreground');
                 } else {
-                    e.target.classList.remove(type === 'forecast' ? 'text-green-600' : 'text-blue-600');
+                    e.target.style.color = '';
                     e.target.classList.add('text-muted-foreground');
                 }
 
