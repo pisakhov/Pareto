@@ -114,26 +114,61 @@
                     <textarea id="productDescription" name="description" rows="3"
                               class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent"></textarea>
                 </div>
-                <!-- Items Section -->
+                <!-- Location Section -->
                 <div class="border-t border-border pt-4 mt-4">
                     <div class="flex items-center justify-between mb-3">
-                        <h3 class="text-base font-semibold text-foreground">Items</h3>
-                        <span class="text-xs text-muted-foreground">Add items and configure providers</span>
-                    </div>
-                    
-                    <!-- Add Contract Control -->
-                    <div class="flex items-center gap-2 mb-4">
-                        <select id="contractSelect" class="flex-1 px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent">
-                            <option value="">Select a contract</option>
-                        </select>
-                        <button type="button" id="addContractBtn" class="px-4 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-600/90 whitespace-nowrap">
-                            Add Contract
-                        </button>
+                        <h3 class="text-base font-semibold text-foreground">Location</h3>
+                        <span class="text-xs text-muted-foreground">Select a process and configure items</span>
                     </div>
 
-                    <!-- Contracts Container -->
-                    <div id="productItemsContainer" class="space-y-4">
-                        <p class="text-sm text-muted-foreground text-center py-4">No contracts added yet</p>
+                    <!-- Process Selection -->
+                    <div class="bg-gradient-to-r from-[#fb923c]/5 to-[#fb923c]/10 border border-[#fb923c]/20 rounded-lg p-4 mb-4">
+                        <label class="block text-sm font-medium mb-2">
+                            <div class="flex items-center gap-2">
+                                <svg class="w-4 h-4 text-[#fb923c]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                                </svg>
+                                <span>Select Process</span>
+                            </div>
+                        </label>
+                        <p class="text-xs text-slate-600 mb-2">Choose a process to view and configure available items</p>
+                        <select id="contractSelect" class="w-full px-3 py-2 border border-[#fb923c]/30 rounded-md focus:ring-2 focus:ring-[#fb923c] focus:border-[#fb923c] bg-white">
+                            <!-- Options will be loaded dynamically -->
+                        </select>
+                    </div>
+
+                    <!-- All Processes Added Message -->
+                    <div id="allProcessesAddedMsg"
+                        class="hidden mb-4 px-4 py-3 rounded-md bg-slate-50 border border-slate-200 text-slate-700">
+                        <div class="flex items-center gap-2">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd"
+                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                    clip-rule="evenodd" />
+                            </svg>
+                            <span class="font-medium">All processes have been added to this product</span>
+                        </div>
+                    </div>
+
+                    <!-- Items Configuration -->
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="text-sm font-semibold text-slate-700">Available Items</h4>
+                            <span class="text-xs text-muted-foreground">Configure item allocations</span>
+                        </div>
+                        <div class="flex items-center gap-2 mb-4">
+                            <button type="button" id="addContractBtn" class="px-4 py-2 bg-[#fb923c] text-white rounded-md hover:bg-[#fb923c]/90 whitespace-nowrap inline-flex items-center gap-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                </svg>
+                                Add Process
+                            </button>
+                        </div>
+
+                        <!-- Items Container -->
+                        <div id="productItemsContainer" class="space-y-4">
+                            <p class="text-sm text-muted-foreground text-center py-4">No items added yet</p>
+                        </div>
                     </div>
                 </div>
                 

@@ -8,6 +8,7 @@ class ItemManager {
     this.container = document.getElementById('productItemsContainer');
     this.contractSelect = document.getElementById('contractSelect');
     this.addContractBtn = document.getElementById('addContractBtn');
+    this.allProcessesAddedMsg = document.getElementById('allProcessesAddedMsg');
     this.allContracts = [];
     this.selectedContracts = new Map(); // contract_id -> {contract, selectedItems: []}
     this.availableProviders = [];
@@ -33,11 +34,12 @@ class ItemManager {
   }
 
   updateContractSelect() {
-    if (!this.contractSelect) return;
+    if (!this.contractSelect || !this.allProcessesAddedMsg) return;
 
-    this.contractSelect.innerHTML = '<option value="">Select a process</option>';
+    this.contractSelect.innerHTML = '';
 
     const addedProcessIds = Array.from(this.selectedContracts.keys());
+    const availableProcesses = [];
 
     this.allContracts.forEach(process => {
       if (!addedProcessIds.includes(process.process_id)) {
@@ -45,8 +47,28 @@ class ItemManager {
         option.value = process.process_id;
         option.textContent = process.process_name;
         this.contractSelect.appendChild(option);
+        availableProcesses.push(process);
       }
     });
+
+    // Check if all processes have been added
+    const allAdded = availableProcesses.length === 0;
+
+    // Show/hide message
+    if (allAdded) {
+      this.allProcessesAddedMsg.classList.remove('hidden');
+    } else {
+      this.allProcessesAddedMsg.classList.add('hidden');
+    }
+
+    // Hide/show the process selection card and button
+    const processCard = this.contractSelect.closest('.bg-gradient-to-r');
+    if (processCard) {
+      processCard.style.display = allAdded ? 'none' : 'block';
+    }
+    if (this.addContractBtn) {
+      this.addContractBtn.style.display = allAdded ? 'none' : 'inline-flex';
+    }
   }
 
   async handleAddContract() {
