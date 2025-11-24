@@ -170,10 +170,6 @@ class TableRenderer {
         const items = window.productsApp?.data?.items || [];
         const contracts = window.productsApp?.data?.contracts || [];
 
-        console.log('[PRODUCT CARD DEBUG] Product:', product.name);
-        console.log('[PRODUCT CARD DEBUG] Items:', items);
-        console.log('[PRODUCT CARD DEBUG] Contracts:', contracts);
-
         if (!product.item_ids || product.item_ids.length === 0) {
             return '<p class="text-xs text-slate-500 italic">No processes assigned</p>';
         }
@@ -188,7 +184,6 @@ class TableRenderer {
                     name: contract.process_name,
                     items: []
                 });
-                console.log('[PRODUCT CARD DEBUG] Added process:', contract.process_id, contract.process_name);
             }
         });
 
@@ -202,8 +197,6 @@ class TableRenderer {
                 );
 
                 if (contract && contract.process_id) {
-                    console.log('[PRODUCT CARD DEBUG] Item:', item.item_name, 'Process ID:', contract.process_id, 'Process Name:', contract.process_name);
-
                     // Use the contract's process_id, not the item's (which may be undefined)
                     if (!processMap.has(contract.process_id)) {
                         processMap.set(contract.process_id, {
@@ -215,8 +208,6 @@ class TableRenderer {
                 }
             }
         });
-
-        console.log('[PRODUCT CARD DEBUG] Final Process Map:', processMap);
 
         // Generate HTML for processes (only show processes with items)
         const processesHTML = Array.from(processMap.entries())

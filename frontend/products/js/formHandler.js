@@ -105,15 +105,100 @@ class FormHandler {
 
                 // Restore allocations
                 if (product.allocations) {
-                    const allocation = product.allocations;
-                    if (window.itemManager.collectiveAllocation) {
-                        window.itemManager.collectiveAllocation.mode = allocation.mode;
-                        window.itemManager.collectiveAllocation.locked = allocation.locked;
-                        window.itemManager.collectiveAllocation.lockedProviderId = allocation.lockedProviderId;
+                    // Check if backend returned collective format (no numeric item keys)
+                    // or per-item format (with numeric item_id keys)
+                    const firstKey = Object.keys(product.allocations)[0];
+                    const isCollectiveFormat = !firstKey || isNaN(parseInt(firstKey, 10));
 
-                        allocation.providers.forEach(provider => {
-                            window.itemManager.collectiveAllocation.providerValues.set(provider.provider_id, provider.value);
+                    if (isCollectiveFormat) {
+                        // Collective format: single allocation object
+                        window.itemManager.selectedContracts.forEach((processData, processId) => {
+                            const allocation = product.allocations;
+
+                            // Update allocation metadata
+                            processData.allocation.mode = allocation.mode || 'percentage';
+                            processData.allocation.locked = allocation.locked || false;
+                            processData.allocation.lockedProviderId = allocation.lockedProviderId || null;
+
+                            // Clear and rebuild providerValues
+                            processData.allocation.providerValues.clear();
+
+                            // Ensure ALL providers (from UI) have entries in the Map
+                            // The backend may only return locked provider(s), but UI loaded all providers
+                            processData.allocation.providers.forEach(provider => {
+                                const backendProvider = allocation.providers.find(p => p.provider_id === provider.provider_id);
+                                const value = backendProvider ? (backendProvider.value || 0) : 0;
+                                processData.allocation.providerValues.set(provider.provider_id, value);
+                            });
                         });
+                    } else {
+                        // Per-item format: allocations by item_id
+                        const processAllocations = {};
+
+                        // Iterate through each contract/process
+                        window.itemManager.selectedContracts.forEach((processData, processId) => {
+                            const itemIds = processData.selectedItems.map(item => item.item_id);
+                            const allProviders = new Map();
+
+                            // Collect allocations from all items in this process
+                            itemIds.forEach(itemId => {
+                                const itemAlloc = product.allocations[itemId] || product.allocations[itemId.toString()];
+                                if (itemAlloc && itemAlloc.providers) {
+                                    itemAlloc.providers.forEach(provider => {
+                                        if (!allProviders.has(provider.provider_id)) {
+                                            allProviders.set(provider.provider_id, {
+                                                provider_id: provider.provider_id,
+                                                provider_name: provider.provider_name
+                                            });
+                                        }
+                                    });
+                                }
+                            });
+
+                            // Build providers array WITH their actual values from backend
+                            const providersWithValues = [];
+                            allProviders.forEach((provider, providerId) => {
+                                let value = 0;
+                                for (const itemId of itemIds) {
+                                    const itemAlloc = product.allocations[itemId] || product.allocations[itemId.toString()];
+                                    if (itemAlloc && itemAlloc.providers) {
+                                        const providerData = itemAlloc.providers.find(p => p.provider_id === providerId);
+                                        if (providerData && providerData.value !== undefined) {
+                                            value = providerData.value;
+                                            break;
+                                        }
+                                    }
+                                }
+                                providersWithValues.push({
+                                    provider_id: providerId,
+                                    provider_name: provider.provider_name,
+                                    value: value
+                                });
+                            });
+
+                            processAllocations[processId] = {
+                                mode: (product.allocations[itemIds[0]] || {}).mode || 'percentage',
+                                locked: (product.allocations[itemIds[0]] || {}).locked || false,
+                                lockedProviderId: (product.allocations[itemIds[0]] || {}).lockedProviderId || null,
+                                providers: providersWithValues
+                            };
+                        });
+
+                        // Apply allocations to each process
+                        for (const [processIdStr, allocation] of Object.entries(processAllocations)) {
+                            const processId = parseInt(processIdStr, 10);
+                            const processData = window.itemManager.selectedContracts.get(processId);
+                            if (processData && processData.allocation) {
+                                processData.allocation.mode = allocation.mode;
+                                processData.allocation.locked = allocation.locked;
+                                processData.allocation.lockedProviderId = allocation.lockedProviderId;
+
+                                processData.allocation.providerValues.clear();
+                                allocation.providers.forEach(provider => {
+                                    processData.allocation.providerValues.set(provider.provider_id, provider.value);
+                                });
+                            }
+                        }
                     }
                     window.itemManager.render();
                 }
@@ -162,16 +247,8 @@ class FormHandler {
 
     async viewProduct(productId) {
         try {
-            console.log('=== VIEW PRODUCT DEBUG ===');
-            console.log('Fetching product:', productId);
-
             const product = await this.dataService.getProduct(productId);
-            console.log('Product data received:', product);
-
             const pricingDetails = await this.dataService.loadProductsPricing();
-            console.log('Pricing details received:', pricingDetails);
-
-            console.log('=== END VIEW PRODUCT DEBUG ===');
 
             // Initialize and render the Product Report Dashboard
             window.modalManager.showViewModal();
@@ -418,11 +495,5 @@ class FormHandler {
         } catch (error) {
             window.Toast.show('Failed to load product details', 'error');
         }
-    }
-
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
     }
 }

@@ -4,13 +4,12 @@
 class ItemManager {
   constructor() {
     this.selectedItems = [];
-    this.collectiveAllocation = null;
     this.container = document.getElementById('productItemsContainer');
     this.contractSelect = document.getElementById('contractSelect');
     this.addContractBtn = document.getElementById('addContractBtn');
     this.allProcessesAddedMsg = document.getElementById('allProcessesAddedMsg');
     this.allContracts = [];
-    this.selectedContracts = new Map(); // contract_id -> {contract, selectedItems: []}
+    this.selectedContracts = new Map(); // contract_id -> {contract, selectedItems: [], allocation: {...}}
     this.availableProviders = [];
     this.currentProcessId = null;
 
@@ -83,25 +82,21 @@ class ItemManager {
   }
 
   async addProcess(processData) {
+    const processProviders = await this.loadProvidersForProcess(processData);
     this.selectedContracts.set(processData.process_id, {
       process: processData,
       selectedItems: [...processData.items],
-      selectAll: true
-    });
-
-    this.rebuildSelectedItems();
-
-    if (!this.collectiveAllocation) {
-      const allProviders = await this.loadAllProviders();
-      this.collectiveAllocation = {
+      selectAll: true,
+      allocation: {
         mode: 'percentage',
         locked: false,
         lockedProviderId: null,
-        providers: allProviders,
-        providerValues: new Map(allProviders.map(p => [p.provider_id, 0]))
-      };
-    }
+        providers: processProviders,
+        providerValues: new Map(processProviders.map(p => [p.provider_id, 0]))
+      }
+    });
 
+    this.rebuildSelectedItems();
     this.render();
     this.updateContractSelect();
 
@@ -189,6 +184,29 @@ class ItemManager {
     return Array.from(uniqueProviders.values());
   }
 
+  async loadProvidersForProcess(processData) {
+    const uniqueProviders = new Map();
+
+    processData.items.forEach(item => {
+      item.providers.forEach(provider => {
+        if (!uniqueProviders.has(provider.provider_id)) {
+          uniqueProviders.set(provider.provider_id, {
+            provider_id: provider.provider_id,
+            company_name: provider.provider_name
+          });
+        }
+      });
+    });
+
+    this.availableProviders.forEach(p => {
+      if (!uniqueProviders.has(p.provider_id)) {
+        uniqueProviders.set(p.provider_id, p);
+      }
+    });
+
+    return Array.from(uniqueProviders.values());
+  }
+
   render() {
     if (!this.container) return;
 
@@ -201,7 +219,6 @@ class ItemManager {
     }
 
     this.container.innerHTML = '';
-
     const contractsList = this.createContractsList();
     this.container.appendChild(contractsList);
 
@@ -310,113 +327,87 @@ class ItemManager {
   }
 
   createProcessAllocationSection(processId) {
+    const processData = this.selectedContracts.get(processId);
+    if (!processData) return document.createElement('div');
+
+    const allocation = processData.allocation;
     const allocationBlock = document.createElement('div');
     allocationBlock.className = 'bg-gradient-to-r from-[#fb923c]/5 to-[#fb923c]/10 border border-[#fb923c]/20 rounded-lg p-4';
 
     const header = document.createElement('div');
-    header.className = 'mb-3 flex items-center justify-between';
+    header.className = 'mb-4 flex items-center justify-between';
     header.innerHTML = `
-      <h4 class="text-sm font-semibold text-slate-700 flex items-center gap-2">
-        <svg class="w-4 h-4 text-[#fb923c]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-        </svg>
-        Provider Allocations
-      </h4>
-      <div role="radiogroup" class="flex gap-3 text-sm">
-        <label class="flex items-center gap-1.5 cursor-pointer">
-          <input type="radio" name="allocationMode_${processId}" value="percentage"
-                 ${this.collectiveAllocation.mode === 'percentage' ? 'checked' : ''}
-                 onchange="window.itemManager.handleModeToggle('percentage')"
-                 class="focus:ring-2 focus:ring-[#fb923c]">
-          <span class="text-slate-700 font-medium">Percentage</span>
-        </label>
-        <label class="flex items-center gap-1.5 cursor-pointer">
-          <input type="radio" name="allocationMode_${processId}" value="units"
-                 ${this.collectiveAllocation.mode === 'units' ? 'checked' : ''}
-                 onchange="window.itemManager.handleModeToggle('units')"
-                 class="focus:ring-2 focus:ring-[#fb923c]">
-          <span class="text-slate-700 font-medium">Units</span>
-        </label>
+      <h4 class="text-sm font-semibold text-slate-700">Provider Allocations</h4>
+      <div role="radiogroup" class="flex gap-2 text-sm bg-white rounded-lg p-1 border border-[#fb923c]/20">
+        <button type="button"
+                onclick="window.itemManager.handleModeToggle('${processId}', 'percentage')"
+                class="px-3 py-1 rounded-md cursor-pointer ${allocation.mode === 'percentage' ? 'bg-[#fb923c] text-white' : 'text-slate-700 hover:bg-slate-50'}">
+          %
+        </button>
+        <button type="button"
+                onclick="window.itemManager.handleModeToggle('${processId}', 'units')"
+                class="px-3 py-1 rounded-md cursor-pointer ${allocation.mode === 'units' ? 'bg-[#fb923c] text-white' : 'text-slate-700 hover:bg-slate-50'}">
+          Units
+        </button>
       </div>
     `;
     allocationBlock.appendChild(header);
 
-    if (!this.collectiveAllocation || this.collectiveAllocation.providers.length === 0) {
+    if (!allocation || allocation.providers.length === 0) {
       const noProviders = document.createElement('div');
-      noProviders.className = 'text-sm text-slate-600 text-center py-4';
-      noProviders.innerHTML = `
-        <svg class="w-8 h-8 mx-auto mb-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-        </svg>
-        No providers available
-      `;
+      noProviders.className = 'text-sm text-slate-600 text-center py-8';
       allocationBlock.appendChild(noProviders);
       return allocationBlock;
     }
 
-    const providersGrid = document.createElement('div');
-    providersGrid.className = 'space-y-3';
+    const table = document.createElement('div');
+    table.className = 'space-y-2';
 
-    this.collectiveAllocation.providers.forEach(provider => {
-      const isLocked = this.collectiveAllocation.locked && this.collectiveAllocation.lockedProviderId === provider.provider_id;
-      const suffix = this.collectiveAllocation.mode === 'percentage' ? '%' : 'units';
-      const value = this.collectiveAllocation.providerValues.get(provider.provider_id) || 0;
+    allocation.providers.forEach(provider => {
+      const isLocked = allocation.locked && allocation.lockedProviderId === provider.provider_id;
+      const suffix = allocation.mode === 'percentage' ? '%' : 'units';
+      const value = allocation.providerValues.get(provider.provider_id) || 0;
 
-      const providerCard = document.createElement('div');
-      providerCard.className = 'bg-white border border-[#fb923c]/20 rounded-lg p-3';
-      providerCard.innerHTML = `
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-full bg-[#fb923c]/10 flex items-center justify-center border border-[#fb923c]/30">
-              <span class="text-[#fb923c] font-semibold text-sm">${(provider.company_name || 'P').charAt(0)}</span>
-            </div>
-            <span class="font-medium text-slate-900">${this.escapeHtml(provider.company_name || 'Unknown Provider')}</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <input type="number" value="${value}" min="0"
-                   onchange="window.itemManager.handleAllocationChange('${provider.provider_id}', this.value)"
-                   class="w-20 px-3 py-1.5 border border-[#fb923c]/30 rounded-md text-center font-medium">
-            <span class="text-sm font-medium text-slate-600">${suffix}</span>
-            ${isLocked ? '<span class="text-amber-600">🔒</span>' : ''}
-          </div>
+      const row = document.createElement('div');
+      row.className = 'flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-[#fb923c]/20';
+      row.innerHTML = `
+        <div class="flex items-center gap-3">
+          <span class="font-medium text-slate-900">${this.escapeHtml(provider.company_name || 'Unknown Provider')}</span>
+          ${isLocked ? '<span class="text-xs text-amber-600">🔒 Locked</span>' : ''}
         </div>
-        ${this.collectiveAllocation.mode === 'percentage' ? `
-          <div class="mt-2 text-right">
-            ${isLocked ? `
-              <button type="button" onclick="window.itemManager.handleUnlock()"
-                      class="text-xs text-amber-600 hover:text-amber-800 font-medium inline-flex items-center gap-1 px-2 py-1 hover:bg-amber-50 rounded-md transition-colors">
-                🔓 Unlock
-              </button>
-            ` : `
-              <button type="button" onclick="window.itemManager.handleLockProvider('${provider.provider_id}')"
-                      class="text-xs text-slate-600 hover:text-slate-800 font-medium inline-flex items-center gap-1 px-2 py-1 hover:bg-slate-100 rounded-md transition-colors">
-                🔒 Lock
-              </button>
-            `}
-          </div>
-        ` : ''}
+        <div class="flex items-center gap-2">
+          <input type="number" value="${value}" min="0"
+                 onchange="window.itemManager.handleAllocationChange('${processId}', '${provider.provider_id}', this.value)"
+                 class="w-20 px-2 py-1 border border-slate-300 rounded text-center text-sm font-medium focus:ring-2 focus:ring-[#fb923c] focus:border-[#fb923c]">
+          <span class="text-sm text-slate-600 w-12 text-left">${suffix}</span>
+          ${allocation.mode === 'percentage' && !isLocked ? `
+            <button type="button" onclick="window.itemManager.handleLockProvider('${processId}', '${provider.provider_id}')"
+                    class="text-xs text-slate-500 hover:text-[#fb923c] px-2 py-1 hover:bg-slate-50 rounded transition-colors">
+              Lock
+            </button>
+          ` : ''}
+          ${isLocked ? `
+            <button type="button" onclick="window.itemManager.handleUnlock('${processId}')"
+                    class="text-xs text-amber-600 hover:text-amber-800 px-2 py-1 hover:bg-amber-50 rounded transition-colors">
+              Unlock
+            </button>
+          ` : ''}
+        </div>
       `;
-      providersGrid.appendChild(providerCard);
+      table.appendChild(row);
     });
 
-    allocationBlock.appendChild(providersGrid);
+    allocationBlock.appendChild(table);
 
     // Total section
-    const total = this.calculateTotal();
-    const suffix = this.collectiveAllocation.mode === 'percentage' ? '%' : 'units';
-    const isValid = this.collectiveAllocation.mode === 'percentage' ? total === 100 : true;
+    const total = this.calculateTotal(processId);
+    const suffix = allocation.mode === 'percentage' ? '%' : 'units';
+    const isValid = allocation.mode === 'percentage' ? total === 100 : true;
     const totalDiv = document.createElement('div');
-    totalDiv.className = 'mt-4 pt-3 border-t border-[#fb923c]/20';
+    totalDiv.className = 'mt-3 pt-3 border-t border-[#fb923c]/30 flex items-center justify-between';
     totalDiv.innerHTML = `
-      <div class="flex items-center justify-between">
-        <span class="text-sm font-semibold text-slate-700">Total Allocation:</span>
-        <div class="flex items-center gap-2">
-          <span class="text-lg font-bold ${isValid ? 'text-green-600' : 'text-amber-600'}">${total} ${suffix}</span>
-          ${isValid ? '<span class="text-green-600">✓</span>' : '<span class="text-amber-600">⚠️</span>'}
-        </div>
-      </div>
-      ${!isValid && this.collectiveAllocation.mode === 'percentage' ?
-        '<div class="text-xs text-amber-600 mt-1 text-right">Must equal 100%</div>' : ''}
+      <span class="text-sm font-semibold text-slate-700">Total:</span>
+      <span class="text-sm font-semibold ${isValid ? 'text-green-600' : 'text-amber-600'}">${total} ${suffix} ${isValid ? '✓' : '⚠️'}</span>
     `;
     allocationBlock.appendChild(totalDiv);
 
@@ -470,134 +461,140 @@ class ItemManager {
     return row;
   }
 
-  handleModeToggle(mode) {
-    if (!this.collectiveAllocation) return;
+  handleModeToggle(processId, mode) {
+    const processData = this.selectedContracts.get(parseInt(processId, 10));
+    if (!processData) return;
 
-    const oldMode = this.collectiveAllocation.mode;
-    this.collectiveAllocation.mode = mode;
+    const allocation = processData.allocation;
 
-    if (mode === 'units') {
-      this.collectiveAllocation.locked = false;
-      this.collectiveAllocation.lockedProviderId = null;
-      this.collectiveAllocation.providerValues.forEach((value, providerId) => {
-        this.collectiveAllocation.providerValues.set(providerId, 0);
-      });
-    } else if (mode === 'percentage' && oldMode === 'units') {
-      this.collectiveAllocation.locked = false;
-      this.collectiveAllocation.lockedProviderId = null;
-      this.collectiveAllocation.providerValues.forEach((value, providerId) => {
-        this.collectiveAllocation.providerValues.set(providerId, 0);
-      });
-    } else if (mode === 'percentage' && this.collectiveAllocation.locked) {
-      const lockedProviderId = this.collectiveAllocation.lockedProviderId;
-      this.collectiveAllocation.providerValues.forEach((value, providerId) => {
-        this.collectiveAllocation.providerValues.set(providerId, providerId === lockedProviderId ? 100 : 0);
-      });
-    }
+    // Always reset values when switching modes
+    allocation.mode = mode;
+    allocation.locked = false;
+    allocation.lockedProviderId = null;
+
+    allocation.providerValues.forEach((value, providerId) => {
+      allocation.providerValues.set(providerId, 0);
+    });
 
     this.render();
   }
 
-  handleLockProvider(providerId) {
-    if (!this.collectiveAllocation || this.collectiveAllocation.mode !== 'percentage') {
+  handleLockProvider(processId, providerId) {
+    const processData = this.selectedContracts.get(parseInt(processId, 10));
+    if (!processData) return;
+
+    const allocation = processData.allocation;
+    if (allocation.mode !== 'percentage') {
       return;
     }
 
     // Convert string to number for comparison
     const numericProviderId = parseInt(providerId, 10);
 
-    this.collectiveAllocation.locked = true;
-    this.collectiveAllocation.lockedProviderId = numericProviderId;
+    allocation.locked = true;
+    allocation.lockedProviderId = numericProviderId;
 
-    this.collectiveAllocation.providerValues.forEach((value, pId) => {
-      this.collectiveAllocation.providerValues.set(pId, pId === numericProviderId ? 100 : 0);
+    allocation.providerValues.forEach((value, pId) => {
+      const newValue = pId === numericProviderId ? 100 : 0;
+      allocation.providerValues.set(pId, newValue);
     });
 
     this.render();
   }
 
-  handleUnlock() {
-    if (!this.collectiveAllocation) return;
+  handleUnlock(processId) {
+    const processData = this.selectedContracts.get(parseInt(processId, 10));
+    if (!processData) return;
 
-    this.collectiveAllocation.locked = false;
-    this.collectiveAllocation.lockedProviderId = null;
+    const allocation = processData.allocation;
+    allocation.locked = false;
+    allocation.lockedProviderId = null;
 
     this.render();
   }
 
-  handleAllocationChange(providerId, value) {
-    if (!this.collectiveAllocation) return;
+  handleAllocationChange(processId, providerId, value) {
+    const processData = this.selectedContracts.get(parseInt(processId, 10));
+    if (!processData) return;
 
     // Convert providerId to number for consistency with the Map
     const numericProviderId = parseInt(providerId, 10);
-
+    const allocation = processData.allocation;
     const numValue = parseFloat(value);
     const finalValue = isNaN(numValue) ? 0 : numValue;
 
-    this.collectiveAllocation.providerValues.set(numericProviderId, finalValue);
+    allocation.providerValues.set(numericProviderId, finalValue);
 
     this.render();
   }
 
-  calculateTotal() {
-    if (!this.collectiveAllocation) return 0;
+  calculateTotal(processId) {
+    const processData = this.selectedContracts.get(parseInt(processId, 10));
+    if (!processData) return 0;
 
     let total = 0;
-    this.collectiveAllocation.providerValues.forEach(value => {
+    processData.allocation.providerValues.forEach(value => {
       total += value;
     });
     return total;
   }
 
-  getLockedProviderName() {
-    if (!this.collectiveAllocation || !this.collectiveAllocation.lockedProviderId) {
+  getLockedProviderName(processId) {
+    const processData = this.selectedContracts.get(parseInt(processId, 10));
+    if (!processData) return '';
+
+    const allocation = processData.allocation;
+    if (!allocation.lockedProviderId) {
       return '';
     }
 
-    const provider = this.collectiveAllocation.providers.find(p => p.provider_id === this.collectiveAllocation.lockedProviderId);
+    const provider = allocation.providers.find(p => p.provider_id === allocation.lockedProviderId);
     return provider ? provider.company_name : '';
   }
 
   validateAllocations() {
-    if (!this.collectiveAllocation) return false;
+    // All process allocations must be valid
+    for (const [processId, processData] of this.selectedContracts) {
+      const total = this.calculateTotal(processId);
+      const allocation = processData.allocation;
+      const proxyQuantity = parseInt(document.getElementById('proxyQuantity')?.value) || 0;
 
-    const proxyQuantityInput = document.getElementById('proxyQuantity');
-    const proxyQuantity = proxyQuantityInput ? parseInt(proxyQuantityInput.value) || 0 : 0;
-
-    const total = this.calculateTotal();
-
-    if (this.collectiveAllocation.mode === 'percentage') {
-      return total === 100;
-    } else if (this.collectiveAllocation.mode === 'units') {
-      return total === proxyQuantity;
+      if (allocation.mode === 'percentage' && total !== 100) {
+        return false;
+      }
+      if (allocation.mode === 'units' && total !== proxyQuantity) {
+        return false;
+      }
     }
     return true;
   }
 
   getAllocationData() {
-    if (!this.collectiveAllocation) {
-      return {};
-    }
-
-    const providerList = [];
-
-    this.collectiveAllocation.providerValues.forEach((value, providerId) => {
-      const provider = this.collectiveAllocation.providers.find(p => p.provider_id === providerId);
-      if (provider) {
+    // Convert per-process allocations to per-item allocations for backend
+    const allocations = {};
+    this.selectedContracts.forEach((processData, processId) => {
+      const allocation = processData.allocation;
+      const providerList = [];
+      allocation.providerValues.forEach((value, providerId) => {
+        const provider = allocation.providers.find(p => p.provider_id === providerId);
         providerList.push({
           provider_id: providerId,
           provider_name: provider.company_name,
           value: value
         });
-      }
-    });
+      });
 
-    return {
-      mode: this.collectiveAllocation.mode,
-      locked: this.collectiveAllocation.locked,
-      lockedProviderId: this.collectiveAllocation.lockedProviderId,
-      providers: providerList
-    };
+      // Apply same allocation to all items in this process
+      processData.selectedItems.forEach(item => {
+        allocations[item.item_id] = {
+          mode: allocation.mode,
+          locked: allocation.locked,
+          lockedProviderId: allocation.lockedProviderId,
+          providers: providerList
+        };
+      });
+    });
+    return allocations;
   }
 
   getItemIds() {
@@ -615,7 +612,6 @@ class ItemManager {
   reset() {
     this.selectedItems = [];
     this.selectedContracts.clear();
-    this.collectiveAllocation = null;
     this.render();
     this.updateContractSelect();
     if (window.contractAdjustments) {

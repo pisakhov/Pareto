@@ -17,28 +17,16 @@ class ProductReportDashboard {
      * Initialize the dashboard
      */
     async init() {
-        console.log('=== DASHBOARD INIT DEBUG ===');
-        console.log('Product Data:', this.productData);
-        console.log('Allocations:', this.allocations);
-        console.log('Price Multipliers:', this.priceMultipliers);
-        console.log('Initial Pricing Details:', this.pricingDetails);
-
         // Load pricing details if not already loaded
         if (Object.keys(this.pricingDetails).length === 0) {
             this.pricingDetails = await this.loadPricingDetails();
         }
 
-        console.log('Final Pricing Details:', this.pricingDetails);
-
         // Load tier thresholds (floor prices)
         this.tierThresholds = await this.loadTierThresholds();
-        console.log('Tier Thresholds:', this.tierThresholds);
 
         // Calculate tier from actuals
         const tierResults = this.calculateTierFromActuals();
-        console.log('Tier calculation results:', tierResults);
-
-        console.log('=== END DASHBOARD INIT DEBUG ===');
 
         this.renderHeader();
         this.renderKPIs();
@@ -54,22 +42,22 @@ class ProductReportDashboard {
      */
     async loadPricingDetails() {
         try {
-            console.log('=== PRICING DETAILS DEBUG ===');
-            console.log('Product ID:', this.productId);
+
+
 
             const response = await fetch('/api/products/pricing-details');
             const allPricing = await response.json();
 
-            console.log('All Pricing Response:', allPricing);
-            console.log('This Product Pricing:', allPricing[this.productId]);
+
+
 
             const productPricing = allPricing[this.productId] || {};
-            console.log('Product Pricing structure:', productPricing);
-            console.log('=== END PRICING DETAILS DEBUG ===');
+
+
 
             return productPricing;
         } catch (error) {
-            console.error('Failed to load pricing details:', error);
+
             return {};
         }
     }
@@ -79,7 +67,7 @@ class ProductReportDashboard {
      */
     async loadTierThresholds() {
         try {
-            console.log('=== LOAD TIER THRESHOLDS DEBUG ===');
+
 
             // Get unique provider IDs from pricing details
             const providerIds = new Set();
@@ -92,7 +80,7 @@ class ProductReportDashboard {
                 });
             });
 
-            console.log('Provider IDs to fetch:', Array.from(providerIds));
+
 
             const tierData = {};
 
@@ -102,18 +90,18 @@ class ProductReportDashboard {
                     const response = await fetch(`/api/providers/${providerId}/tier-thresholds`);
                     const data = await response.json();
                     tierData[providerId] = data;
-                    console.log('Tier data for provider', providerId, ':', data);
+
                 } catch (error) {
-                    console.error('Failed to load tier thresholds for provider', providerId, ':', error);
+
                     tierData[providerId] = { thresholds: {}, base_prices: {} };
                 }
             }
 
-            console.log('=== END LOAD TIER THRESHOLDS DEBUG ===');
+
             return tierData;
 
         } catch (error) {
-            console.error('Failed to load tier thresholds:', error);
+
             return {};
         }
     }
@@ -122,11 +110,11 @@ class ProductReportDashboard {
      * Calculate which tier we fall under based on latest actuals
      */
     calculateTierFromActuals() {
-        console.log('=== TIER CALCULATION DEBUG ===');
-        console.log('Actuals:', this.productData.actuals);
+
+
 
         if (!this.productData.actuals || this.productData.actuals.length === 0) {
-            console.log('No actuals data available');
+
             return null;
         }
 
@@ -137,16 +125,16 @@ class ProductReportDashboard {
         });
 
         const latestActual = sortedActuals[0];
-        console.log('Latest actual:', latestActual);
+
 
         const totalUnits = latestActual.actual_units;
-        console.log('Total units from latest actual:', totalUnits);
+
 
         // Get thresholds for each provider
         const providerThresholds = {};
         Object.entries(this.pricingDetails).forEach(([itemId, itemPricing]) => {
             const pricingData = Object.values(itemPricing)[0];
-            console.log('Pricing data for item', itemId, ':', pricingData);
+
 
             // For now, using the first provider's tier (assuming all providers use same thresholds)
             const providerId = pricingData.provider_id;
@@ -161,14 +149,14 @@ class ProductReportDashboard {
             }
         });
 
-        console.log('Provider thresholds:', providerThresholds);
+
 
         // Calculate tier for each provider
         const tierResults = {};
         Object.entries(providerThresholds).forEach(([providerId, thresholds]) => {
             let currentTier = 1;
             const tierKeys = Object.keys(thresholds).map(Number).sort((a, b) => a - b);
-            console.log('Checking tier for provider', providerId, 'with total units:', totalUnits);
+
 
             for (const tier of tierKeys) {
                 if (totalUnits >= thresholds[tier]) {
@@ -179,11 +167,11 @@ class ProductReportDashboard {
             }
 
             tierResults[providerId] = currentTier;
-            console.log('Provider', providerId, 'falls into tier', currentTier);
+
         });
 
-        console.log('Final tier results:', tierResults);
-        console.log('=== END TIER CALCULATION DEBUG ===');
+
+
 
         return tierResults;
     }
@@ -271,24 +259,24 @@ class ProductReportDashboard {
      * Calculate KPI values
      */
     calculateKPIs() {
-        console.log('=== CALCULATE KPIS DEBUG ===');
-        console.log('Pricing Details object:', this.pricingDetails);
-        console.log('Pricing Details keys:', Object.keys(this.pricingDetails));
+
+
+
 
         const tiers = [];
         const costs = [];
 
         // Process each item's pricing data
         Object.entries(this.pricingDetails).forEach(([itemId, itemPricing]) => {
-            console.log('Processing item:', itemId, 'Pricing:', itemPricing);
+
 
             // itemPricing is an object like {provider_id: 1, provider_name: 'Equifax', ...}
             // We need to get the values from this object
             const pricingEntries = Object.values(itemPricing);
-            console.log('Pricing entries:', pricingEntries);
+
 
             pricingEntries.forEach(p => {
-                console.log('Pricing entry:', p);
+
                 if (p.tier !== undefined && p.tier !== null) tiers.push(p.tier);
                 if (p.final_price !== undefined && p.final_price !== null) {
                     const price = parseFloat(p.final_price);
@@ -297,9 +285,9 @@ class ProductReportDashboard {
             });
         });
 
-        console.log('Collected tiers:', tiers);
-        console.log('Collected costs:', costs);
-        console.log('=== END CALCULATE KPIS DEBUG ===');
+
+
+
 
         const totalProviders = new Set();
         Object.values(this.allocations).forEach(item => {
@@ -366,9 +354,9 @@ class ProductReportDashboard {
      * Render provider rows for the table
      */
     renderProviderRows() {
-        console.log('=== RENDER PROVIDER ROWS DEBUG ===');
-        console.log('Pricing Details:', this.pricingDetails);
-        console.log('Tier Thresholds:', this.tierThresholds);
+
+
+
 
         const rows = [];
         const providerItemMap = {};
@@ -392,14 +380,14 @@ class ProductReportDashboard {
 
         // Process pricing details correctly
         Object.entries(this.pricingDetails).forEach(([itemId, itemPricing]) => {
-            console.log('Item:', itemId, 'Pricing data:', itemPricing);
+
 
             // itemPricing is an object like {provider_id: 1, provider_name: 'Equifax', ...}
             const pricingEntries = Object.values(itemPricing);
-            console.log('Pricing entries for item', itemId, ':', pricingEntries);
+
 
             pricingEntries.forEach(p => {
-                console.log('Processing provider entry:', p);
+
 
                 const providerItems = providerItemMap[p.provider_id] || [];
                 const itemCount = providerItems.filter(pi => pi.itemId === parseInt(itemId)).length;
@@ -413,7 +401,7 @@ class ProductReportDashboard {
                 const tierData = this.tierThresholds[p.provider_id] || {};
                 const basePrices = tierData.base_prices || {};
                 const floorPrice = basePrices[p.tier] || 0;
-                console.log('Floor price for provider', p.provider_id, 'tier', p.tier, ':', floorPrice);
+
 
                 rows.push(`
                     <tr class="border-b border-border last:border-0">
@@ -443,8 +431,8 @@ class ProductReportDashboard {
             });
         });
 
-        console.log('Generated rows:', rows.length);
-        console.log('=== END RENDER PROVIDER ROWS DEBUG ===');
+
+
 
         return rows.join('') || '<tr><td colspan="7" class="py-4 text-center text-muted-foreground">No provider data available</td></tr>';
     }
@@ -497,15 +485,15 @@ class ProductReportDashboard {
      * Calculate tier breakdown data
      */
     calculateTierBreakdown() {
-        console.log('=== CALCULATE TIER BREAKDOWN DEBUG ===');
+
         const tierMap = new Map();
 
         Object.entries(this.pricingDetails).forEach(([itemId, itemPricing]) => {
-            console.log('Processing item for tier breakdown:', itemId, itemPricing);
+
 
             const pricingEntries = Object.values(itemPricing);
             pricingEntries.forEach(p => {
-                console.log('Pricing entry:', p);
+
                 const tier = p.tier || 0;
                 if (!tierMap.has(tier)) {
                     tierMap.set(tier, []);
@@ -532,8 +520,8 @@ class ProductReportDashboard {
                 };
             });
 
-        console.log('Tier breakdown result:', result);
-        console.log('=== END CALCULATE TIER BREAKDOWN DEBUG ===');
+
+
         return result;
     }
 
@@ -572,15 +560,15 @@ class ProductReportDashboard {
      * Render item price rows
      */
     renderItemPriceRows() {
-        console.log('=== RENDER ITEM PRICE ROWS DEBUG ===');
+
         const rows = [];
 
         Object.entries(this.pricingDetails).forEach(([itemId, itemPricing]) => {
-            console.log('Item:', itemId, 'Pricing:', itemPricing);
+
 
             const pricingEntries = Object.values(itemPricing);
             pricingEntries.forEach((p, index) => {
-                console.log('Pricing entry:', p);
+
 
                 const itemName = `Item ${itemId}`;
                 const processName = `Process ${p.process_id || 1}`;
@@ -617,8 +605,8 @@ class ProductReportDashboard {
             });
         });
 
-        console.log('Generated', rows.length, 'rows');
-        console.log('=== END RENDER ITEM PRICE ROWS DEBUG ===');
+
+
         return rows.join('') || '<tr><td colspan="8" class="py-4 text-center text-muted-foreground">No pricing data available</td></tr>';
     }
 
@@ -645,17 +633,17 @@ class ProductReportDashboard {
      * Initialize provider comparison chart
      */
     initProviderComparisonChart() {
-        console.log('=== PROVIDER CHART DEBUG ===');
+
         const ctx = document.getElementById('providerComparisonChart');
         if (!ctx || !window.Chart) return;
 
         const providers = new Map();
         Object.entries(this.pricingDetails).forEach(([itemId, itemPricing]) => {
-            console.log('Processing item for chart:', itemId, itemPricing);
+
 
             const pricingEntries = Object.values(itemPricing);
             pricingEntries.forEach(p => {
-                console.log('Provider for chart:', p);
+
                 if (!providers.has(p.provider_id)) {
                     providers.set(p.provider_id, {
                         name: p.provider_name || `Provider ${p.provider_id}`,
@@ -669,7 +657,7 @@ class ProductReportDashboard {
             });
         });
 
-        console.log('Providers map:', providers);
+
 
         const labels = [];
         const avgPrices = [];
@@ -678,8 +666,8 @@ class ProductReportDashboard {
             avgPrices.push(data.count > 0 ? data.total / data.count : 0);
         });
 
-        console.log('Chart labels:', labels);
-        console.log('Chart data:', avgPrices);
+
+
 
         if (this.providerChart) {
             this.providerChart.destroy();
@@ -718,7 +706,7 @@ class ProductReportDashboard {
             }
         });
 
-        console.log('=== END PROVIDER CHART DEBUG ===');
+
     }
 
     /**
