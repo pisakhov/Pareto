@@ -411,7 +411,7 @@ class ItemManager {
       <div class="flex items-center justify-between">
         <span class="text-sm font-semibold text-slate-700">Total Allocation:</span>
         <div class="flex items-center gap-2">
-          <span class="text-lg font-bold ${isValid ? 'text-green-600' : 'text-amber-600'}">${total}${suffix}</span>
+          <span class="text-lg font-bold ${isValid ? 'text-green-600' : 'text-amber-600'}">${total} ${suffix}</span>
           ${isValid ? '<span class="text-green-600">✓</span>' : '<span class="text-amber-600">⚠️</span>'}
         </div>
       </div>
