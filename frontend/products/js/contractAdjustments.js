@@ -16,46 +16,51 @@ const contractAdjustments = {
 
         let html = '<div class="space-y-3">';
         html += '<p class="text-xs text-muted-foreground mb-3">Set multipliers: &lt; 1.0 = Discount, 1.0 = Standard (default), &gt; 1.0 = Premium</p>';
-        
+
         selectedItems.forEach(item => {
-            if (!this.multipliers[item.id]) {
-                this.multipliers[item.id] = { multiplier: 1.0, notes: '' };
+            // Handle both property name formats (item_id/item_name and id/name)
+            const itemId = item.item_id || item.id;
+            const itemName = item.item_name || item.name;
+
+            // Only create default if not already loaded from backend
+            if (!this.multipliers[itemId]) {
+                this.multipliers[itemId] = { multiplier: 1.0, notes: '' };
             }
-            
-            const multiplier = this.multipliers[item.id].multiplier;
-            const notes = this.multipliers[item.id].notes;
+
+            const multiplier = this.multipliers[itemId].multiplier;
+            const notes = this.multipliers[itemId].notes;
             const percentage = ((multiplier - 1) * 100).toFixed(1);
-            const label = multiplier < 1 ? `${Math.abs(percentage)}% discount` : 
-                         multiplier > 1 ? `+${percentage}% premium` : 
+            const label = multiplier < 1 ? `${Math.abs(percentage)}% discount` :
+                         multiplier > 1 ? `+${percentage}% premium` :
                          'Standard pricing';
-            const labelColor = multiplier < 1 ? 'text-green-600' : 
-                              multiplier > 1 ? 'text-amber-600' : 
+            const labelColor = multiplier < 1 ? 'text-green-600' :
+                              multiplier > 1 ? 'text-amber-600' :
                               'text-muted-foreground';
 
             html += `
                 <div class="border border-border rounded-md p-3">
                     <div class="flex items-center gap-3 mb-2">
-                        <label class="font-medium text-sm flex-1">${this.escapeHtml(item.name)}</label>
+                        <label class="font-medium text-sm flex-1">${this.escapeHtml(itemName)}</label>
                         <div class="flex items-center gap-2">
-                            <input type="number" 
-                                   value="${multiplier}" 
-                                   step="0.01" 
+                            <input type="number"
+                                   value="${multiplier}"
+                                   step="0.01"
                                    min="0.01"
                                    max="10"
-                                   onchange="contractAdjustments.handleMultiplierChange(${item.id}, this.value)"
+                                   onchange="contractAdjustments.handleMultiplierChange(${itemId}, this.value)"
                                    class="w-20 px-2 py-1 text-sm border border-input rounded-md focus:ring-2 focus:ring-ring">
                             <span class="text-xs ${labelColor} font-medium w-28">${label}</span>
                         </div>
                     </div>
-                    <input type="text" 
+                    <input type="text"
                            placeholder="Notes (optional)"
                            value="${this.escapeHtml(notes)}"
-                           onchange="contractAdjustments.handleNotesChange(${item.id}, this.value)"
+                           onchange="contractAdjustments.handleNotesChange(${itemId}, this.value)"
                            class="w-full px-2 py-1 text-xs border border-input rounded-md focus:ring-2 focus:ring-ring">
                 </div>
             `;
         });
-        
+
         html += '</div>';
         container.innerHTML = html;
     },
@@ -66,14 +71,10 @@ const contractAdjustments = {
             this.multipliers[itemId] = { multiplier: 1.0, notes: '' };
         }
         this.multipliers[itemId].multiplier = Math.max(0.01, Math.min(10, numValue));
-        
+
         // Re-render to update label using current items from itemManager
         if (window.itemManager) {
-            const selectedItems = Array.from(window.itemManager.itemAllocations.entries()).map(([id, data]) => ({
-                id: id,
-                name: data.item.item_name
-            }));
-            this.renderAdjustments(selectedItems);
+            this.renderAdjustments(window.itemManager.selectedItems);
         }
     },
 
@@ -87,11 +88,11 @@ const contractAdjustments = {
     getMultiplierData() {
         const data = {};
         for (const [itemId, info] of Object.entries(this.multipliers)) {
-            // Only include non-default multipliers
-            if (info.multiplier !== 1.0 || info.notes) {
+            // Only include non-default multipliers (UAT philosophy: only save what matters)
+            if (info.multiplier !== 1.0 || (info.notes && info.notes.trim() !== '')) {
                 data[itemId] = {
                     multiplier: info.multiplier,
-                    notes: info.notes
+                    notes: info.notes || ''
                 };
             }
         }
