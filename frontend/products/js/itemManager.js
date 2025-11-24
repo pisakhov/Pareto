@@ -270,17 +270,21 @@ class ItemManager {
 
       processData.process.items.forEach(item => {
         const isSelected = processData.selectedItems.find(i => i.item_id === item.item_id) !== undefined;
+        const providerNames = item.providers.map(p => this.escapeHtml(p.provider_name)).join(' · ');
         const itemCard = document.createElement('div');
-        itemCard.className = `border rounded-lg p-3 transition-all ${isSelected ? 'border-[#fb923c] bg-[#fb923c]/5' : 'border-border hover:border-slate-300'}`;
+        itemCard.className = `border-2 rounded-xl p-4 transition-all duration-200 hover:shadow-md ${isSelected ? 'border-[#fb923c] bg-gradient-to-br from-[#fb923c]/5 to-[#fb923c]/10 shadow-sm' : 'border-slate-200 hover:border-slate-300'}`;
         itemCard.innerHTML = `
           <label class="flex items-start gap-3 cursor-pointer">
             <input type="checkbox" ${isSelected ? 'checked' : ''}
                    onchange="window.itemManager.toggleContractItem(${processId}, ${item.item_id}, this.checked)"
-                   class="mt-1 focus:ring-2 focus:ring-[#fb923c] rounded">
+                   class="mt-1 w-5 h-5 text-[#fb923c] focus:ring-2 focus:ring-[#fb923c] focus:ring-offset-0 rounded border-2 border-slate-300">
             <div class="flex-1 min-w-0">
-              <div class="text-sm font-medium text-slate-900">${this.escapeHtml(item.item_name)}</div>
-              <div class="text-xs text-slate-500 mt-1">
-                ${item.providers.length} provider${item.providers.length !== 1 ? 's' : ''}
+              <div class="text-sm font-semibold text-slate-900 mb-1">${this.escapeHtml(item.item_name)}</div>
+              <div class="text-xs text-slate-600 flex items-center gap-1">
+                <svg class="w-3.5 h-3.5 text-slate-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
+                </svg>
+                <span>${providerNames}</span>
               </div>
             </div>
           </label>
@@ -355,12 +359,11 @@ class ItemManager {
 
     this.collectiveAllocation.providers.forEach(provider => {
       const isLocked = this.collectiveAllocation.locked && this.collectiveAllocation.lockedProviderId === provider.provider_id;
-      const isDisabled = this.collectiveAllocation.locked && !isLocked;
       const suffix = this.collectiveAllocation.mode === 'percentage' ? '%' : 'units';
       const value = this.collectiveAllocation.providerValues.get(provider.provider_id) || 0;
 
       const providerCard = document.createElement('div');
-      providerCard.className = `bg-white border border-[#fb923c]/20 rounded-lg p-3 ${isDisabled ? 'opacity-50' : ''}`;
+      providerCard.className = 'bg-white border border-[#fb923c]/20 rounded-lg p-3';
       providerCard.innerHTML = `
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-3">
@@ -370,10 +373,9 @@ class ItemManager {
             <span class="font-medium text-slate-900">${this.escapeHtml(provider.company_name || 'Unknown Provider')}</span>
           </div>
           <div class="flex items-center gap-2">
-            <input type="number" value="${value}" min="0" ${isDisabled ? 'readonly' : ''}
+            <input type="number" value="${value}" min="0"
                    onchange="window.itemManager.handleAllocationChange('${provider.provider_id}', this.value)"
-                   class="w-20 px-3 py-1.5 border border-[#fb923c]/30 rounded-md text-center font-medium ${isDisabled ? 'bg-slate-50' : ''}"
-                   ${isDisabled ? 'style="background: #f1f5f9;"' : ''}>
+                   class="w-20 px-3 py-1.5 border border-[#fb923c]/30 rounded-md text-center font-medium">
             <span class="text-sm font-medium text-slate-600">${suffix}</span>
             ${isLocked ? '<span class="text-amber-600">🔒</span>' : ''}
           </div>
@@ -387,8 +389,7 @@ class ItemManager {
               </button>
             ` : `
               <button type="button" onclick="window.itemManager.handleLockProvider('${provider.provider_id}')"
-                      ${isDisabled ? 'disabled' : ''}
-                      class="text-xs text-slate-600 hover:text-slate-800 font-medium inline-flex items-center gap-1 px-2 py-1 hover:bg-slate-100 rounded-md transition-colors ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}">
+                      class="text-xs text-slate-600 hover:text-slate-800 font-medium inline-flex items-center gap-1 px-2 py-1 hover:bg-slate-100 rounded-md transition-colors">
                 🔒 Lock
               </button>
             `}
@@ -472,11 +473,21 @@ class ItemManager {
   handleModeToggle(mode) {
     if (!this.collectiveAllocation) return;
 
+    const oldMode = this.collectiveAllocation.mode;
     this.collectiveAllocation.mode = mode;
 
     if (mode === 'units') {
       this.collectiveAllocation.locked = false;
       this.collectiveAllocation.lockedProviderId = null;
+      this.collectiveAllocation.providerValues.forEach((value, providerId) => {
+        this.collectiveAllocation.providerValues.set(providerId, 0);
+      });
+    } else if (mode === 'percentage' && oldMode === 'units') {
+      this.collectiveAllocation.locked = false;
+      this.collectiveAllocation.lockedProviderId = null;
+      this.collectiveAllocation.providerValues.forEach((value, providerId) => {
+        this.collectiveAllocation.providerValues.set(providerId, 0);
+      });
     } else if (mode === 'percentage' && this.collectiveAllocation.locked) {
       const lockedProviderId = this.collectiveAllocation.lockedProviderId;
       this.collectiveAllocation.providerValues.forEach((value, providerId) => {
@@ -488,13 +499,18 @@ class ItemManager {
   }
 
   handleLockProvider(providerId) {
-    if (!this.collectiveAllocation || this.collectiveAllocation.mode !== 'percentage') return;
+    if (!this.collectiveAllocation || this.collectiveAllocation.mode !== 'percentage') {
+      return;
+    }
+
+    // Convert string to number for comparison
+    const numericProviderId = parseInt(providerId, 10);
 
     this.collectiveAllocation.locked = true;
-    this.collectiveAllocation.lockedProviderId = providerId;
+    this.collectiveAllocation.lockedProviderId = numericProviderId;
 
     this.collectiveAllocation.providerValues.forEach((value, pId) => {
-      this.collectiveAllocation.providerValues.set(pId, pId === providerId ? 100 : 0);
+      this.collectiveAllocation.providerValues.set(pId, pId === numericProviderId ? 100 : 0);
     });
 
     this.render();
@@ -512,9 +528,13 @@ class ItemManager {
   handleAllocationChange(providerId, value) {
     if (!this.collectiveAllocation) return;
 
+    // Convert providerId to number for consistency with the Map
+    const numericProviderId = parseInt(providerId, 10);
+
     const numValue = parseFloat(value);
     const finalValue = isNaN(numValue) ? 0 : numValue;
-    this.collectiveAllocation.providerValues.set(providerId, finalValue);
+
+    this.collectiveAllocation.providerValues.set(numericProviderId, finalValue);
 
     this.render();
   }

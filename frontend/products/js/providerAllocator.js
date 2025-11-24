@@ -112,36 +112,33 @@ const providerAllocator = {
 
     createProviderRow(itemId, provider, allocation) {
         const isLocked = allocation.locked && allocation.lockedProviderId === provider.provider_id;
-        const isDisabled = allocation.locked && !isLocked;
         const suffix = allocation.mode === 'percentage' ? '%' : 'units';
 
         return `
-            <tr class="${isDisabled ? 'opacity-50' : ''}">
+            <tr>
                 <td class="py-2">${this.escapeHtml(provider.provider_name)}</td>
                 <td class="py-2">
-                    <input type="number" 
-                           value="${provider.value}" 
-                           min="0" 
+                    <input type="number"
+                           value="${provider.value}"
+                           min="0"
                            max="${allocation.mode === 'percentage' ? '100' : ''}"
-                           ${isDisabled ? 'disabled' : ''}
                            onchange="providerAllocator.handleAllocationChange(${itemId}, ${provider.provider_id}, this.value)"
-                           class="w-24 px-2 py-1 border border-input rounded-md focus:ring-2 focus:ring-ring ${isDisabled ? 'bg-muted' : ''}">
+                           class="w-24 px-2 py-1 border border-input rounded-md focus:ring-2 focus:ring-ring">
                     <span class="ml-1 text-muted-foreground">${suffix}</span>
                 </td>
                 <td class="py-2 text-right">
                     ${isLocked ? `
-                        <button type="button" 
+                        <button type="button"
                                 onclick="providerAllocator.handleUnlock(${itemId})"
                                 title="Unlock allocation"
                                 class="px-3 py-1 text-sm rounded-md border border-input hover:bg-accent">
                             🔓 Unlock
                         </button>
                     ` : `
-                        <button type="button" 
+                        <button type="button"
                                 onclick="providerAllocator.handleLockProvider(${itemId}, ${provider.provider_id})"
                                 title="Lock to this provider"
-                                ${isDisabled ? 'disabled' : ''}
-                                class="px-3 py-1 text-sm rounded-md border border-input hover:bg-accent ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}">
+                                class="px-3 py-1 text-sm rounded-md border border-input hover:bg-accent">
                             🔒 Lock
                         </button>
                     `}
@@ -152,30 +149,48 @@ const providerAllocator = {
 
     handleModeToggle(itemId, mode) {
         if (!this.allocations[itemId]) return;
-        this.allocations[itemId].mode = mode;
-        
-        if (this.allocations[itemId].locked && mode === 'percentage') {
-            const lockedProviderId = this.allocations[itemId].lockedProviderId;
-            this.allocations[itemId].providers.forEach(p => {
+
+        const allocation = this.allocations[itemId];
+        const oldMode = allocation.mode;
+        allocation.mode = mode;
+
+        if (mode === 'units') {
+            allocation.locked = false;
+            allocation.lockedProviderId = null;
+            allocation.providers.forEach(p => {
+                p.value = 0;
+            });
+        } else if (mode === 'percentage' && oldMode === 'units') {
+            allocation.locked = false;
+            allocation.lockedProviderId = null;
+            allocation.providers.forEach(p => {
+                p.value = 0;
+            });
+        } else if (allocation.locked && mode === 'percentage') {
+            const lockedProviderId = allocation.lockedProviderId;
+            allocation.providers.forEach(p => {
                 p.value = p.provider_id === lockedProviderId ? 100 : 0;
             });
         }
-        
+
         this.rerenderPanel(itemId);
     },
 
     handleLockProvider(itemId, providerId) {
         if (!this.allocations[itemId]) return;
-        
+
+        // Convert string to number for comparison
+        const numericProviderId = parseInt(providerId, 10);
+
         this.allocations[itemId].locked = true;
-        this.allocations[itemId].lockedProviderId = providerId;
-        
+        this.allocations[itemId].lockedProviderId = numericProviderId;
+
         if (this.allocations[itemId].mode === 'percentage') {
             this.allocations[itemId].providers.forEach(p => {
-                p.value = p.provider_id === providerId ? 100 : 0;
+                p.value = p.provider_id === numericProviderId ? 100 : 0;
             });
         }
-        
+
         this.rerenderPanel(itemId);
     },
 
@@ -190,14 +205,17 @@ const providerAllocator = {
 
     handleAllocationChange(itemId, providerId, value) {
         if (!this.allocations[itemId]) return;
-        
+
+        // Convert string to number for consistency
+        const numericProviderId = parseInt(providerId, 10);
+
         const numValue = parseFloat(value) || 0;
-        const provider = this.allocations[itemId].providers.find(p => p.provider_id === providerId);
-        
+        const provider = this.allocations[itemId].providers.find(p => p.provider_id === numericProviderId);
+
         if (provider) {
             provider.value = numValue;
         }
-        
+
         this.rerenderPanel(itemId);
     },
 
