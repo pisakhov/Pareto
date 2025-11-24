@@ -14,6 +14,20 @@ const modalManager = {
             window.editingProductId = null;
             title.textContent = 'Add Product';
 
+            // Set status toggle to active by default
+            const statusToggle = document.getElementById('productStatusToggle');
+            if (statusToggle) {
+                statusToggle.checked = true;
+            }
+            const statusLabel = document.getElementById('productStatusLabel');
+            if (statusLabel) {
+                statusLabel.textContent = 'Active';
+            }
+            const statusInput = document.getElementById('productStatus');
+            if (statusInput) {
+                statusInput.value = 'active';
+            }
+
             // Reset itemManager
             if (window.itemManager) {
                 window.itemManager.reset();
@@ -94,5 +108,15 @@ const modalManager = {
                 this.closeViewModal();
             }
         });
+
+        // Setup status toggle
+        const statusToggle = document.getElementById('productStatusToggle');
+        if (statusToggle) {
+            statusToggle.addEventListener('change', function() {
+                const isActive = this.checked;
+                document.getElementById('productStatus').value = isActive ? 'active' : 'inactive';
+                document.getElementById('productStatusLabel').textContent = isActive ? 'Active' : 'Inactive';
+            });
+        }
     },
 };

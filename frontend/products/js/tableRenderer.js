@@ -55,91 +55,191 @@ class TableRenderer {
     }
 
     createProductCard(product) {
+        const isActive = product.status === 'active';
         const card = document.createElement('div');
-        card.className = 'bg-card border rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-200';
-        
-        const statusBadgeClass = product.status === 'active' 
-            ? 'bg-green-100 text-green-800' 
-            : 'bg-gray-100 text-gray-800';
-        
-        const truncatedDesc = product.description.length > 100 
-            ? product.description.substring(0, 100) + '...' 
-            : product.description;
+        card.className = `
+            bg-white border border-slate-200 rounded-xl overflow-hidden
+            hover:shadow-xl hover:border-[#fb923c]/30
+            transition-all duration-300
+            ${!isActive ? 'opacity-70' : ''}
+        `;
+
+        // Build process information
+        const processInfo = this.getProcessInfo(product);
 
         card.innerHTML = `
-            <div class="p-6">
-                <div class="flex items-start justify-between mb-3">
-                    <h3 class="text-lg font-semibold text-foreground line-clamp-2 flex-1">${this.escapeHtml(product.name)}</h3>
-                    <span class="ml-2 px-2 py-1 text-xs rounded-full ${statusBadgeClass} whitespace-nowrap">
-                        ${product.status}
-                    </span>
-                </div>
-                
-                <p class="text-sm text-muted-foreground mb-4 line-clamp-3 min-h-[3rem]">
-                    ${this.escapeHtml(truncatedDesc) || 'No description provided'}
-                </p>
-                
-                <div class="flex flex-col gap-2 mb-4 pb-4 border-b border-border">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center text-sm text-muted-foreground">
-                            <svg class="w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+            <div class="bg-gradient-to-r from-[#fb923c]/10 to-[#fb923c]/5 border-b border-[#fb923c]/10 p-4">
+                <div class="flex items-start justify-between">
+                    <div class="flex items-start gap-3 flex-1">
+                        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-[#fb923c] to-[#fb923c]/80 flex items-center justify-center shadow-sm">
+                            <svg class="w-6 h-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                             </svg>
-                            <span class="font-medium text-foreground">${product.item_ids.length}</span>
-                            <span class="ml-1">${product.item_ids.length === 1 ? 'item' : 'items'}</span>
                         </div>
-                        <div class="text-xs text-muted-foreground">
+                        <div class="flex-1 min-w-0">
+                            <h3 class="font-semibold text-slate-900 text-lg ${!isActive ? 'line-through text-slate-500' : ''}">${this.escapeHtml(product.name)}</h3>
+                            <div class="flex items-center gap-2 mt-1">
+                                <span class="w-2 h-2 rounded-full ${isActive ? 'bg-green-500' : 'bg-gray-400'}"></span>
+                                <span class="text-xs font-medium ${isActive ? 'text-green-700' : 'text-gray-600'}">${isActive ? 'Active' : 'Inactive'}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                ${product.description ? `
+                    <p class="text-sm text-slate-600 mt-3 line-clamp-2">${this.escapeHtml(product.description)}</p>
+                ` : ''}
+            </div>
+
+            <div class="p-4 space-y-4">
+                <!-- Process Information -->
+                <div class="space-y-2">
+                    <h4 class="text-xs font-semibold text-slate-700 uppercase tracking-wider">Processes & Items</h4>
+                    ${processInfo}
+                </div>
+
+                <!-- Allocation Summary -->
+                <div class="pt-3 border-t border-slate-200">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center text-sm text-slate-600">
+                            <svg class="w-4 h-4 mr-1.5 text-[#fb923c]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                            <span class="font-medium text-slate-700">Total Items:</span>
+                            <span class="ml-1 font-semibold text-[#fb923c]">${product.item_ids?.length || 0}</span>
+                        </div>
+                        <div class="text-xs text-slate-500">
                             ${this.formatDate(product.date_last_update)}
                         </div>
                     </div>
+
                     ${product.proxy_quantity > 0 ? `
                         <details class="text-sm">
-                            <summary class="flex items-center cursor-pointer hover:text-blue-600 transition-colors list-none">
-                                <svg class="w-4 h-4 mr-1 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <summary class="flex items-center cursor-pointer hover:text-[#fb923c] transition-colors list-none">
+                                <svg class="w-4 h-4 mr-1 text-[#fb923c]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                                 </svg>
-                                <span class="text-muted-foreground">Est. Files:</span>
-                                <span class="ml-1 font-semibold text-blue-600">${product.proxy_quantity.toLocaleString()}</span>
-                                <svg class="w-3 h-3 ml-1 text-muted-foreground transition-transform details-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <span class="text-slate-600">Est. Files:</span>
+                                <span class="ml-1 font-semibold text-[#fb923c]">${product.proxy_quantity.toLocaleString()}</span>
+                                <svg class="w-3 h-3 ml-1 text-slate-400 transition-transform details-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                                 </svg>
                             </summary>
-                            <div class="mt-2 ml-5 pl-3 border-l-2 border-blue-200 space-y-1">
+                            <div class="mt-2 ml-5 pl-3 border-l-2 border-[#fb923c]/20 space-y-1">
                                 ${this.getItemBreakdown(product)}
                             </div>
                         </details>
                     ` : ''}
                 </div>
-                
-                <div class="flex gap-2">
+
+                <!-- Action Buttons -->
+                <div class="flex items-center gap-2 pt-2">
                     <button onclick="window.formHandler.viewProduct(${product.product_id})"
-                            class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 h-9 px-3 border border-input bg-background hover:bg-accent hover:text-accent-foreground"
-                            aria-label="View ${this.escapeHtml(product.name)}">
-                        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#fb923c] bg-[#fb923c]/10 hover:bg-[#fb923c]/20 border border-[#fb923c]/30 hover:border-[#fb923c]/50 rounded-lg transition-all"
+                            title="View Details">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-3.5 h-3.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
+                        <span>View</span>
                     </button>
                     <button onclick="window.formHandler.editProduct(${product.product_id})"
-                            class="flex-1 inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 h-9 px-3 border border-input bg-background hover:bg-accent hover:text-accent-foreground"
-                            aria-label="Edit ${this.escapeHtml(product.name)}">
-                        <svg class="w-4 h-4 mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#fb923c] bg-[#fb923c]/10 hover:bg-[#fb923c]/20 border border-[#fb923c]/30 hover:border-[#fb923c]/50 rounded-lg transition-all"
+                            title="Edit Product">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-3.5 h-3.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
                         </svg>
-                        Edit
+                        <span>Edit</span>
                     </button>
                     <button onclick="window.formHandler.deleteProduct(${product.product_id}, this)"
-                            class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 h-9 px-3 text-destructive hover:bg-destructive/10"
-                            aria-label="Delete ${this.escapeHtml(product.name)}">
-                        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 hover:bg-red-100 hover:border-red-300 rounded-lg transition-all"
+                            title="Delete Product">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-3.5 h-3.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.134-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.067-2.09 1.02-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                         </svg>
+                        <span>Delete</span>
                     </button>
                 </div>
             </div>
         `;
-        
+
         return card;
+    }
+
+    getProcessInfo(product) {
+        // Get items data from the global app data
+        const items = window.productsApp?.data?.items || [];
+        const contracts = window.productsApp?.data?.contracts || [];
+
+        console.log('[PRODUCT CARD DEBUG] Product:', product.name);
+        console.log('[PRODUCT CARD DEBUG] Items:', items);
+        console.log('[PRODUCT CARD DEBUG] Contracts:', contracts);
+
+        if (!product.item_ids || product.item_ids.length === 0) {
+            return '<p class="text-xs text-slate-500 italic">No processes assigned</p>';
+        }
+
+        // Build process map from contracts data
+        const processMap = new Map();
+
+        // First, populate process names from contracts
+        contracts.forEach(contract => {
+            if (contract.process_id && contract.process_name) {
+                processMap.set(contract.process_id, {
+                    name: contract.process_name,
+                    items: []
+                });
+                console.log('[PRODUCT CARD DEBUG] Added process:', contract.process_id, contract.process_name);
+            }
+        });
+
+        // Now assign items to their processes
+        product.item_ids.forEach(itemId => {
+            const item = items.find(i => i.item_id === itemId);
+            if (item) {
+                // Find the contract that contains this item
+                const contract = contracts.find(c =>
+                    c.items && c.items.some(ci => ci.item_id === itemId)
+                );
+
+                if (contract && contract.process_id) {
+                    console.log('[PRODUCT CARD DEBUG] Item:', item.item_name, 'Process ID:', contract.process_id, 'Process Name:', contract.process_name);
+
+                    // Use the contract's process_id, not the item's (which may be undefined)
+                    if (!processMap.has(contract.process_id)) {
+                        processMap.set(contract.process_id, {
+                            name: contract.process_name || `Process ${contract.process_id}`,
+                            items: []
+                        });
+                    }
+                    processMap.get(contract.process_id).items.push(item);
+                }
+            }
+        });
+
+        console.log('[PRODUCT CARD DEBUG] Final Process Map:', processMap);
+
+        // Generate HTML for processes (only show processes with items)
+        const processesHTML = Array.from(processMap.entries())
+            .filter(([processId, process]) => process.items.length > 0) // Only show processes with items
+            .map(([processId, process]) => {
+                const itemCount = process.items.length;
+
+                return `
+                <div class="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <div class="w-2 h-2 rounded-full bg-[#fb923c] mr-2"></div>
+                            <span class="text-sm font-semibold text-slate-800">${this.escapeHtml(process.name)}</span>
+                        </div>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#fb923c]/10 text-[#fb923c] border border-[#fb923c]/20">
+                            ${itemCount} ${itemCount === 1 ? 'item' : 'items'}
+                        </span>
+                    </div>
+                </div>
+            `;
+            }).join('');
+
+        return processesHTML;
     }
 
     getItemBreakdown(product) {

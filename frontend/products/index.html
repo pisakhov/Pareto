@@ -104,16 +104,39 @@
         <form id="productForm" aria-label="Product form" class="flex flex-col flex-1 min-h-0">
             <input type="hidden" id="productId" name="product_id">
             <div class="space-y-4 p-6 overflow-y-auto">
+                <!-- Info Section -->
                 <div>
-                    <label class="block text-sm font-medium mb-1">Product Name *</label>
-                    <input type="text" id="productName" name="name" required
-                           class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-base font-semibold text-foreground">Info</h3>
+                        <span class="text-xs text-muted-foreground">Basic product information</span>
+                    </div>
+                    <div class="bg-card border border-border rounded-lg p-4 space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Product Name *</label>
+                            <input type="text" id="productName" name="name" required
+                                   class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Description</label>
+                            <textarea id="productDescription" name="description" rows="3"
+                                      class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Status</label>
+                            <div class="flex items-center mt-1">
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="productStatusToggle" class="sr-only peer" checked>
+                                    <div
+                                        class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#fb923c]">
+                                    </div>
+                                    <span class="ml-3 text-sm font-medium text-slate-700" id="productStatusLabel">Active</span>
+                                </label>
+                                <input type="hidden" id="productStatus" name="status" value="active">
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium mb-1">Description</label>
-                    <textarea id="productDescription" name="description" rows="3"
-                              class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent"></textarea>
-                </div>
+
                 <!-- Allocation Section -->
                 <div class="border-t border-border pt-4 mt-4">
                     <div class="flex items-center justify-between mb-3">
@@ -294,15 +317,6 @@
                             </div>
                         </div>
                     </div>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium mb-1">Status</label>
-                    <select id="productStatus" name="status"
-                            class="w-full px-3 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent">
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                    </select>
                 </div>
             </div>
             <div class="flex justify-end space-x-3 p-6 border-t border-border bg-card">

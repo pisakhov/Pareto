@@ -86,18 +86,20 @@ class ProductsApp {
 
     async loadData() {
         try {
-            const [products, contracts, providers, pricing] = await Promise.all([
+            const [products, contracts, providers, pricing, items] = await Promise.all([
                 this.components.dataService.loadProducts().then(products => {
                     return products;
                 }),
                 this.components.dataService.getAllContracts(),
                 this.components.dataService.loadProviders(),
                 this.components.dataService.loadProductsPricing(),
+                this.components.dataService.loadItems(),
             ]);
             this.data.products = products;
             this.data.contracts = contracts;
             this.data.providers = providers;
             this.data.pricing = pricing;
+            this.data.items = items;
 
             this.renderAll();
             this.updateCounts();

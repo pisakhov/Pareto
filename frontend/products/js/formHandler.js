@@ -65,6 +65,17 @@ class FormHandler {
             document.getElementById('productDescription').value = product.description;
             document.getElementById('productStatus').value = product.status;
 
+            // Set status toggle
+            const isActive = product.status === 'active';
+            const statusToggle = document.getElementById('productStatusToggle');
+            if (statusToggle) {
+                statusToggle.checked = isActive;
+            }
+            const statusLabel = document.getElementById('productStatusLabel');
+            if (statusLabel) {
+                statusLabel.textContent = isActive ? 'Active' : 'Inactive';
+            }
+
             // Load forecasts and actuals
             if (window.forecastManager) {
                 window.forecastManager.loadFromProduct(product);
