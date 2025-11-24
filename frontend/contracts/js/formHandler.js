@@ -231,10 +231,13 @@ class FormHandler {
     }
 
     this.setButtonLoading(button, "Deleting...");
-    await deleteFn(entityId);
-    this.uiManager.showNotification(successMessage, "success");
-    await this.loadAllData();
-    this.restoreButton(button, "Delete");
+    try {
+      await deleteFn(entityId);
+      this.uiManager.showNotification(successMessage, "success");
+      await this.loadAllData();
+    } finally {
+      this.restoreButton(button, "Delete");
+    }
     return true;
   }
 

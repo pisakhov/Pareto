@@ -105,12 +105,14 @@ class CRUDOperations(DatabaseSchema):
         return True
 
     def delete_provider(self, provider_id: int) -> bool:
+        from fastapi import HTTPException
+
         conn = self._get_connection()
-        
+
         # Check for assigned items
         item_count = conn.execute("SELECT COUNT(*) FROM provider_items WHERE provider_id = ?", [provider_id]).fetchone()[0]
         if item_count > 0:
-            raise ValueError("Provider has assigned items. Please remove item assignments first.")
+            raise HTTPException(status_code=400, detail=f"Provider has {item_count} assigned items. Please remove item assignments first.")
 
         conn.execute("DELETE FROM offers WHERE provider_id = ?", [provider_id])
         conn.execute("DELETE FROM provider_items WHERE provider_id = ?", [provider_id])
@@ -836,17 +838,19 @@ class CRUDOperations(DatabaseSchema):
         return True
 
     def delete_process(self, process_id: int) -> bool:
+        from fastapi import HTTPException
+
         conn = self._get_connection()
-        
+
         # Check for assigned providers (Contracts) - Only count those with valid providers
         contract_count = conn.execute("""
-            SELECT COUNT(*) 
-            FROM contracts c 
-            JOIN providers p ON c.provider_id = p.provider_id 
+            SELECT COUNT(*)
+            FROM contracts c
+            JOIN providers p ON c.provider_id = p.provider_id
             WHERE c.process_id = ?
         """, [process_id]).fetchone()[0]
         if contract_count > 0:
-            raise ValueError("Process has assigned providers. Please remove provider assignments first.")
+            raise HTTPException(status_code=400, detail=f"Process has {contract_count} assigned providers. Please remove provider assignments first.")
 
         conn.execute("DELETE FROM process_providers WHERE process_id = ?", [process_id])
         conn.execute("DELETE FROM contracts WHERE process_id = ?", [process_id])

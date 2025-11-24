@@ -22,6 +22,9 @@ class ContractsApp {
         // Setup global event handlers
         this.setupGlobalEventHandlers();
 
+        // Setup error handler
+        this.setupErrorHandler();
+
         // Load initial data
         await this.loadData();
 
@@ -35,6 +38,14 @@ class ContractsApp {
         if (this.components.modalManager) {
             // Any additional modal setup can go here
         }
+    }
+
+    setupErrorHandler() {
+        window.addEventListener('apiError', (event) => {
+            if (this.components.uiManager) {
+                this.components.uiManager.showNotification(event.detail, "error");
+            }
+        });
     }
 
     initializeComponents() {

@@ -8,6 +8,21 @@ class DataService {
 
   async fetchWithErrorHandling(url, options = {}) {
     const response = await fetch(url, options);
+
+    if (!response.ok) {
+      const contentType = response.headers.get("Content-Type");
+      if (contentType && contentType.includes("application/json")) {
+        const error = await response.json();
+        const errorMsg = error.detail || error.message || `HTTP ${response.status}`;
+        window.dispatchEvent(new CustomEvent('apiError', { detail: errorMsg }));
+        throw new Error(errorMsg);
+      } else {
+        const errorText = await response.text();
+        window.dispatchEvent(new CustomEvent('apiError', { detail: errorText }));
+        throw new Error(errorText);
+      }
+    }
+
     const contentLength = response.headers.get("Content-Length");
 
     if (contentLength === "0" || response.status === 204) {
