@@ -193,7 +193,7 @@ class ItemManager {
     if (!this.container) return;
 
     if (this.selectedContracts.size === 0) {
-      this.container.innerHTML = '<p class="text-sm text-muted-foreground text-center py-4">No contracts added yet</p>';
+      this.container.innerHTML = '<p class="text-sm text-muted-foreground text-center py-4">No items added yet</p>';
       if (window.contractAdjustments) {
         window.contractAdjustments.renderAdjustments([]);
       }
@@ -205,11 +205,6 @@ class ItemManager {
     const contractsList = this.createContractsList();
     this.container.appendChild(contractsList);
 
-    if (this.selectedItems.length > 0) {
-      const allocationSection = this.createAllocationSection();
-      this.container.appendChild(allocationSection);
-    }
-
     if (window.contractAdjustments) {
       window.contractAdjustments.renderAdjustments(this.selectedItems);
     }
@@ -217,185 +212,211 @@ class ItemManager {
 
   createContractsList() {
     const contractsList = document.createElement('div');
-    contractsList.className = 'space-y-4';
+    contractsList.className = 'space-y-6';
 
     this.selectedContracts.forEach((processData, processId) => {
-      const processBlock = document.createElement('div');
-      processBlock.className = 'border border-border rounded-lg p-4 bg-secondary/10';
+      // Create a beautiful, minimalistic card for each process
+      const processCard = document.createElement('div');
+      processCard.className = 'bg-card border border-border rounded-xl shadow-sm overflow-hidden';
 
-      const header = document.createElement('div');
-      header.className = 'flex items-center justify-between mb-3';
-      header.innerHTML = `
-        <div>
-          <h4 class="font-medium text-foreground">${this.escapeHtml(processData.process.process_name)}</h4>
-          <p class="text-sm text-muted-foreground mt-1">
-            Select items to include in this process
-          </p>
+      // Card Header
+      const cardHeader = document.createElement('div');
+      cardHeader.className = 'px-6 py-4 bg-gradient-to-r from-[#fb923c]/5 to-[#fb923c]/10 border-b border-border';
+      cardHeader.innerHTML = `
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="p-2 bg-white rounded-lg border border-slate-200 shadow-sm">
+              <svg class="w-5 h-5 text-[#fb923c]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-lg font-semibold text-slate-900">${this.escapeHtml(processData.process.process_name)}</h3>
+              <p class="text-sm text-slate-600 mt-0.5">Configure items and allocations</p>
+            </div>
+          </div>
+          <button type="button" onclick="window.itemManager.removeContract(${processId})"
+                  class="text-red-600 hover:text-red-800 text-sm font-medium inline-flex items-center gap-1 px-3 py-1.5 hover:bg-red-50 rounded-md transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Remove
+          </button>
         </div>
-        <button type="button" class="text-red-600 hover:text-red-800 text-sm" onclick="window.itemManager.removeContract(${processId})">
-          Remove Process
-        </button>
       `;
-      processBlock.appendChild(header);
+      processCard.appendChild(cardHeader);
 
-      const itemsList = document.createElement('div');
-      itemsList.className = 'space-y-2';
+      // Card Body
+      const cardBody = document.createElement('div');
+      cardBody.className = 'p-6';
+
+      // Items Section
+      const itemsSection = document.createElement('div');
+      itemsSection.className = 'mb-6';
 
       const selectAllId = `selectAll_${processId}`;
-      const selectAllDiv = document.createElement('div');
-      selectAllDiv.className = 'flex items-center gap-2 mb-3';
-      selectAllDiv.innerHTML = `
-        <input type="checkbox" id="${selectAllId}" ${processData.selectAll ? 'checked' : ''}
-               onchange="window.itemManager.toggleContractSelectAll(${processId}, this.checked)"
-               class="focus:ring-2 focus:ring-ring rounded">
-        <label for="${selectAllId}" class="text-sm font-medium cursor-pointer">
-          Select All Items (${processData.process.items.length})
-        </label>
+      itemsSection.innerHTML = `
+        <div class="flex items-center justify-between mb-3">
+          <h4 class="text-sm font-semibold text-slate-700">Items in Process</h4>
+          <label for="${selectAllId}" class="text-sm font-medium cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
+            <input type="checkbox" id="${selectAllId}" ${processData.selectAll ? 'checked' : ''}
+                   onchange="window.itemManager.toggleContractSelectAll(${processId}, this.checked)"
+                   class="focus:ring-2 focus:ring-[#fb923c] rounded">
+            <span>Select All (${processData.process.items.length})</span>
+          </label>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
       `;
-      itemsList.appendChild(selectAllDiv);
 
       processData.process.items.forEach(item => {
         const isSelected = processData.selectedItems.find(i => i.item_id === item.item_id) !== undefined;
-        const itemRow = document.createElement('div');
-        itemRow.className = 'flex items-start gap-2 ml-6';
-        itemRow.innerHTML = `
-          <div class="mt-1">
+        const itemCard = document.createElement('div');
+        itemCard.className = `border rounded-lg p-3 transition-all ${isSelected ? 'border-[#fb923c] bg-[#fb923c]/5' : 'border-border hover:border-slate-300'}`;
+        itemCard.innerHTML = `
+          <label class="flex items-start gap-3 cursor-pointer">
             <input type="checkbox" ${isSelected ? 'checked' : ''}
                    onchange="window.itemManager.toggleContractItem(${processId}, ${item.item_id}, this.checked)"
-                   class="focus:ring-2 focus:ring-ring rounded">
-          </div>
-          <div>
-            <div class="text-sm font-medium">${this.escapeHtml(item.item_name)}</div>
-            <div class="text-xs text-muted-foreground mt-1">
-              Available from: ${item.providers.map(p => p.provider_name).join(', ')}
+                   class="mt-1 focus:ring-2 focus:ring-[#fb923c] rounded">
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-medium text-slate-900">${this.escapeHtml(item.item_name)}</div>
+              <div class="text-xs text-slate-500 mt-1">
+                ${item.providers.length} provider${item.providers.length !== 1 ? 's' : ''}
+              </div>
             </div>
-          </div>
+          </label>
         `;
-        itemsList.appendChild(itemRow);
+        itemsSection.querySelector('div.grid').appendChild(itemCard);
       });
 
-      processBlock.appendChild(itemsList);
-      contractsList.appendChild(processBlock);
+      itemsSection.innerHTML += `</div>`;
+      cardBody.appendChild(itemsSection);
+
+      // Allocation Section (only show if there are selected items)
+      const selectedItemsForProcess = processData.selectedItems.length;
+      if (selectedItemsForProcess > 0) {
+        const allocationSection = this.createProcessAllocationSection(processId);
+        cardBody.appendChild(allocationSection);
+      }
+
+      processCard.appendChild(cardBody);
+      contractsList.appendChild(processCard);
     });
 
     return contractsList;
   }
 
-  createAllocationSection() {
+  createProcessAllocationSection(processId) {
     const allocationBlock = document.createElement('div');
-    allocationBlock.className = 'border border-border rounded-lg p-4 bg-card mt-4';
+    allocationBlock.className = 'bg-gradient-to-r from-[#fb923c]/5 to-[#fb923c]/10 border border-[#fb923c]/20 rounded-lg p-4';
 
     const header = document.createElement('div');
-    header.className = 'mb-4';
+    header.className = 'mb-3 flex items-center justify-between';
     header.innerHTML = `
-      <h4 class="font-medium text-foreground">Provider Allocations</h4>
-      <p class="text-sm text-muted-foreground mt-1">Applies to ALL selected items above</p>
+      <h4 class="text-sm font-semibold text-slate-700 flex items-center gap-2">
+        <svg class="w-4 h-4 text-[#fb923c]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+        Provider Allocations
+      </h4>
+      <div role="radiogroup" class="flex gap-3 text-sm">
+        <label class="flex items-center gap-1.5 cursor-pointer">
+          <input type="radio" name="allocationMode_${processId}" value="percentage"
+                 ${this.collectiveAllocation.mode === 'percentage' ? 'checked' : ''}
+                 onchange="window.itemManager.handleModeToggle('percentage')"
+                 class="focus:ring-2 focus:ring-[#fb923c]">
+          <span class="text-slate-700 font-medium">Percentage</span>
+        </label>
+        <label class="flex items-center gap-1.5 cursor-pointer">
+          <input type="radio" name="allocationMode_${processId}" value="units"
+                 ${this.collectiveAllocation.mode === 'units' ? 'checked' : ''}
+                 onchange="window.itemManager.handleModeToggle('units')"
+                 class="focus:ring-2 focus:ring-[#fb923c]">
+          <span class="text-slate-700 font-medium">Units</span>
+        </label>
+      </div>
     `;
     allocationBlock.appendChild(header);
 
     if (!this.collectiveAllocation || this.collectiveAllocation.providers.length === 0) {
-      const noProviders = document.createElement('p');
-      noProviders.className = 'text-sm text-muted-foreground text-center py-4';
-      noProviders.textContent = 'No providers available';
+      const noProviders = document.createElement('div');
+      noProviders.className = 'text-sm text-slate-600 text-center py-4';
+      noProviders.innerHTML = `
+        <svg class="w-8 h-8 mx-auto mb-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+        No providers available
+      `;
       allocationBlock.appendChild(noProviders);
       return allocationBlock;
     }
 
-    const modeToggle = document.createElement('div');
-    modeToggle.className = 'flex items-center gap-4 mb-4 text-sm';
-    modeToggle.innerHTML = `
-      <label class="flex items-center gap-1 cursor-pointer">
-        <input type="radio" name="mode-collective" value="percentage"
-               ${this.collectiveAllocation.mode === 'percentage' ? 'checked' : ''}
-               onchange="window.itemManager.handleModeToggle('percentage')"
-               class="focus:ring-2 focus:ring-ring">
-        <span>Percentage</span>
-      </label>
-      <label class="flex items-center gap-1 cursor-pointer">
-        <input type="radio" name="mode-collective" value="units"
-               ${this.collectiveAllocation.mode === 'units' ? 'checked' : ''}
-               onchange="window.itemManager.handleModeToggle('units')"
-               class="focus:ring-2 focus:ring-ring">
-        <span>Units</span>
-      </label>
-    `;
-    allocationBlock.appendChild(modeToggle);
+    const providersGrid = document.createElement('div');
+    providersGrid.className = 'space-y-3';
 
-    if (this.collectiveAllocation.locked) {
-      const lockMsg = document.createElement('div');
-      lockMsg.className = 'mb-4 px-3 py-2 rounded-md bg-amber-50 border border-amber-200 text-amber-900 text-sm flex items-center gap-2';
-      lockMsg.innerHTML = `
-        <span>🔒</span>
-        <span><strong>Non-negotiable constraint:</strong> Locked to ${this.getLockedProviderName()}</span>
-      `;
-      allocationBlock.appendChild(lockMsg);
-    }
-
-    const table = document.createElement('table');
-    table.className = 'w-full text-sm';
-
-    const thead = document.createElement('thead');
-    thead.className = 'border-b border-border';
-    thead.innerHTML = `
-      <tr>
-        <th class="text-left py-2 font-medium text-muted-foreground">Provider</th>
-        <th class="text-left py-2 font-medium text-muted-foreground">Allocation</th>
-        <th class="text-right py-2 font-medium text-muted-foreground">Action</th>
-      </tr>
-    `;
-    table.appendChild(thead);
-
-    const tbody = document.createElement('tbody');
     this.collectiveAllocation.providers.forEach(provider => {
-      const row = this.createProviderRow(provider);
-      tbody.appendChild(row);
+      const isLocked = this.collectiveAllocation.locked && this.collectiveAllocation.lockedProviderId === provider.provider_id;
+      const isDisabled = this.collectiveAllocation.locked && !isLocked;
+      const suffix = this.collectiveAllocation.mode === 'percentage' ? '%' : 'units';
+      const value = this.collectiveAllocation.providerValues.get(provider.provider_id) || 0;
+
+      const providerCard = document.createElement('div');
+      providerCard.className = `bg-white border border-[#fb923c]/20 rounded-lg p-3 ${isDisabled ? 'opacity-50' : ''}`;
+      providerCard.innerHTML = `
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-[#fb923c]/10 flex items-center justify-center border border-[#fb923c]/30">
+              <span class="text-[#fb923c] font-semibold text-sm">${(provider.company_name || 'P').charAt(0)}</span>
+            </div>
+            <span class="font-medium text-slate-900">${this.escapeHtml(provider.company_name || 'Unknown Provider')}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="number" value="${value}" min="0" ${isDisabled ? 'readonly' : ''}
+                   onchange="window.itemManager.handleAllocationChange('${provider.provider_id}', this.value)"
+                   class="w-20 px-3 py-1.5 border border-[#fb923c]/30 rounded-md text-center font-medium ${isDisabled ? 'bg-slate-50' : ''}"
+                   ${isDisabled ? 'style="background: #f1f5f9;"' : ''}>
+            <span class="text-sm font-medium text-slate-600">${suffix}</span>
+            ${isLocked ? '<span class="text-amber-600">🔒</span>' : ''}
+          </div>
+        </div>
+        ${this.collectiveAllocation.mode === 'percentage' ? `
+          <div class="mt-2 text-right">
+            ${isLocked ? `
+              <button type="button" onclick="window.itemManager.handleUnlock()"
+                      class="text-xs text-amber-600 hover:text-amber-800 font-medium inline-flex items-center gap-1 px-2 py-1 hover:bg-amber-50 rounded-md transition-colors">
+                🔓 Unlock
+              </button>
+            ` : `
+              <button type="button" onclick="window.itemManager.handleLockProvider('${provider.provider_id}')"
+                      ${isDisabled ? 'disabled' : ''}
+                      class="text-xs text-slate-600 hover:text-slate-800 font-medium inline-flex items-center gap-1 px-2 py-1 hover:bg-slate-100 rounded-md transition-colors ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}">
+                🔒 Lock
+              </button>
+            `}
+          </div>
+        ` : ''}
+      `;
+      providersGrid.appendChild(providerCard);
     });
-    table.appendChild(tbody);
-    allocationBlock.appendChild(table);
 
+    allocationBlock.appendChild(providersGrid);
+
+    // Total section
     const total = this.calculateTotal();
-    const proxyQuantityInput = document.getElementById('proxyQuantity');
-    const proxyQuantity = proxyQuantityInput ? parseInt(proxyQuantityInput.value) || 0 : 0;
-
-    let isValid = false;
-    let validationIcon = '';
-
-    if (this.collectiveAllocation.mode === 'percentage') {
-      isValid = total === 100;
-      validationIcon = isValid ? '<span class="text-green-600">✓</span>' :
-                       (total < 100 ? '<span class="text-yellow-600">⚠️</span>' : '<span class="text-red-600">❌</span>');
-    } else {
-      isValid = total === proxyQuantity;
-      validationIcon = isValid ? '<span class="text-green-600">✓</span>' :
-                       (total < proxyQuantity ? '<span class="text-yellow-600">⚠️</span>' : '<span class="text-red-600">❌</span>');
-    }
-
+    const suffix = this.collectiveAllocation.mode === 'percentage' ? '%' : 'units';
+    const isValid = this.collectiveAllocation.mode === 'percentage' ? total === 100 : true;
     const totalDiv = document.createElement('div');
-    totalDiv.className = 'mt-4 pt-3 border-t border-border';
-
-    if (this.collectiveAllocation.mode === 'percentage') {
-      totalDiv.innerHTML = `
-        <div class="flex items-center justify-between">
-          <span class="font-medium">Total:</span>
-          <span class="flex items-center gap-2">
-            <span class="font-semibold">${total}%</span>
-            ${validationIcon}
-          </span>
+    totalDiv.className = 'mt-4 pt-3 border-t border-[#fb923c]/20';
+    totalDiv.innerHTML = `
+      <div class="flex items-center justify-between">
+        <span class="text-sm font-semibold text-slate-700">Total Allocation:</span>
+        <div class="flex items-center gap-2">
+          <span class="text-lg font-bold ${isValid ? 'text-green-600' : 'text-amber-600'}">${total}${suffix}</span>
+          ${isValid ? '<span class="text-green-600">✓</span>' : '<span class="text-amber-600">⚠️</span>'}
         </div>
-        ${!isValid ? `<div class="text-xs text-red-600 mt-1 text-right">Total allocation must equal 100%</div>` : ''}
-      `;
-    } else {
-      totalDiv.innerHTML = `
-        <div class="flex items-center justify-between">
-          <span class="font-medium">Total:</span>
-          <span class="flex items-center gap-2">
-            <span class="font-semibold">${total} units</span>
-            ${validationIcon}
-          </span>
-        </div>
-        ${!isValid ? `<div class="text-xs text-red-600 mt-1 text-right">Total units must equal Proxy Quantity (${proxyQuantity.toLocaleString()})</div>` : ''}
-      `;
-    }
+      </div>
+      ${!isValid && this.collectiveAllocation.mode === 'percentage' ?
+        '<div class="text-xs text-amber-600 mt-1 text-right">Must equal 100%</div>' : ''}
+    `;
     allocationBlock.appendChild(totalDiv);
 
     return allocationBlock;
@@ -453,7 +474,10 @@ class ItemManager {
 
     this.collectiveAllocation.mode = mode;
 
-    if (this.collectiveAllocation.locked && mode === 'percentage') {
+    if (mode === 'units') {
+      this.collectiveAllocation.locked = false;
+      this.collectiveAllocation.lockedProviderId = null;
+    } else if (mode === 'percentage' && this.collectiveAllocation.locked) {
       const lockedProviderId = this.collectiveAllocation.lockedProviderId;
       this.collectiveAllocation.providerValues.forEach((value, providerId) => {
         this.collectiveAllocation.providerValues.set(providerId, providerId === lockedProviderId ? 100 : 0);
@@ -464,16 +488,14 @@ class ItemManager {
   }
 
   handleLockProvider(providerId) {
-    if (!this.collectiveAllocation) return;
+    if (!this.collectiveAllocation || this.collectiveAllocation.mode !== 'percentage') return;
 
     this.collectiveAllocation.locked = true;
     this.collectiveAllocation.lockedProviderId = providerId;
 
-    if (this.collectiveAllocation.mode === 'percentage') {
-      this.collectiveAllocation.providerValues.forEach((value, pId) => {
-        this.collectiveAllocation.providerValues.set(pId, pId === providerId ? 100 : 0);
-      });
-    }
+    this.collectiveAllocation.providerValues.forEach((value, pId) => {
+      this.collectiveAllocation.providerValues.set(pId, pId === providerId ? 100 : 0);
+    });
 
     this.render();
   }
@@ -490,8 +512,9 @@ class ItemManager {
   handleAllocationChange(providerId, value) {
     if (!this.collectiveAllocation) return;
 
-    const numValue = parseFloat(value) || 0;
-    this.collectiveAllocation.providerValues.set(providerId, numValue);
+    const numValue = parseFloat(value);
+    const finalValue = isNaN(numValue) ? 0 : numValue;
+    this.collectiveAllocation.providerValues.set(providerId, finalValue);
 
     this.render();
   }
