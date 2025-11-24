@@ -177,7 +177,7 @@ class FormHandler {
 
   async populateItemForm(itemId) {
     const item = await this.dataService.getItem(itemId);
-    const offers = await this.dataService.getAllOffers();
+    const offers = await this.dataService.loadOffers();
 
     const itemOffers = offers.filter(offer => offer.item_id === itemId);
     const processId = itemOffers.length > 0 ? itemOffers[0].process_id : null;
