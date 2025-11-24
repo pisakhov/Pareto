@@ -72,6 +72,15 @@ async def contracts_process_detail(request: Request, process_id: int):
     process = crud.get_process(process_id)
     processes = crud.get_all_processes()
 
+    # If the process doesn't exist, redirect to first available process or main contracts page
+    if not process:
+        if processes and len(processes) > 0:
+            from fastapi.responses import RedirectResponse
+            first_process_id = processes[0]["process_id"]
+            return RedirectResponse(url=f"/contracts/{first_process_id}", status_code=302)
+        else:
+            return RedirectResponse(url="/contracts", status_code=302)
+
     return templates.TemplateResponse(
         "contracts/index.html",
         {
