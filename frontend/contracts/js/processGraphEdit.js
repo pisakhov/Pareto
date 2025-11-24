@@ -923,7 +923,7 @@ class ProcessGraph {
     const description = document.getElementById('newProcessDescription').value;
 
     if (!processName.trim()) {
-      uiManager.showNotification('Process name is required', 'error');
+      Toast.show('Process name is required', 'error');
       document.getElementById('newProcessName').focus();
       return;
     }
@@ -937,9 +937,9 @@ class ProcessGraph {
       const totalProviders = this.providers ? this.providers.filter(p => p.status === 'active').length : 0;
 
       if (totalProviders === 0) {
-        uiManager.showNotification('Please add at least one provider first', 'error');
+        Toast.show('Please add at least one provider first', 'error');
       } else {
-        uiManager.showNotification('Please add at least one contract with a provider', 'error');
+        Toast.show('Please add at least one contract with a provider', 'error');
       }
       return;
     }
@@ -979,7 +979,7 @@ class ProcessGraph {
       const providerId = parseInt(contractEl.dataset.providerId);
 
       if (!providerId) {
-        uiManager.showNotification('Each contract must have a provider selected', 'error');
+        Toast.show('Each contract must have a provider selected', 'error');
         return;
       }
 
@@ -1012,7 +1012,7 @@ class ProcessGraph {
       createdContracts++;
     }
 
-    uiManager.showNotification(
+    Toast.show(
       createdContracts === 1
         ? `Process "${processName.trim()}" created with 1 contract`
         : `Process "${processName.trim()}" created with ${createdContracts} contracts`,
@@ -1082,7 +1082,7 @@ class ProcessGraph {
     this.closeEditProcessModal();
     await this.render();
 
-    uiManager.showNotification(
+    Toast.show(
       `Process "${processName.trim()}" updated successfully`,
       'success'
     );
@@ -1100,7 +1100,7 @@ class ProcessGraph {
     );
     await this.render();
 
-    uiManager.showNotification(`Process "${process.process_name}" deleted successfully`, 'success');
+    Toast.show(`Process "${process.process_name}" deleted successfully`, 'success');
   }
 
   updateStats() {
@@ -1336,19 +1336,19 @@ class ProcessGraph {
   async addProviderToAdd() {
     const select = document.getElementById('addNewProviderSelect');
     if (!select) {
-      uiManager.showNotification('No providers available to add', 'error');
+      Toast.show('No providers available to add', 'error');
       return;
     }
 
     const providerId = parseInt(select.value);
     if (!providerId) {
-      uiManager.showNotification('Please select a provider', 'error');
+      Toast.show('Please select a provider', 'error');
       return;
     }
 
     const provider = this.providers.find(p => p.provider_id === providerId);
     if (!provider) {
-      uiManager.showNotification('Provider not found', 'error');
+      Toast.show('Provider not found', 'error');
       return;
     }
 
@@ -1780,13 +1780,13 @@ class ProcessGraph {
   async addProviderToEdit() {
     const select = document.getElementById('editNewProviderSelect');
     if (!select) {
-      uiManager.showNotification('No providers available to add', 'error');
+      Toast.show('No providers available to add', 'error');
       return;
     }
 
     const providerId = parseInt(select.value);
     if (!providerId) {
-      uiManager.showNotification('Please select a provider', 'error');
+      Toast.show('Please select a provider', 'error');
       return;
     }
 
@@ -1794,7 +1794,7 @@ class ProcessGraph {
     const process = this.processes.find(p => p.process_id === processId);
 
     if (!process) {
-      uiManager.showNotification('Process not found', 'error');
+      Toast.show('Process not found', 'error');
       return;
     }
 
@@ -1818,7 +1818,7 @@ class ProcessGraph {
       });
     }
 
-    uiManager.showNotification('Contract created successfully', 'success');
+    Toast.show('Contract created successfully', 'success');
 
     // Reload contracts
     await this.loadContractsForEdit(processId);
@@ -1828,7 +1828,7 @@ class ProcessGraph {
 
   async removeContractFromEdit(contractId) {
     await dataService.deleteContract(contractId);
-    uiManager.showNotification('Contract removed successfully', 'success');
+    Toast.show('Contract removed successfully', 'success');
 
     // Remove from UI
     const contractElement = document.getElementById(`editContract-${contractId}`);

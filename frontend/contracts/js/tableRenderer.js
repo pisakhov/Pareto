@@ -888,7 +888,7 @@ class TableRenderer {
     }
 
     if (window.uiManager) {
-      window.uiManager.showNotification(`Selecting Tier ${tierNumber} for ${providerName}...`, 'info');
+      Toast.show(`Selecting Tier ${tierNumber} for ${providerName}...`, 'info');
     }
 
     const providerData = this.data.providerContracts[providerId];
@@ -928,7 +928,7 @@ class TableRenderer {
     });
 
     if (window.uiManager) {
-      window.uiManager.showNotification(`Tier ${tierNumber} selected for ${providerName}`, 'success');
+      Toast.show(`Tier ${tierNumber} selected for ${providerName}`, 'success');
     }
 
     await this.renderRelationshipMatrix();

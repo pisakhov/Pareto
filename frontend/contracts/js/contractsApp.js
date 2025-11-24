@@ -42,9 +42,7 @@ class ContractsApp {
 
     setupErrorHandler() {
         window.addEventListener('apiError', (event) => {
-            if (this.components.uiManager) {
-                this.components.uiManager.showNotification(event.detail, "error");
-            }
+            Toast.show(event.detail, "error");
         });
     }
 

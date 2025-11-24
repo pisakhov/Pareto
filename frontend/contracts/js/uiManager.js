@@ -35,49 +35,6 @@ class UIManager {
     });
   }
 
-  showNotification(message, type = "info") {
-    this.removeExistingNotifications();
-
-    const notification = document.createElement("div");
-    notification.className = `fixed top-4 right-4 p-4 rounded-md shadow-lg z-50 transition-all duration-300 transform translate-x-full`;
-
-    const colors = {
-      success: "bg-green-500 text-white",
-      error: "bg-red-500 text-white",
-      warning: "bg-yellow-500 text-white",
-      info: "bg-blue-500 text-white",
-    };
-
-    notification.className += " " + colors[type];
-    notification.textContent = message;
-
-    document.body.appendChild(notification);
-
-    setTimeout(() => {
-      notification.classList.remove("translate-x-full");
-    }, 100);
-
-    setTimeout(() => {
-      notification.classList.add("translate-x-full");
-      setTimeout(() => {
-        if (notification.parentNode) {
-          document.body.removeChild(notification);
-        }
-      }, 300);
-    }, 3000);
-  }
-
-  removeExistingNotifications() {
-    const existingNotifications = document.querySelectorAll(
-      ".fixed.top-4.right-4.p-4.rounded-md.shadow-lg.z-50",
-    );
-    existingNotifications.forEach((notification) => {
-      if (notification.parentNode) {
-        document.body.removeChild(notification);
-      }
-    });
-  }
-
   updateProviderSelect(providers, currentValue = null) {
     const select = document.getElementById("providerSelect");
 

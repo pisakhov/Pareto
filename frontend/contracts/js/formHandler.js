@@ -90,7 +90,7 @@ class FormHandler {
 
     this.modalManager.closeProviderModal();
     await this.loadAllData();
-    this.uiManager.showNotification(
+    Toast.show(
       editingProviderId
         ? "Provider updated successfully"
         : "Provider created successfully",
@@ -147,7 +147,7 @@ class FormHandler {
 
     this.modalManager.closeItemModal();
     await this.loadAllData();
-    this.uiManager.showNotification(
+    Toast.show(
       editingItemId ? "Item updated successfully" : "Item created successfully",
       "success",
     );
@@ -233,7 +233,7 @@ class FormHandler {
     this.setButtonLoading(button, "Deleting...");
     try {
       await deleteFn(entityId);
-      this.uiManager.showNotification(successMessage, "success");
+      Toast.show(successMessage, "success");
       await this.loadAllData();
     } finally {
       this.restoreButton(button, "Delete");
