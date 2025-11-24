@@ -23,6 +23,13 @@ class ProcessGraphView {
   }
 
   async init() {
+    // Check if the graph navigation element exists
+    const navGraph = document.getElementById('processGraphNav');
+    if (!navGraph) {
+      // Element doesn't exist, likely no processes to display
+      return;
+    }
+
     await this.loadData();
     this.autoLayout();
     this.render();
