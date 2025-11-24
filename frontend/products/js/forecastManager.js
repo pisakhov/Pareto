@@ -204,14 +204,6 @@ class ForecastManager {
             const type = input.getAttribute('data-type');
             const month = parseInt(input.getAttribute('data-month'));
 
-            input.addEventListener('change', (e) => {
-                if (type === 'forecast') {
-                    this.updateForecastValue(month, e.target.value);
-                } else {
-                    this.updateActualValue(month, e.target.value);
-                }
-            });
-
             input.addEventListener('input', (e) => {
                 if (e.target.value) {
                     e.target.classList.add(type === 'forecast' ? 'text-green-600' : 'text-blue-600');
