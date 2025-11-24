@@ -105,39 +105,6 @@ window.chartManager = (function() {
         chart = new Chart(ctx, chartConfig);
     }
 
-    // Generate time series labels from all data
-    function generateTimeSeriesLabels() {
-        if (!window.forecastManager) return [];
-
-        const labels = [];
-        const forecastMap = new Map();
-        const actualMap = new Map();
-
-        // Build maps of year-month to value
-        window.forecastManager.forecasts.forEach(f => {
-            const key = `${f.year}-${f.month.toString().padStart(2, '0')}`;
-            forecastMap.set(key, f.forecast_units);
-        });
-
-        window.forecastManager.actuals.forEach(a => {
-            const key = `${a.year}-${a.month.toString().padStart(2, '0')}`;
-            actualMap.set(key, a.actual_units);
-        });
-
-        // Get all unique dates and sort them
-        const allDates = new Set([...forecastMap.keys(), ...actualMap.keys()]);
-        const sortedDates = Array.from(allDates).sort();
-
-        // Generate labels
-        sortedDates.forEach(date => {
-            const [year, month] = date.split('-');
-            const dateObj = new Date(parseInt(year), parseInt(month) - 1, 1);
-            labels.push(dateObj.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }));
-        });
-
-        return labels;
-    }
-
     // Build time series data
     function buildTimeSeriesData() {
         if (!window.forecastManager) {
@@ -182,21 +149,18 @@ window.chartManager = (function() {
 
     // Update chart with forecast data
     function updateForecastData(forecastData) {
-        if (!chart) return;
         chart.data.datasets[0].data = forecastData;
         chart.update('none');
     }
 
     // Update chart with actual data
     function updateActualData(actualData) {
-        if (!chart) return;
         chart.data.datasets[1].data = actualData;
         chart.update('none');
     }
 
     // Update chart with both forecast and actual data
     function updateChartData(forecastData, actualData) {
-        if (!chart) return;
         chart.data.datasets[0].data = forecastData;
         chart.data.datasets[1].data = actualData;
         chart.update('none');
@@ -227,7 +191,6 @@ window.chartManager = (function() {
         updateForecastData: updateForecastData,
         updateActualData: updateActualData,
         updateChartData: updateChartData,
-        refreshChart: refreshChart,
-        buildTimeSeriesData: buildTimeSeriesData
+        refreshChart: refreshChart
     };
 })();

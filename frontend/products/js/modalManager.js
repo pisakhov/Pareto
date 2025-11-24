@@ -46,6 +46,9 @@ const modalManager = {
             document.getElementById('productName')?.focus();
             if (window.chartManager) {
                 window.chartManager.initChart();
+                if (window.forecastManager) {
+                    window.forecastManager.renderTimelines();
+                }
             }
         }, 100);
     },

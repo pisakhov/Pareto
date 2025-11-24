@@ -124,8 +124,6 @@ class ForecastManager {
         const monthHeaderContainer = document.getElementById('monthHeaderRow');
         const currentYearDisplay = document.getElementById('currentYearDisplay');
 
-        if (!forecastContainer || !actualContainer || !monthHeaderContainer) return;
-
         currentYearDisplay.textContent = this.currentForecastYear;
 
         const months = [];
@@ -188,63 +186,46 @@ class ForecastManager {
         this.setupTabNavigation();
     }
 
-    editForecastValue(month) {
-        const forecast = this.getForecastForMonth(this.currentForecastYear, month);
-        const currentValue = forecast ? forecast.forecast_units : 0;
-
-        const value = prompt(`Enter forecast units for ${this.monthNames[month - 1]} ${this.currentForecastYear}:`, currentValue);
-
-        if (value !== null) {
-            const numValue = parseInt(value);
-            if (isNaN(numValue) || numValue < 0) {
-                alert('Please enter a valid positive number');
-                return;
-            }
-
-            if (forecast) {
-                forecast.forecast_units = numValue;
-            } else {
-                this.addForecast(this.currentForecastYear, month, numValue);
-            }
-        }
-    }
-
     updateForecastValue(month, value) {
-        if (value === '' || value === null || value === undefined) {
+        if (!value) {
             this.removeForecastForMonth(this.currentForecastYear, month);
+            this.renderTimelines();
             return;
         }
 
         const numValue = parseInt(value);
-        if (isNaN(numValue) || numValue < 0) {
-            return;
-        }
+        if (numValue < 0) return;
 
         const forecast = this.getForecastForMonth(this.currentForecastYear, month);
         if (forecast) {
             forecast.forecast_units = numValue;
         } else {
             this.addForecast(this.currentForecastYear, month, numValue);
+            return;
         }
+
+        this.renderTimelines();
     }
 
     updateActualValue(month, value) {
-        if (value === '' || value === null || value === undefined) {
+        if (!value) {
             this.removeActualForMonth(this.currentForecastYear, month);
+            this.renderTimelines();
             return;
         }
 
         const numValue = parseInt(value);
-        if (isNaN(numValue) || numValue < 0) {
-            return;
-        }
+        if (numValue < 0) return;
 
         const actual = this.getActualForMonth(this.currentForecastYear, month);
         if (actual) {
             actual.actual_units = numValue;
         } else {
             this.addActual(this.currentForecastYear, month, numValue);
+            return;
         }
+
+        this.renderTimelines();
     }
 
     setupTabNavigation() {
@@ -272,23 +253,18 @@ class ForecastManager {
     }
 
     clearAllForecasts() {
-        if (confirm('Are you sure you want to remove all forecasts?')) {
-            this.forecasts = [];
-            this.renderTimelines();
-        }
+        this.forecasts = [];
+        this.renderTimelines();
     }
 
     clearAllActuals() {
-        if (confirm('Are you sure you want to remove all actuals?')) {
-            this.actuals = [];
-            this.renderTimelines();
-        }
+        this.actuals = [];
+        this.renderTimelines();
     }
 
     applyAllForecasts() {
         const firstInput = document.querySelector('#forecastTimeline input[data-month="1"]');
 
-        // If January is blank, clear all forecasts for this year
         if (!firstInput || firstInput.value === '') {
             this.forecasts = this.forecasts.filter(f => f.year !== this.currentForecastYear);
             this.renderTimelines();
@@ -296,15 +272,10 @@ class ForecastManager {
         }
 
         const value = parseInt(firstInput.value);
-        if (isNaN(value) || value < 0) {
-            alert('Please enter a valid positive number in January');
-            return;
-        }
+        if (value < 0) return;
 
-        // Remove existing forecasts for this year
         this.forecasts = this.forecasts.filter(f => f.year !== this.currentForecastYear);
 
-        // Add forecasts for all 12 months directly (avoiding renderTimelines in addForecast)
         for (let month = 1; month <= 12; month++) {
             const id = `forecast_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             this.forecasts.push({
@@ -321,7 +292,6 @@ class ForecastManager {
     applyAllActuals() {
         const firstInput = document.querySelector('#actualTimeline input[data-month="1"]');
 
-        // If January is blank, clear all actuals for this year
         if (!firstInput || firstInput.value === '') {
             this.actuals = this.actuals.filter(a => a.year !== this.currentForecastYear);
             this.renderTimelines();
@@ -329,15 +299,10 @@ class ForecastManager {
         }
 
         const value = parseInt(firstInput.value);
-        if (isNaN(value) || value < 0) {
-            alert('Please enter a valid positive number in January');
-            return;
-        }
+        if (value < 0) return;
 
-        // Remove existing actuals for this year
         this.actuals = this.actuals.filter(a => a.year !== this.currentForecastYear);
 
-        // Add actuals for all 12 months directly (avoiding renderTimelines in addActual)
         for (let month = 1; month <= 12; month++) {
             const id = `actual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             this.actuals.push({
