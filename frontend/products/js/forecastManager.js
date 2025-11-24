@@ -28,7 +28,7 @@ class ForecastManager {
             month: parseInt(month),
             forecast_units: parseInt(forecastUnits)
         });
-        this.renderTimelines();
+        this.updateChart();
 
         // Auto-advance to next month/year
         this.advanceToNextMonth('forecast');
@@ -36,12 +36,12 @@ class ForecastManager {
 
     removeForecast(id) {
         this.forecasts = this.forecasts.filter(f => f.id !== id);
-        this.renderTimelines();
+        this.updateChart();
     }
 
     removeForecastForMonth(year, month) {
-        this.forecasts = this.forecasts.filter(f => !(f.year === year && f.month === month));
-        this.renderTimelines();
+        this.forecasts = this.forecasts.filter(f => !(f.year === year && f.month !== month));
+        this.updateChart();
     }
 
     addActual(year, month, actualUnits) {
@@ -52,7 +52,7 @@ class ForecastManager {
             month: parseInt(month),
             actual_units: parseInt(actualUnits)
         });
-        this.renderTimelines();
+        this.updateChart();
 
         // Auto-advance to next month/year
         this.advanceToNextMonth('actual');
@@ -60,12 +60,12 @@ class ForecastManager {
 
     removeActual(id) {
         this.actuals = this.actuals.filter(a => a.id !== id);
-        this.renderTimelines();
+        this.updateChart();
     }
 
     removeActualForMonth(year, month) {
         this.actuals = this.actuals.filter(a => !(a.year === year && a.month === month));
-        this.renderTimelines();
+        this.updateChart();
     }
 
     advanceToNextMonth(type) {
@@ -150,40 +150,84 @@ class ForecastManager {
 
         // Render forecast row
         forecastContainer.innerHTML = months.map(m => `
-            <div class="month-cell" data-tab-index="${months.indexOf(m) * 2}">
+            <div class="month-cell">
                 <input
                     type="number"
                     min="0"
                     placeholder="0"
                     value="${m.forecastValue}"
                     class="w-full text-center text-sm font-semibold bg-transparent border border-border rounded px-2 py-2 focus:ring-2 focus:ring-green-400 focus:border-green-400 focus:outline-none ${m.forecastValue ? 'text-green-600' : 'text-muted-foreground'}"
-                    onchange="window.forecastManager.updateForecastValue(${m.month}, this.value)"
-                    oninput="if(this.value) { this.classList.add('text-green-600'); this.classList.remove('text-muted-foreground'); } else { this.classList.remove('text-green-600'); this.classList.add('text-muted-foreground'); }"
-                    data-tab-index="${months.indexOf(m) * 2}"
                     data-month="${m.month}"
+                    data-type="forecast"
                 />
             </div>
         `).join('');
 
         // Render actual row
         actualContainer.innerHTML = months.map(m => `
-            <div class="month-cell" data-tab-index="${months.indexOf(m) * 2 + 1}">
+            <div class="month-cell">
                 <input
                     type="number"
                     min="0"
                     placeholder="0"
                     value="${m.actualValue}"
                     class="w-full text-center text-sm font-semibold bg-transparent border border-border rounded px-2 py-2 focus:ring-2 focus:ring-blue-400 focus:border-blue-400 focus:outline-none ${m.actualValue ? 'text-blue-600' : 'text-muted-foreground'}"
-                    onchange="window.forecastManager.updateActualValue(${m.month}, this.value)"
-                    oninput="if(this.value) { this.classList.add('text-blue-600'); this.classList.remove('text-muted-foreground'); } else { this.classList.remove('text-blue-600'); this.classList.add('text-muted-foreground'); }"
-                    data-tab-index="${months.indexOf(m) * 2 + 1}"
                     data-month="${m.month}"
+                    data-type="actual"
                 />
             </div>
         `).join('');
 
-        // Setup tab navigation after rendering
-        this.setupTabNavigation();
+        this.setupInputEventListeners();
+    }
+
+    setupInputEventListeners() {
+        const debounceTimers = {};
+        const debounceUpdate = (fn, delay) => {
+            return (...args) => {
+                clearTimeout(debounceTimers[fn]);
+                debounceTimers[fn] = setTimeout(() => fn(...args), delay);
+            };
+        };
+
+        const debouncedUpdateForecast = debounceUpdate((month, value) => {
+            this.updateForecastValue(month, value);
+        }, 300);
+
+        const debouncedUpdateActual = debounceUpdate((month, value) => {
+            this.updateActualValue(month, value);
+        }, 300);
+
+        const allInputs = document.querySelectorAll('#forecastTimeline input, #actualTimeline input');
+
+        allInputs.forEach((input, index) => {
+            const type = input.getAttribute('data-type');
+            const month = parseInt(input.getAttribute('data-month'));
+
+            input.addEventListener('change', (e) => {
+                if (type === 'forecast') {
+                    this.updateForecastValue(month, e.target.value);
+                } else {
+                    this.updateActualValue(month, e.target.value);
+                }
+            });
+
+            input.addEventListener('input', (e) => {
+                if (e.target.value) {
+                    e.target.classList.add(type === 'forecast' ? 'text-green-600' : 'text-blue-600');
+                    e.target.classList.remove('text-muted-foreground');
+                } else {
+                    e.target.classList.remove(type === 'forecast' ? 'text-green-600' : 'text-blue-600');
+                    e.target.classList.add('text-muted-foreground');
+                }
+
+                if (type === 'forecast') {
+                    debouncedUpdateForecast(month, e.target.value);
+                } else {
+                    debouncedUpdateActual(month, e.target.value);
+                }
+            });
+        });
     }
 
     updateForecastValue(month, value) {
@@ -199,12 +243,10 @@ class ForecastManager {
         const forecast = this.getForecastForMonth(this.currentForecastYear, month);
         if (forecast) {
             forecast.forecast_units = numValue;
+            this.renderTimelines();
         } else {
             this.addForecast(this.currentForecastYear, month, numValue);
-            return;
         }
-
-        this.renderTimelines();
     }
 
     updateActualValue(month, value) {
@@ -220,36 +262,10 @@ class ForecastManager {
         const actual = this.getActualForMonth(this.currentForecastYear, month);
         if (actual) {
             actual.actual_units = numValue;
+            this.renderTimelines();
         } else {
             this.addActual(this.currentForecastYear, month, numValue);
-            return;
         }
-
-        this.renderTimelines();
-    }
-
-    setupTabNavigation() {
-        const allInputs = document.querySelectorAll('#forecastTimeline input, #actualTimeline input');
-
-        allInputs.forEach(input => {
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Tab') {
-                    const currentIndex = parseInt(input.getAttribute('data-tab-index'));
-                    let nextIndex;
-
-                    if (!e.shiftKey) {
-                        // Forward tab
-                        nextIndex = (currentIndex + 1) % allInputs.length;
-                    } else {
-                        // Backward tab
-                        nextIndex = (currentIndex - 1 + allInputs.length) % allInputs.length;
-                    }
-
-                    e.preventDefault();
-                    allInputs[nextIndex].focus();
-                }
-            });
-        });
     }
 
     clearAllForecasts() {
