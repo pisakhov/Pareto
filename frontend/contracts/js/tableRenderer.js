@@ -89,6 +89,7 @@ class TableRenderer {
   // Provider table rendering
   renderProviders() {
     const container = document.getElementById("providersCardsContainer");
+    container.innerHTML = "";
 
     if (this.data.providers.length === 0) {
       container.innerHTML = `
@@ -208,6 +209,7 @@ class TableRenderer {
   // Item table rendering
   renderItems() {
     const tbody = document.getElementById("itemsTableBody");
+    tbody.innerHTML = "";
 
     if (this.data.items.length === 0) {
       tbody.innerHTML =
@@ -230,6 +232,12 @@ class TableRenderer {
     const searchQuery = query.toLowerCase().trim();
     const rows = tbody.querySelectorAll("tr");
 
+    // Remove any existing "no results" message
+    const existingMessage = tbody.querySelector(".no-results-message");
+    if (existingMessage) {
+      existingMessage.remove();
+    }
+
     if (!searchQuery) {
       // Show all rows if search is empty
       rows.forEach(row => {
@@ -240,6 +248,8 @@ class TableRenderer {
 
     // Get process info for filtering
     const itemProcessMap = this.getItemProcessMap();
+
+    let visibleRows = 0;
 
     rows.forEach(row => {
       // Get the item data from the row
@@ -260,7 +270,34 @@ class TableRenderer {
         processName.includes(searchQuery);
 
       row.style.display = matches ? "" : "none";
+      if (matches) {
+        visibleRows++;
+      }
     });
+
+    // Show "no results found" message if no rows are visible
+    if (visibleRows === 0) {
+      const noResultsRow = document.createElement("tr");
+      noResultsRow.className = "no-results-message";
+      noResultsRow.innerHTML = `
+        <td colspan="4" class="text-center py-12 text-slate-500">
+          <div class="flex flex-col items-center gap-2">
+            <svg class="w-12 h-12 text-slate-400 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607zM13.5 10.5h-6m3 3h6m-6 3h6" />
+            </svg>
+            <p class="text-sm font-medium">No items found</p>
+            <p class="text-xs text-slate-400 mt-1">No items match your search for "${searchQuery}"</p>
+            <p class="text-xs text-slate-400 mt-3">Try:</p>
+            <ul class="text-xs text-slate-400 mt-1 space-y-1">
+              <li>• Checking your spelling</li>
+              <li>• Using different keywords</li>
+              <li>• Searching by process name</li>
+            </ul>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(noResultsRow);
+    }
   }
 
   // Helper method to get process info for each item
@@ -733,7 +770,7 @@ class TableRenderer {
         html += `
           <div
             class="rounded-md border border-border ${isSelected ? 'bg-green-100 border-green-300' : 'bg-card hover:bg-accent'} p-3 cursor-pointer transition-colors"
-            onclick="window.tableRenderer.selectTier(${tier.contract_tier_id}, ${tier.tier_number}, '${provider.provider_name}', ${provider.provider_id})"
+            onclick="window.tableRenderer.selectTier(${tier.contract_tier_id}, ${tier.tier_number}, '${provider.provider_name}', ${provider.provider_id}, ${tier.threshold_units})"
             title="Click to select this tier"
           >
             <div class="text-sm font-medium text-foreground">
@@ -836,7 +873,17 @@ class TableRenderer {
   }
 
   // Handle tier selection (only one tier per provider)
-  async selectTier(contractTierId, tierNumber, providerName, providerId) {
+  async selectTier(contractTierId, tierNumber, providerName, providerId, thresholdUnits) {
+    // Show confirmation dialog
+    const confirmed = confirm(
+      `Select Tier ${tierNumber} (< ${thresholdUnits.toLocaleString()} units) for ${providerName}?\n\n` +
+      `This will deselect all other tiers for this provider.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
     if (window.uiManager) {
       window.uiManager.showNotification(`Selecting Tier ${tierNumber} for ${providerName}...`, 'info');
     }

@@ -143,7 +143,7 @@ class ModalManager {
     this.showModal(this.modals.item);
 
     setTimeout(() => {
-      document.getElementById("itemProcess")?.focus();
+      document.getElementById("itemName")?.focus();
     }, 100);
 
     if (callback) {

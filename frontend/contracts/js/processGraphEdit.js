@@ -1887,6 +1887,10 @@ function closeProcessModal() {
   if (modal) {
     modal.classList.add('hidden');
     modal.classList.remove('flex');
+    // Reload the page after closing the modal
+    setTimeout(() => {
+      window.location.reload();
+    }, 100);
   }
 }
 

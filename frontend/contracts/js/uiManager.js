@@ -60,7 +60,9 @@ class UIManager {
     setTimeout(() => {
       notification.classList.add("translate-x-full");
       setTimeout(() => {
-        document.body.removeChild(notification);
+        if (notification.parentNode) {
+          document.body.removeChild(notification);
+        }
       }, 300);
     }, 3000);
   }
@@ -70,7 +72,9 @@ class UIManager {
       ".fixed.top-4.right-4.p-4.rounded-md.shadow-lg.z-50",
     );
     existingNotifications.forEach((notification) => {
-      document.body.removeChild(notification);
+      if (notification.parentNode) {
+        document.body.removeChild(notification);
+      }
     });
   }
 

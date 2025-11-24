@@ -19,7 +19,7 @@ class ProcessGraphView {
     this.defaultOffsetX = 0;
     this.defaultOffsetY = 0;
     this.toggleButton = null;
-    this.isMenuMode = true;
+    this.isMenuMode = this.loadViewMode();
   }
 
   async init() {
@@ -33,6 +33,11 @@ class ProcessGraphView {
     await this.loadData();
     this.autoLayout();
     this.render();
+
+    // Ensure toggle button is connected after render
+    setTimeout(() => {
+      this.addToggleButton(navGraph);
+    }, 0);
   }
 
   async loadData() {
@@ -268,7 +273,6 @@ class ProcessGraphView {
     this.offsetY = this.defaultOffsetY;
 
     this.addHomeButton(navGraph);
-    this.addToggleButton(navGraph);
 
     this.canvasElement.addEventListener('mousedown', (e) => this.handleMouseDown(e));
     this.canvasElement.addEventListener('mousemove', (e) => this.handleMouseMove(e));
@@ -419,36 +423,49 @@ class ProcessGraphView {
   }
 
   addToggleButton(navGraph) {
-    const existingBtn = navGraph.parentElement.querySelector('.view-toggle-btn');
-    if (existingBtn) {
-      existingBtn.remove();
+    // Find the toggle button in the header
+    const toggleBtn = document.getElementById('viewModeToggle');
+    if (toggleBtn) {
+      this.toggleButton = toggleBtn;
+      this.updateToggleIcon();
     }
+  }
 
-    const toggleBtn = document.createElement('button');
-    toggleBtn.className = 'view-toggle-btn absolute top-4 left-4 p-2 bg-card border border-border rounded-md hover:bg-accent transition-colors shadow-sm z-20 flex items-center gap-2 text-muted-foreground';
-    toggleBtn.innerHTML = `
-      <svg class="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
-      </svg>
-    `;
-    toggleBtn.title = 'Toggle Menu View';
-    toggleBtn.onclick = () => this.toggleView();
-
-    navGraph.parentElement.appendChild(toggleBtn);
-    this.toggleButton = toggleBtn;
-
-    if (this.isMenuMode) {
-      this.toggleButton.innerHTML = `
-        <svg class="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
-        </svg>
-      `;
+  updateToggleIcon() {
+    if (this.toggleButton) {
+      const svg = this.toggleButton.querySelector('svg');
+      if (svg) {
+        if (this.isMenuMode) {
+          // Currently in menu mode, show graph icon
+          svg.innerHTML = `
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
+          `;
+          this.toggleButton.title = 'Switch to Graph View';
+        } else {
+          // Currently in graph mode, show menu icon
+          svg.innerHTML = `
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
+          `;
+          this.toggleButton.title = 'Switch to Menu View';
+        }
+      }
     }
   }
 
   toggleView() {
     this.isMenuMode = !this.isMenuMode;
+    this.saveViewMode(this.isMenuMode);
     this.applyViewMode();
+    this.updateToggleIcon();
+  }
+
+  loadViewMode() {
+    const saved = localStorage.getItem('pareto-view-mode');
+    return saved !== null ? saved === 'menu' : true;
+  }
+
+  saveViewMode(isMenuMode) {
+    localStorage.setItem('pareto-view-mode', isMenuMode ? 'menu' : 'graph');
   }
 
   applyViewMode() {
@@ -457,27 +474,9 @@ class ProcessGraphView {
     if (this.isMenuMode) {
       if (window.processMenuView) window.processMenuView.show();
       if (graphContainer) graphContainer.classList.add('opacity-0', 'pointer-events-none');
-
-      if (this.toggleButton) {
-        this.toggleButton.innerHTML = `
-          <svg class="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
-          </svg>
-        `;
-        this.toggleButton.title = 'Switch to Graph View';
-      }
     } else {
       if (window.processMenuView) window.processMenuView.hide();
       if (graphContainer) graphContainer.classList.remove('opacity-0', 'pointer-events-none');
-
-      if (this.toggleButton) {
-        this.toggleButton.innerHTML = `
-          <svg class="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
-          </svg>
-        `;
-        this.toggleButton.title = 'Switch to Menu View';
-      }
     }
   }
 
@@ -522,14 +521,12 @@ style.textContent = `
 document.head.appendChild(style);
 
 // Initialize when DOM is ready
-let processGraphView;
-
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
-    processGraphView = new ProcessGraphView();
-    processGraphView.init();
+    window.processGraphView = new ProcessGraphView();
+    window.processGraphView.init();
   });
 } else {
-  processGraphView = new ProcessGraphView();
-  processGraphView.init();
+  window.processGraphView = new ProcessGraphView();
+  window.processGraphView.init();
 }
