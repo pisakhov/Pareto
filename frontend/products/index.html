@@ -3,38 +3,76 @@
 {% block title %}Pareto - Product Management{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto">
-    <div class="text-center py-8">
-        <h1 class="text-4xl font-bold text-foreground mb-4">Product Management</h1>
-        <p class="text-xl text-muted-foreground mb-8">Manage products and their associated items</p>
-    </div>
+<div class="max-w-7xl mx-auto mb-8">
+    <div class="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
+        <!-- Header with gradient background matching the design system -->
+        <div class="p-6 border-b border-border bg-gradient-to-r from-[#fb923c]/5 to-[#fb923c]/10">
+            <div class="flex items-start justify-between gap-6">
+                <!-- Left side: Icon, Title, and Description -->
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-4">
+                        <!-- Icon -->
+                        <div class="p-2.5 bg-white rounded-lg border border-slate-200 shadow-sm">
+                            <svg class="w-6 h-6 text-[#fb923c]" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round"
+                                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                            </svg>
+                        </div>
 
-    <!-- Action Buttons -->
-    <div class="flex flex-wrap justify-between items-center mb-8 gap-4">
-        <div class="flex flex-wrap items-center gap-4">
-            <button id="addProductButton" class="inline-flex items-center gap-1 text-xs font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-8 px-3 py-1.5 bg-gradient-to-r from-orange-600 to-orange-500 text-white hover:from-orange-700 hover:to-orange-600 shadow-sm">
-                <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-                Add Product
-            </button>
-            <div class="relative">
-                <input type="text" id="searchInput" placeholder="Search products..." 
-                       class="px-4 py-2 pl-10 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent w-64">
-                <svg class="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
+                        <!-- Title and Content -->
+                        <div class="flex-1 min-w-0">
+                            <h1 class="text-3xl font-bold tracking-tight text-slate-900">
+                                Product Management
+                            </h1>
+                            <p class="text-sm text-slate-600 mt-1.5">
+                                Manage products and their associated items
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right side: Action Buttons -->
+                <div class="flex items-center gap-3 flex-shrink-0">
+                    <button id="addProductButton"
+                        class="inline-flex items-center gap-2 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-orange-600 text-white hover:bg-orange-700 shadow-md hover:shadow-lg rounded-lg">
+                        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                        </svg>
+                        <span>Add Product</span>
+                    </button>
+                </div>
             </div>
-            <select id="statusFilter" class="px-4 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent">
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-            </select>
         </div>
-        <div class="flex items-center gap-3">
-            <span class="text-sm text-muted-foreground">
-                <span id="productCount" class="font-semibold text-foreground">0</span> products
-            </span>
+
+        <!-- Filters and Search Bar -->
+        <div class="p-4 bg-card">
+            <div class="flex flex-wrap items-center gap-4">
+                <div class="relative flex-1 min-w-0 max-w-md">
+                    <input type="text" id="searchInput" placeholder="Search products..."
+                        class="w-full px-4 py-2 pl-10 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent">
+                    <svg class="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground"
+                        xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </div>
+                <select id="statusFilter"
+                    class="px-4 py-2 border border-input rounded-md focus:ring-2 focus:ring-ring focus:border-transparent">
+                    <option value="all">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                </select>
+                <div class="flex items-center gap-2 text-sm text-muted-foreground">
+                    <span id="productCount" class="font-semibold text-foreground">0</span> products
+                </div>
+            </div>
         </div>
     </div>
+</div>
+
 
     <!-- Products Grid -->
     <div id="productsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -49,8 +87,8 @@
         <h3 class="mt-2 text-sm font-semibold text-foreground">No products found</h3>
         <p class="mt-1 text-sm text-muted-foreground">Get started by creating a new product.</p>
         <div class="mt-6">
-            <button onclick="window.modalManager.showProductModal()" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-[#023047] text-white hover:bg-[#023047]/90">
-                <svg class="w-4 h-4 mr-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+            <button onclick="window.modalManager.showProductModal()" class="inline-flex items-center gap-2 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-orange-600 text-white hover:bg-orange-700 shadow-md hover:shadow-lg rounded-lg">
+                <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
                 Add Product
             </button>
         </div>
@@ -61,10 +99,7 @@
 <div id="productModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="productModalTitle">
     <div class="bg-card rounded-lg w-full max-w-4xl flex flex-col max-h-[90vh]">
         <div class="p-6 border-b border-border">
-            <div class="flex items-center gap-2">
-                <h3 id="productModalTitle" class="text-lg font-semibold">Add Product</h3>
-                <span class="text-xs px-2 py-0.5 bg-muted text-muted-foreground rounded">comp #adsf83f</span>
-            </div>
+            <h3 id="productModalTitle" class="text-lg font-semibold">Add Product</h3>
         </div>
         <form id="productForm" aria-label="Product form" class="flex flex-col flex-1 min-h-0">
             <input type="hidden" id="productId" name="product_id">
