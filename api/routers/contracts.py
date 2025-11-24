@@ -648,17 +648,10 @@ class ContractTierUpdate(BaseModel):
 # Contract endpoints
 @router.get("/api/contracts")
 async def get_contracts():
-    """Get all contracts."""
+    """Get all contracts with their items."""
     crud = get_crud()
-    contracts = crud.get_all_processes()  # Get all processes
-    # Group by process name
-    result = {}
-    for process in contracts:
-        process_name = process['process_name']
-        if process_name not in result:
-            result[process_name] = []
-        result[process_name].append(process)
-    return JSONResponse(content=result)
+    contracts_with_items = crud.get_contracts_with_items()
+    return JSONResponse(content=contracts_with_items)
 
 
 @router.get("/api/contracts/process/{process_name}")

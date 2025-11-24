@@ -19,7 +19,7 @@ class FormHandler {
         event.preventDefault();
 
         if (!window.itemManager.validateAllocations()) {
-            this.uiManager.showNotification(
+            window.Toast.show(
                 'Invalid allocations: All percentage items must total 100%',
                 'error'
             );
@@ -27,13 +27,13 @@ class FormHandler {
         }
 
         const formData = new FormData(event.target);
-        const itemIds = window.itemManager.getItemIds();
+        const contractSelections = window.itemManager.getContractSelections();
 
         const data = {
             name: formData.get('name'),
             description: formData.get('description') || '',
             status: formData.get('status'),
-            item_ids: itemIds,
+            contract_selections: contractSelections,
             allocations: window.itemManager.getAllocationData(),
             price_multipliers: window.contractAdjustments.getMultiplierData(),
             forecasts: window.forecastManager.getForecastData(),
@@ -44,20 +44,18 @@ class FormHandler {
             await this.dataService.saveProduct(data, window.editingProductId);
             this.modalManager.closeProductModal();
             await window.productsApp.refreshData();
-            this.uiManager.showNotification(
+            window.Toast.show(
                 window.editingProductId ? 'Product updated successfully' : 'Product created successfully',
                 'success'
             );
         } catch (error) {
-            this.uiManager.showNotification(error.message, 'error');
+            window.Toast.show(error.message, 'error');
         }
     }
 
     async editProduct(productId) {
         try {
-            console.log('[EDIT PRODUCT] Starting to edit product:', productId);
             const product = await this.dataService.getProduct(productId);
-            console.log('[EDIT PRODUCT] Product loaded:', product);
 
             window.editingProductId = productId;
             document.getElementById('productModalTitle').textContent = 'Edit Product';
@@ -72,51 +70,39 @@ class FormHandler {
                 window.forecastManager.loadFromProduct(product);
             }
 
-            // Load items into itemManager
+            // Load contracts into itemManager
             if (window.itemManager) {
-                console.log('[EDIT PRODUCT] Resetting itemManager');
                 window.itemManager.reset();
 
-                // Add each item
-                console.log('[EDIT PRODUCT] Adding items:', product.item_ids);
-                for (const itemId of product.item_ids) {
-                    console.log('[EDIT PRODUCT] Adding item:', itemId);
-                    await window.itemManager.addItem(itemId);
+                const allContracts = await this.dataService.getAllContracts();
+                window.itemManager.setContracts(allContracts);
+
+                if (product.contracts && product.contracts.length > 0) {
+                    for (const processData of product.contracts) {
+                        const fullProcess = allContracts.find(p => p.process_id === processData.process_id);
+                        if (fullProcess) {
+                            const processCopy = {
+                                ...fullProcess,
+                                items: fullProcess.items.filter(item =>
+                                    processData.items.some(si => si.item_id === item.item_id)
+                                )
+                            };
+                            await window.itemManager.addProcess(processCopy);
+                        }
+                    }
                 }
-                console.log('[EDIT PRODUCT] All items added successfully');
-                
+
                 // Restore allocations
                 if (product.allocations) {
-                    // Check if this is collective format or legacy per-item format
-                    const isCollectiveFormat = !Object.keys(product.allocations).some(k => {
-                        const keyStr = String(k);
-                        // Try to parse as integer to see if it's an item ID
-                        const parsed = parseInt(keyStr);
-                        return !isNaN(parsed) && parsed.toString() === keyStr && parsed > 0;
-                    });
+                    const allocation = product.allocations;
+                    if (window.itemManager.collectiveAllocation) {
+                        window.itemManager.collectiveAllocation.mode = allocation.mode;
+                        window.itemManager.collectiveAllocation.locked = allocation.locked;
+                        window.itemManager.collectiveAllocation.lockedProviderId = allocation.lockedProviderId;
 
-                    if (isCollectiveFormat) {
-                        // Collective allocation format
-                        const allocation = product.allocations;
-                        if (window.itemManager.collectiveAllocation) {
-                            window.itemManager.collectiveAllocation.mode = allocation.mode;
-                            window.itemManager.collectiveAllocation.locked = allocation.locked;
-                            window.itemManager.collectiveAllocation.lockedProviderId = allocation.lockedProviderId;
-
-                            // Restore provider values
-                            allocation.providers.forEach(provider => {
-                                window.itemManager.collectiveAllocation.providerValues.set(provider.provider_id, provider.value);
-                            });
-                        }
-                    } else {
-                        // Legacy per-item format
-                        for (const [itemIdStr, allocation] of Object.entries(product.allocations)) {
-                            const itemId = parseInt(itemIdStr);
-                            // For legacy format, we can't easily restore per-item allocations
-                            // since we're now using collective allocations
-                            // This is a limitation - legacy products with different per-item allocations
-                            // will need to be migrated to collective format
-                        }
+                        allocation.providers.forEach(provider => {
+                            window.itemManager.collectiveAllocation.providerValues.set(provider.provider_id, provider.value);
+                        });
                     }
                     window.itemManager.render();
                 }
@@ -138,7 +124,7 @@ class FormHandler {
             this.modalManager.showProductModal(true);
         } catch (error) {
             console.error('[EDIT PRODUCT] Error:', error);
-            this.uiManager.showNotification('Failed to load product: ' + error.message, 'error');
+            window.Toast.show('Failed to load product: ' + error.message, 'error');
         }
     }
 
@@ -153,10 +139,10 @@ class FormHandler {
 
         try {
             await this.dataService.deleteProduct(productId);
-            this.uiManager.showNotification('Product deleted successfully', 'success');
+            window.Toast.show('Product deleted successfully', 'success');
             await window.productsApp.refreshData();
         } catch (error) {
-            this.uiManager.showNotification(error.message, 'error');
+            window.Toast.show(error.message, 'error');
         } finally {
             button.textContent = originalText;
             button.disabled = false;
@@ -419,7 +405,7 @@ class FormHandler {
             document.getElementById('productViewContent').innerHTML = content;
             this.modalManager.showViewModal();
         } catch (error) {
-            this.uiManager.showNotification('Failed to load product details', 'error');
+            window.Toast.show('Failed to load product details', 'error');
         }
     }
 

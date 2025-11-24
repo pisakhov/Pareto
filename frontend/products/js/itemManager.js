@@ -1,109 +1,163 @@
 /**
- * ItemManager - Manages item selection and provider allocation within Product modal
- * Updated for COLLECTIVE allocations (applies to all items)
+ * ItemManager - Manages contract-based item selection and provider allocation
  */
 class ItemManager {
   constructor() {
-    // Changed from Map to single allocation object
-    this.selectedItems = []; // Array of items in the product
-    this.collectiveAllocation = null; // Single allocation for all items
+    this.selectedItems = [];
+    this.collectiveAllocation = null;
     this.container = document.getElementById('productItemsContainer');
-    this.itemSelect = document.getElementById('itemSelect');
-    this.addItemBtn = document.getElementById('addItemBtn');
-    this.allItems = [];
-    this.availableProviders = []; // All providers across all items
+    this.contractSelect = document.getElementById('contractSelect');
+    this.addContractBtn = document.getElementById('addContractBtn');
+    this.allContracts = [];
+    this.selectedContracts = new Map(); // contract_id -> {contract, selectedItems: []}
+    this.availableProviders = [];
+    this.currentProcessId = null;
 
     this.setupEventListeners();
   }
 
   setupEventListeners() {
-    if (this.addItemBtn) {
-      this.addItemBtn.addEventListener('click', () => this.handleAddItem());
+    if (this.addContractBtn) {
+      this.addContractBtn.addEventListener('click', () => this.handleAddContract());
     }
   }
 
-  setItems(items) {
-    this.allItems = items;
-    this.updateItemSelect();
+  setContracts(contracts, processId = null) {
+    this.allContracts = contracts;
+    this.currentProcessId = processId;
+    this.updateContractSelect();
   }
 
   setProviders(providers) {
     this.availableProviders = providers;
   }
 
-  updateItemSelect() {
-    if (!this.itemSelect) return;
+  updateContractSelect() {
+    if (!this.contractSelect) return;
 
-    this.itemSelect.innerHTML = '<option value="">Select an item</option>';
+    this.contractSelect.innerHTML = '<option value="">Select a process</option>';
 
-    const addedItemIds = this.selectedItems.map(i => i.item_id);
-    const availableItems = this.allItems.filter(
-      i => !addedItemIds.includes(i.item_id) && i.status === 'active'
-    );
+    const addedProcessIds = Array.from(this.selectedContracts.keys());
 
-    availableItems.forEach(item => {
-      const option = document.createElement('option');
-      option.value = item.item_id;
-      option.textContent = item.item_name;
-      this.itemSelect.appendChild(option);
+    this.allContracts.forEach(process => {
+      if (!addedProcessIds.includes(process.process_id)) {
+        const option = document.createElement('option');
+        option.value = process.process_id;
+        option.textContent = process.process_name;
+        this.contractSelect.appendChild(option);
+      }
     });
   }
 
-  async handleAddItem() {
-    const itemId = parseInt(this.itemSelect.value);
-    if (!itemId) return;
+  async handleAddContract() {
+    const processId = parseInt(this.contractSelect.value);
+    if (!processId) return;
 
-    await this.addItem(itemId);
-    this.itemSelect.value = '';
+    const processData = this.allContracts.find(p => p.process_id === processId);
+    if (!processData) return;
+
+    await this.addProcess(processData);
+    this.contractSelect.value = '';
   }
 
-  async addItem(itemId) {
-    const item = this.allItems.find(i => i.item_id === itemId);
-    if (!item) return;
+  async addProcess(processData) {
+    this.selectedContracts.set(processData.process_id, {
+      process: processData,
+      selectedItems: [...processData.items],
+      selectAll: true
+    });
 
-    this.selectedItems.push(item);
+    this.rebuildSelectedItems();
 
-    // Initialize collective allocation if not already set
     if (!this.collectiveAllocation) {
-      // Get all unique providers from all items
       const allProviders = await this.loadAllProviders();
       this.collectiveAllocation = {
         mode: 'percentage',
         locked: false,
         lockedProviderId: null,
-        providers: allProviders, // All providers across all items
+        providers: allProviders,
         providerValues: new Map(allProviders.map(p => [p.provider_id, 0]))
       };
     }
 
     this.render();
-    this.updateItemSelect();
+    this.updateContractSelect();
 
-    // Update Contract Adjustments UI
     if (window.contractAdjustments) {
       window.contractAdjustments.renderAdjustments(this.selectedItems);
     }
   }
 
-  async loadAllProviders() {
-    // Get unique providers from all items
-    const uniqueProviders = new Map();
+  removeContract(processId) {
+    this.selectedContracts.delete(processId);
+    this.rebuildSelectedItems();
+    this.render();
+    this.updateContractSelect();
 
-    for (const item of this.selectedItems) {
-      try {
-        const response = await fetch(`/api/items/${item.item_id}/providers`);
-        const providers = await response.json();
-        providers.forEach(p => {
-          if (!uniqueProviders.has(p.provider_id)) {
-            uniqueProviders.set(p.provider_id, p);
-          }
-        });
-      } catch (error) {
-        console.error('Error loading providers for item', item.item_id, error);
+    if (window.contractAdjustments) {
+      window.contractAdjustments.renderAdjustments(this.selectedItems);
+    }
+  }
+
+  toggleContractItem(processId, itemId, checked) {
+    const processData = this.selectedContracts.get(processId);
+    if (!processData) return;
+
+    if (checked) {
+      if (!processData.selectedItems.find(i => i.item_id === itemId)) {
+        const item = processData.process.items.find(i => i.item_id === itemId);
+        if (item) {
+          processData.selectedItems.push(item);
+        }
       }
+    } else {
+      processData.selectedItems = processData.selectedItems.filter(i => i.item_id !== itemId);
     }
 
-    // Also add all providers that were pre-loaded
+    processData.selectAll = processData.selectedItems.length === processData.process.items.length;
+
+    this.rebuildSelectedItems();
+    this.render();
+  }
+
+  toggleContractSelectAll(processId, checked) {
+    const processData = this.selectedContracts.get(processId);
+    if (!processData) return;
+
+    processData.selectAll = checked;
+    if (checked) {
+      processData.selectedItems = [...processData.process.items];
+    } else {
+      processData.selectedItems = [];
+    }
+
+    this.rebuildSelectedItems();
+    this.render();
+  }
+
+  rebuildSelectedItems() {
+    this.selectedItems = [];
+    this.selectedContracts.forEach(processData => {
+      this.selectedItems.push(...processData.selectedItems);
+    });
+  }
+
+  async loadAllProviders() {
+    const uniqueProviders = new Map();
+
+    this.selectedContracts.forEach(processData => {
+      processData.selectedItems.forEach(item => {
+        item.providers.forEach(provider => {
+          if (!uniqueProviders.has(provider.provider_id)) {
+            uniqueProviders.set(provider.provider_id, {
+              provider_id: provider.provider_id,
+              company_name: provider.provider_name
+            });
+          }
+        });
+      });
+    });
+
     this.availableProviders.forEach(p => {
       if (!uniqueProviders.has(p.provider_id)) {
         uniqueProviders.set(p.provider_id, p);
@@ -113,29 +167,11 @@ class ItemManager {
     return Array.from(uniqueProviders.values());
   }
 
-  removeItem(itemId) {
-    this.selectedItems = this.selectedItems.filter(i => i.item_id !== itemId);
-
-    // Remove corresponding contract multiplier if present
-    if (window.contractAdjustments && window.contractAdjustments.multipliers) {
-      delete window.contractAdjustments.multipliers[itemId];
-    }
-
-    this.render();
-    this.updateItemSelect();
-
-    // Update Contract Adjustments UI
-    if (window.contractAdjustments) {
-      window.contractAdjustments.renderAdjustments(this.selectedItems);
-    }
-  }
-
   render() {
     if (!this.container) return;
 
-    if (this.selectedItems.length === 0) {
-      this.container.innerHTML = '<p class="text-sm text-muted-foreground text-center py-4">No items added yet</p>';
-      // Also clear contract adjustments UI
+    if (this.selectedContracts.size === 0) {
+      this.container.innerHTML = '<p class="text-sm text-muted-foreground text-center py-4">No contracts added yet</p>';
       if (window.contractAdjustments) {
         window.contractAdjustments.renderAdjustments([]);
       }
@@ -144,54 +180,83 @@ class ItemManager {
 
     this.container.innerHTML = '';
 
-    // Show items list
-    const itemsList = this.createItemsList();
-    this.container.appendChild(itemsList);
+    const contractsList = this.createContractsList();
+    this.container.appendChild(contractsList);
 
-    // Show collective allocation section (only if we have items)
     if (this.selectedItems.length > 0) {
       const allocationSection = this.createAllocationSection();
       this.container.appendChild(allocationSection);
     }
 
-    // Update Contract Adjustments UI to reflect current items
     if (window.contractAdjustments) {
       window.contractAdjustments.renderAdjustments(this.selectedItems);
     }
   }
 
-  createItemsList() {
-    const itemsList = document.createElement('div');
-    itemsList.className = 'border border-border rounded-lg p-4 bg-secondary/10';
+  createContractsList() {
+    const contractsList = document.createElement('div');
+    contractsList.className = 'space-y-4';
 
-    const header = document.createElement('div');
-    header.className = 'flex items-center justify-between mb-3';
-    header.innerHTML = `
-      <div>
-        <h4 class="font-medium text-foreground">Items in Product</h4>
-        <p class="text-sm text-muted-foreground mt-1">Allocation applies to all items below</p>
-      </div>
-    `;
-    itemsList.appendChild(header);
+    this.selectedContracts.forEach((processData, processId) => {
+      const processBlock = document.createElement('div');
+      processBlock.className = 'border border-border rounded-lg p-4 bg-secondary/10';
 
-    // Items grid
-    const itemsGrid = document.createElement('div');
-    itemsGrid.className = 'flex flex-wrap gap-2';
-
-    this.selectedItems.forEach(item => {
-      const itemBadge = document.createElement('div');
-      itemBadge.className = 'flex items-center gap-2 px-3 py-2 bg-card border border-border rounded-md';
-      itemBadge.innerHTML = `
-        <span class="font-medium">${this.escapeHtml(item.item_name)}</span>
-        <button type="button" class="text-red-600 hover:text-red-800 ml-2" onclick="window.itemManager.removeItem(${item.item_id})">
-          Remove
+      const header = document.createElement('div');
+      header.className = 'flex items-center justify-between mb-3';
+      header.innerHTML = `
+        <div>
+          <h4 class="font-medium text-foreground">${this.escapeHtml(processData.process.process_name)}</h4>
+          <p class="text-sm text-muted-foreground mt-1">
+            Select items to include in this process
+          </p>
+        </div>
+        <button type="button" class="text-red-600 hover:text-red-800 text-sm" onclick="window.itemManager.removeContract(${processId})">
+          Remove Process
         </button>
       `;
-      itemsGrid.appendChild(itemBadge);
+      processBlock.appendChild(header);
+
+      const itemsList = document.createElement('div');
+      itemsList.className = 'space-y-2';
+
+      const selectAllId = `selectAll_${processId}`;
+      const selectAllDiv = document.createElement('div');
+      selectAllDiv.className = 'flex items-center gap-2 mb-3';
+      selectAllDiv.innerHTML = `
+        <input type="checkbox" id="${selectAllId}" ${processData.selectAll ? 'checked' : ''}
+               onchange="window.itemManager.toggleContractSelectAll(${processId}, this.checked)"
+               class="focus:ring-2 focus:ring-ring rounded">
+        <label for="${selectAllId}" class="text-sm font-medium cursor-pointer">
+          Select All Items (${processData.process.items.length})
+        </label>
+      `;
+      itemsList.appendChild(selectAllDiv);
+
+      processData.process.items.forEach(item => {
+        const isSelected = processData.selectedItems.find(i => i.item_id === item.item_id) !== undefined;
+        const itemRow = document.createElement('div');
+        itemRow.className = 'flex items-start gap-2 ml-6';
+        itemRow.innerHTML = `
+          <div class="mt-1">
+            <input type="checkbox" ${isSelected ? 'checked' : ''}
+                   onchange="window.itemManager.toggleContractItem(${processId}, ${item.item_id}, this.checked)"
+                   class="focus:ring-2 focus:ring-ring rounded">
+          </div>
+          <div>
+            <div class="text-sm font-medium">${this.escapeHtml(item.item_name)}</div>
+            <div class="text-xs text-muted-foreground mt-1">
+              Available from: ${item.providers.map(p => p.provider_name).join(', ')}
+            </div>
+          </div>
+        `;
+        itemsList.appendChild(itemRow);
+      });
+
+      processBlock.appendChild(itemsList);
+      contractsList.appendChild(processBlock);
     });
 
-    itemsList.appendChild(itemsGrid);
-    return itemsList;
+    return contractsList;
   }
 
   createAllocationSection() {
@@ -202,7 +267,7 @@ class ItemManager {
     header.className = 'mb-4';
     header.innerHTML = `
       <h4 class="font-medium text-foreground">Provider Allocations</h4>
-      <p class="text-sm text-muted-foreground mt-1">Applies to ALL items above</p>
+      <p class="text-sm text-muted-foreground mt-1">Applies to ALL selected items above</p>
     `;
     allocationBlock.appendChild(header);
 
@@ -214,7 +279,6 @@ class ItemManager {
       return allocationBlock;
     }
 
-    // Mode toggle
     const modeToggle = document.createElement('div');
     modeToggle.className = 'flex items-center gap-4 mb-4 text-sm';
     modeToggle.innerHTML = `
@@ -235,7 +299,6 @@ class ItemManager {
     `;
     allocationBlock.appendChild(modeToggle);
 
-    // Lock message if applicable
     if (this.collectiveAllocation.locked) {
       const lockMsg = document.createElement('div');
       lockMsg.className = 'mb-4 px-3 py-2 rounded-md bg-amber-50 border border-amber-200 text-amber-900 text-sm flex items-center gap-2';
@@ -246,7 +309,6 @@ class ItemManager {
       allocationBlock.appendChild(lockMsg);
     }
 
-    // Providers table
     const table = document.createElement('table');
     table.className = 'w-full text-sm';
 
@@ -269,7 +331,6 @@ class ItemManager {
     table.appendChild(tbody);
     allocationBlock.appendChild(table);
 
-    // Total section with validation
     const total = this.calculateTotal();
     const proxyQuantityInput = document.getElementById('proxyQuantity');
     const proxyQuantity = proxyQuantityInput ? parseInt(proxyQuantityInput.value) || 0 : 0;
@@ -435,17 +496,14 @@ class ItemManager {
   validateAllocations() {
     if (!this.collectiveAllocation) return false;
 
-    // Get proxy quantity from the form
     const proxyQuantityInput = document.getElementById('proxyQuantity');
     const proxyQuantity = proxyQuantityInput ? parseInt(proxyQuantityInput.value) || 0 : 0;
 
     const total = this.calculateTotal();
 
     if (this.collectiveAllocation.mode === 'percentage') {
-      // Percentage mode: must total 100
       return total === 100;
     } else if (this.collectiveAllocation.mode === 'units') {
-      // Units mode: must equal proxy_quantity
       return total === proxyQuantity;
     }
     return true;
@@ -469,7 +527,6 @@ class ItemManager {
       }
     });
 
-    // Return collective format (NOT per-item)
     return {
       mode: this.collectiveAllocation.mode,
       locked: this.collectiveAllocation.locked,
@@ -482,11 +539,20 @@ class ItemManager {
     return this.selectedItems.map(i => i.item_id);
   }
 
+  getContractSelections() {
+    const selections = {};
+    this.selectedContracts.forEach((processData, processId) => {
+      selections[processData.process.process_id] = processData.selectedItems.map(i => i.item_id);
+    });
+    return selections;
+  }
+
   reset() {
     this.selectedItems = [];
+    this.selectedContracts.clear();
     this.collectiveAllocation = null;
     this.render();
-    this.updateItemSelect();
+    this.updateContractSelect();
     if (window.contractAdjustments) {
       window.contractAdjustments.multipliers = {};
       window.contractAdjustments.renderAdjustments([]);
@@ -500,6 +566,5 @@ class ItemManager {
   }
 }
 
-// Create singleton instance
 const itemManager = new ItemManager();
 window.itemManager = itemManager;

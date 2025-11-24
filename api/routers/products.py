@@ -27,7 +27,7 @@ class ProductCreate(BaseModel):
     name: str
     description: Optional[str] = ""
     status: Optional[str] = "active"
-    item_ids: Optional[List[int]] = []
+    contract_selections: Optional[Dict[int, List[int]]] = {}
     allocations: Optional[Dict[str, Any]] = None
     price_multipliers: Optional[Dict[int, Any]] = None
     forecasts: Optional[List[Dict[str, Any]]] = None
@@ -38,7 +38,7 @@ class ProductUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     status: Optional[str] = None
-    item_ids: Optional[List[int]] = None
+    contract_selections: Optional[Dict[int, List[int]]] = None
     allocations: Optional[Dict[str, Any]] = None
     price_multipliers: Optional[Dict[int, Any]] = None
     forecasts: Optional[List[Dict[str, Any]]] = None
@@ -86,8 +86,8 @@ async def create_product(product: ProductCreate):
         status=product.status,
     )
 
-    if product.item_ids:
-        crud.set_items_for_product(new_product['product_id'], product.item_ids)
+    if product.contract_selections:
+        crud.update_product_items_from_contracts(new_product['product_id'], product.contract_selections)
 
     if product.allocations:
         crud.set_allocations_for_product(new_product['product_id'], product.allocations)
@@ -95,7 +95,6 @@ async def create_product(product: ProductCreate):
     if product.price_multipliers:
         crud.set_price_multipliers_for_product(new_product['product_id'], product.price_multipliers)
 
-    # Handle forecasts
     if product.forecasts:
         for forecast in product.forecasts:
             crud.create_forecast(
@@ -105,7 +104,6 @@ async def create_product(product: ProductCreate):
                 forecast_units=forecast.get('forecast_units')
             )
 
-    # Handle actuals
     if product.actuals:
         for actual in product.actuals:
             crud.create_actual(
@@ -115,6 +113,8 @@ async def create_product(product: ProductCreate):
                 actual_units=actual.get('actual_units')
             )
 
+    item_ids = crud.get_item_ids_for_product(new_product['product_id'])
+
     return JSONResponse(
         content={
             "product_id": new_product['product_id'],
@@ -123,7 +123,7 @@ async def create_product(product: ProductCreate):
             "status": new_product['status'],
             "date_creation": new_product['date_creation'],
             "date_last_update": new_product['date_last_update'],
-            "item_ids": product.item_ids,
+            "item_ids": item_ids,
         }
     )
 
@@ -331,10 +331,10 @@ async def get_product(product_id: int):
             raise HTTPException(status_code=404, detail="Product not found")
 
         item_ids = crud.get_item_ids_for_product(product['product_id'])
+        contracts = crud.get_product_contracts_with_selected_items(product['product_id'])
         allocations = crud.get_allocations_for_product(product['product_id'])
         price_multipliers = crud.get_price_multipliers_for_product(product['product_id'])
 
-        # Get forecasts
         forecasts = crud.get_forecasts_for_product(product_id)
         forecasts_data = [{
             "forecast_id": f['forecast_id'],
@@ -345,7 +345,6 @@ async def get_product(product_id: int):
             "date_last_update": f['date_last_update']
         } for f in forecasts]
 
-        # Get actuals
         actuals = crud.get_actuals_for_product(product_id)
         actuals_data = [{
             "actual_id": a['actual_id'],
@@ -365,6 +364,7 @@ async def get_product(product_id: int):
                 "date_creation": product['date_creation'],
                 "date_last_update": product['date_last_update'],
                 "item_ids": item_ids,
+                "contracts": contracts,
                 "allocations": allocations,
                 "price_multipliers": price_multipliers,
                 "forecasts": forecasts_data,
@@ -390,8 +390,8 @@ async def update_product(product_id: int, product: ProductUpdate):
     if not success:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    if product.item_ids is not None:
-        crud.set_items_for_product(product_id, product.item_ids)
+    if product.contract_selections is not None:
+        crud.update_product_items_from_contracts(product_id, product.contract_selections)
 
     if product.allocations is not None:
         crud.set_allocations_for_product(product_id, product.allocations)
@@ -399,7 +399,6 @@ async def update_product(product_id: int, product: ProductUpdate):
     if product.price_multipliers is not None:
         crud.set_price_multipliers_for_product(product_id, product.price_multipliers)
 
-    # Handle forecasts - delete all existing and recreate
     if product.forecasts is not None:
         existing_forecasts = crud.get_forecasts_for_product(product_id)
         for forecast in existing_forecasts:
@@ -413,7 +412,6 @@ async def update_product(product_id: int, product: ProductUpdate):
                 forecast_units=forecast_data.get('forecast_units')
             )
 
-    # Handle actuals - delete all existing and recreate
     if product.actuals is not None:
         existing_actuals = crud.get_actuals_for_product(product_id)
         for actual in existing_actuals:

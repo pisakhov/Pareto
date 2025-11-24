@@ -45,6 +45,12 @@ const dataService = {
         return await response.json();
     },
 
+    async getAllContracts() {
+        const response = await fetch('/api/contracts');
+        if (!response.ok) throw new Error('Failed to load contracts');
+        return await response.json();
+    },
+
     async saveProduct(productData, productId) {
         const url = productId ? `/api/products/${productId}` : '/api/products';
         const method = productId ? 'PUT' : 'POST';

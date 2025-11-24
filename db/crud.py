@@ -463,6 +463,27 @@ class CRUDOperations(DatabaseSchema):
         results = conn.execute("SELECT item_id FROM product_items WHERE product_id = ?", [product_id]).fetchall()
         return [result[0] for result in results]
 
+    def update_product_items_from_contracts(self, product_id: int, contract_selections: Dict[int, List[int]]):
+        """Update product items based on contract selections
+        Args:
+            product_id: The product ID
+            contract_selections: Dict mapping contract_id to list of selected item_ids
+        """
+        conn = self._get_connection()
+        now = datetime.now().isoformat()
+
+        all_item_ids = []
+        for item_ids in contract_selections.values():
+            all_item_ids.extend(item_ids)
+
+        conn.execute("DELETE FROM product_items WHERE product_id = ?", [product_id])
+
+        for item_id in all_item_ids:
+            conn.execute(
+                "INSERT INTO product_items (product_id, item_id, date_creation) VALUES (?, ?, ?)",
+                [product_id, item_id, now]
+            )
+
     def remove_item_from_product(self, product_id: int, item_id: int):
         conn = self._get_connection()
         conn.execute("DELETE FROM product_items WHERE product_id = ? AND item_id = ?", [product_id, item_id])
@@ -667,6 +688,233 @@ class CRUDOperations(DatabaseSchema):
                 allocations[str(provider_id)][str(item_id)]['products'].append(f'locked_{provider_id}')
 
         return allocations
+
+    def get_contracts_with_items(self, process_id: int = None) -> List[Dict[str, Any]]:
+        """Get all contracts with their items, grouped by process and items"""
+        conn = self._get_connection()
+
+        query = """
+            SELECT
+                c.contract_id,
+                c.contract_name,
+                c.process_id,
+                c.provider_id,
+                p.company_name as provider_name,
+                pr.process_name,
+                i.item_id,
+                i.item_name,
+                i.description
+            FROM contracts c
+            JOIN providers p ON c.provider_id = p.provider_id
+            JOIN processes pr ON c.process_id = pr.process_id
+            JOIN contract_tiers ct ON c.contract_id = ct.contract_id
+            JOIN offers o ON c.provider_id = o.provider_id
+                AND c.process_id = o.process_id
+                AND ct.tier_number = o.tier_number
+            JOIN items i ON o.item_id = i.item_id
+            WHERE c.status = 'active'
+              AND p.status = 'active'
+              AND pr.status = 'active'
+              AND i.status = 'active'
+        """
+
+        params = []
+        if process_id:
+            query += " AND c.process_id = ?"
+            params.append(process_id)
+
+        query += " ORDER BY pr.process_name, i.item_name, p.company_name"
+
+        results = conn.execute(query, params).fetchall()
+
+        processes_dict = {}
+        for row in results:
+            process_id = row[2]
+            process_name = row[5]
+            item_id = row[6]
+            item_name = row[7]
+            item_description = row[8]
+            provider_id = row[3]
+            provider_name = row[4]
+            contract_id = row[0]
+            contract_name = row[1]
+
+            # Create process entry if doesn't exist
+            if process_id not in processes_dict:
+                processes_dict[process_id] = {
+                    'process_id': process_id,
+                    'process_name': process_name,
+                    'items': []
+                }
+
+            # Find or create item entry within this process
+            item_data = None
+            for item in processes_dict[process_id]['items']:
+                if item['item_id'] == item_id:
+                    item_data = item
+                    break
+
+            if not item_data:
+                item_data = {
+                    'item_id': item_id,
+                    'item_name': item_name,
+                    'description': item_description,
+                    'providers': []
+                }
+                processes_dict[process_id]['items'].append(item_data)
+
+            # Add provider to item (avoid duplicates)
+            provider_exists = any(p['provider_id'] == provider_id for p in item_data['providers'])
+            if not provider_exists:
+                item_data['providers'].append({
+                    'contract_id': contract_id,
+                    'contract_name': contract_name,
+                    'provider_id': provider_id,
+                    'provider_name': provider_name
+                })
+
+        return list(processes_dict.values())
+
+    def get_product_contracts_with_selected_items(self, product_id: int) -> List[Dict[str, Any]]:
+        """Get all contracts for a product with selected items, grouped by process and items"""
+        conn = self._get_connection()
+
+        results = conn.execute("""
+            SELECT DISTINCT
+                c.contract_id,
+                c.contract_name,
+                c.process_id,
+                c.provider_id,
+                p.company_name as provider_name,
+                pr.process_name,
+                i.item_id,
+                i.item_name,
+                i.description
+            FROM contracts c
+            JOIN providers p ON c.provider_id = p.provider_id
+            JOIN processes pr ON c.process_id = pr.process_id
+            JOIN contract_tiers ct ON c.contract_id = ct.contract_id
+            JOIN offers o ON c.provider_id = o.provider_id
+                AND c.process_id = o.process_id
+                AND ct.tier_number = o.tier_number
+            JOIN items i ON o.item_id = i.item_id
+            JOIN product_items pi ON i.item_id = pi.item_id
+            WHERE pi.product_id = ?
+              AND c.status = 'active'
+              AND p.status = 'active'
+              AND pr.status = 'active'
+              AND i.status = 'active'
+            ORDER BY pr.process_name, i.item_name, p.company_name
+        """, [product_id]).fetchall()
+
+        processes_dict = {}
+        for row in results:
+            process_id = row[2]
+            process_name = row[5]
+            item_id = row[6]
+            item_name = row[7]
+            item_description = row[8]
+            provider_id = row[3]
+            provider_name = row[4]
+            contract_id = row[0]
+            contract_name = row[1]
+
+            if process_id not in processes_dict:
+                processes_dict[process_id] = {
+                    'process_id': process_id,
+                    'process_name': process_name,
+                    'items': []
+                }
+
+            item_data = None
+            for item in processes_dict[process_id]['items']:
+                if item['item_id'] == item_id:
+                    item_data = item
+                    break
+
+            if not item_data:
+                item_data = {
+                    'item_id': item_id,
+                    'item_name': item_name,
+                    'description': item_description,
+                    'providers': []
+                }
+                processes_dict[process_id]['items'].append(item_data)
+
+            provider_exists = any(p['provider_id'] == provider_id for p in item_data['providers'])
+            if not provider_exists:
+                item_data['providers'].append({
+                    'contract_id': contract_id,
+                    'contract_name': contract_name,
+                    'provider_id': provider_id,
+                    'provider_name': provider_name
+                })
+
+        return list(processes_dict.values())
+
+    def add_contract_items_to_product(self, product_id: int, contract_id: int, item_ids: List[int]):
+        """Add multiple items from a contract to a product"""
+        conn = self._get_connection()
+        now = datetime.now().isoformat()
+
+        for item_id in item_ids:
+            conn.execute(
+                "INSERT OR IGNORE INTO product_items (product_id, item_id, date_creation) VALUES (?, ?, ?)",
+                [product_id, item_id, now]
+            )
+
+    def remove_contract_items_from_product(self, product_id: int, contract_id: int):
+        """Remove all items from a specific contract in a product"""
+        conn = self._get_connection()
+
+        conn.execute("""
+            DELETE FROM product_items
+            WHERE product_id = ?
+              AND item_id IN (
+                SELECT DISTINCT i.item_id
+                FROM contracts c
+                JOIN contract_tiers ct ON c.contract_id = ct.contract_id
+                JOIN offers o ON c.provider_id = o.provider_id
+                    AND c.process_id = o.process_id
+                    AND ct.tier_number = o.tier_number
+                JOIN items i ON o.item_id = i.item_id
+                WHERE c.contract_id = ?
+              )
+        """, [product_id, contract_id])
+
+    def get_all_contracts(self) -> List[Dict[str, Any]]:
+        """Get all contracts with provider and process info"""
+        conn = self._get_connection()
+        results = conn.execute("""
+            SELECT
+                c.contract_id,
+                c.contract_name,
+                c.process_id,
+                c.provider_id,
+                p.company_name as provider_name,
+                pr.process_name,
+                c.status
+            FROM contracts c
+            JOIN providers p ON c.provider_id = p.provider_id
+            JOIN processes pr ON c.process_id = pr.process_id
+            WHERE c.status = 'active'
+              AND p.status = 'active'
+              AND pr.status = 'active'
+            ORDER BY c.contract_name
+        """).fetchall()
+
+        return [
+            {
+                'contract_id': row[0],
+                'contract_name': row[1],
+                'process_id': row[2],
+                'provider_id': row[3],
+                'provider_name': row[4],
+                'process_name': row[5],
+                'status': row[6]
+            }
+            for row in results
+        ]
 
     # Product-Item pricing operations
     def set_price_multipliers_for_product(self, product_id: int, multipliers_data: dict):
@@ -1305,6 +1553,50 @@ class CRUDOperations(DatabaseSchema):
         # Now delete the contract tier
         result = conn.execute("DELETE FROM contract_tiers WHERE contract_tier_id = ?", [contract_tier_id])
         return result.rowcount > 0
+
+    def get_provider_tier_thresholds(self, provider_id: int) -> Dict[str, Any]:
+        """Get tier thresholds for all contracts associated with a provider"""
+        conn = self._get_connection()
+        results = conn.execute("""
+            SELECT DISTINCT
+                pr.process_id,
+                pr.process_name,
+                pr.tier_thresholds
+            FROM contracts c
+            JOIN processes pr ON c.process_id = pr.process_id
+            WHERE c.provider_id = ?
+              AND pr.status = 'active'
+        """, [provider_id]).fetchall()
+
+        tier_data = {}
+        for row in results:
+            process_id = row[0]
+            process_name = row[1]
+            tier_thresholds = row[2] or "{}"
+
+            tier_data[str(process_id)] = {
+                'process_name': process_name,
+                'tier_thresholds': tier_thresholds
+            }
+
+        return tier_data
+
+    def get_price_for_item_at_tier(self, provider_id: int, item_id: int, tier_number: int, process_id: int) -> Optional[float]:
+        """Get the price for an item at a specific tier"""
+        conn = self._get_connection()
+        result = conn.execute("""
+            SELECT price_per_unit
+            FROM offers
+            WHERE provider_id = ?
+              AND item_id = ?
+              AND tier_number = ?
+              AND process_id = ?
+              AND status = 'active'
+            ORDER BY date_creation DESC
+            LIMIT 1
+        """, [provider_id, item_id, tier_number, process_id]).fetchone()
+
+        return float(result[0]) if result else None
 
     # =====================================
 

@@ -86,20 +86,16 @@ class ProductsApp {
 
     async loadData() {
         try {
-            const [products, items, providers, pricing] = await Promise.all([
+            const [products, contracts, providers, pricing] = await Promise.all([
                 this.components.dataService.loadProducts().then(products => {
                     return products;
                 }),
-                this.components.dataService.loadItems().then(items => {
-                    return items;
-                }),
-                this.components.dataService.loadProviders().then(providers => {
-                    return providers;
-                }),
+                this.components.dataService.getAllContracts(),
+                this.components.dataService.loadProviders(),
                 this.components.dataService.loadProductsPricing(),
             ]);
             this.data.products = products;
-            this.data.items = items;
+            this.data.contracts = contracts;
             this.data.providers = providers;
             this.data.pricing = pricing;
 
@@ -108,7 +104,7 @@ class ProductsApp {
             this.initializeItemManager();
 
         } catch (error) {
-            this.components.uiManager.showNotification('Error loading data: ' + error.message, 'error');
+            window.Toast.show('Error loading data: ' + error.message, 'error');
         }
     }
 
@@ -123,7 +119,7 @@ class ProductsApp {
 
     initializeItemManager() {
         if (window.itemManager) {
-            window.itemManager.setItems(this.data.items);
+            window.itemManager.setContracts(this.data.contracts);
             window.itemManager.setProviders(this.data.providers);
         }
     }
