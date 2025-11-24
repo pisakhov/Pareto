@@ -933,7 +933,14 @@ class ProcessGraph {
     const contractElements = contractsContainer.querySelectorAll('[id^="addContract-"]');
 
     if (contractElements.length === 0) {
-      uiManager.showNotification('Please add at least one contract', 'error');
+      // Check if there are any providers in the system
+      const totalProviders = this.providers ? this.providers.filter(p => p.status === 'active').length : 0;
+
+      if (totalProviders === 0) {
+        uiManager.showNotification('Please add at least one provider first', 'error');
+      } else {
+        uiManager.showNotification('Please add at least one contract with a provider', 'error');
+      }
       return;
     }
 
@@ -1277,15 +1284,30 @@ class ProcessGraph {
     providerSelectSection.innerHTML = '';
 
     if (availableProviders.length === 0) {
-      // Show nice message when all providers have contracts
-      providerSelectSection.innerHTML = `
-        <div class="flex items-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
-          <span class="font-medium">All providers already have contracts for this process</span>
-        </div>
-      `;
+      // Check if there are NO providers at all in the system
+      const totalActiveProviders = this.providers.filter(p => p.status === 'active').length;
+
+      if (totalActiveProviders === 0) {
+        // Show message when NO providers exist at all
+        providerSelectSection.innerHTML = `
+          <div class="flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+            <span class="font-medium">No providers available - please add a provider first</span>
+          </div>
+        `;
+      } else {
+        // Show nice message when all providers have contracts
+        providerSelectSection.innerHTML = `
+          <div class="flex items-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span class="font-medium">All providers already have contracts for this process</span>
+          </div>
+        `;
+      }
     } else {
       // Show normal select and add button
       providerSelectSection.innerHTML = `
