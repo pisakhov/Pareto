@@ -67,8 +67,11 @@ class TableRenderer {
   getFilteredItems() {
     const currentProcessId = window.CURRENT_PROCESS_ID;
 
+    // Start with active items only
+    let items = this.data.items.filter(item => item.status === 'active');
+
     if (!currentProcessId) {
-      return this.data.items;
+      return items;
     }
 
     const offersInCurrentProcess = this.data.offers.filter(
@@ -79,7 +82,7 @@ class TableRenderer {
       offersInCurrentProcess.map(offer => offer.item_id)
     );
 
-    const filteredItems = this.data.items.filter(item =>
+    const filteredItems = items.filter(item =>
       itemIdsInCurrentProcess.has(item.item_id)
     );
 
