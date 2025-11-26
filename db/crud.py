@@ -1656,8 +1656,14 @@ class CRUDOperations(DatabaseSchema):
                     tiers.sort(key=lambda x: x['threshold_units'])
                     
                     active_tier_num = 1
-                    if tiers:
-                        # Find the highest tier where threshold <= allocated_units
+                    
+                    # Check for explicitly selected tier first (User Preference)
+                    selected_tier = next((t for t in tiers if t['is_selected']), None)
+                    
+                    if selected_tier:
+                        active_tier_num = selected_tier['tier_number']
+                    elif tiers:
+                        # Fallback: Find the highest tier where threshold <= allocated_units
                         # Assuming threshold is the lower bound (inclusive)
                         found_tier = None
                         for t in tiers:
