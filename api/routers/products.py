@@ -360,12 +360,6 @@ async def update_product(product_id: int, product: ProductUpdate):
         for forecast in existing_forecasts:
             crud.delete_forecast(forecast['forecast_id'])
 
-        # Ensure deletes are committed before inserts
-        if hasattr(crud, '_get_connection'):
-            conn = crud._get_connection()
-            if conn:
-                conn.commit()
-
         # Only create new forecasts if the array is not empty
         if product.forecasts:
             for forecast_data in product.forecasts:
@@ -380,12 +374,6 @@ async def update_product(product_id: int, product: ProductUpdate):
         existing_actuals = crud.get_actuals_for_product(product_id)
         for actual in existing_actuals:
             crud.delete_actual(actual['actual_id'])
-
-        # Ensure deletes are committed before inserts
-        if hasattr(crud, '_get_connection'):
-            conn = crud._get_connection()
-            if conn:
-                conn.commit()
 
         # Only create new actuals if the array is not empty
         if product.actuals:

@@ -184,6 +184,7 @@ class CRUDOperations(DatabaseSchema):
             "INSERT INTO products (product_id, name, description, status, date_creation, date_last_update) VALUES (?, ?, ?, ?, ?, ?)",
             [product_id, name, description, status, now, now]
         )
+        conn.commit()
         return self.get_product(product_id)
 
     def get_product(self, product_id: int) -> Optional[Dict[str, Any]]:
@@ -225,6 +226,7 @@ class CRUDOperations(DatabaseSchema):
             "UPDATE products SET name = ?, description = ?, status = ?, date_last_update = ? WHERE product_id = ?",
             [name, description, status, now, product_id]
         )
+        conn.commit()
         return True
 
     def delete_product(self, product_id: int) -> bool:
@@ -233,6 +235,7 @@ class CRUDOperations(DatabaseSchema):
         conn.execute("DELETE FROM product_item_allocations WHERE product_id = ?", [product_id])
         conn.execute("DELETE FROM product_items WHERE product_id = ?", [product_id])
         result = conn.execute("DELETE FROM products WHERE product_id = ?", [product_id])
+        conn.commit()
         return result.rowcount > 0
 
     # Offer CRUD operations
@@ -1176,6 +1179,7 @@ class CRUDOperations(DatabaseSchema):
             "INSERT INTO forecasts (forecast_id, product_id, year, month, forecast_units, date_creation, date_last_update) VALUES (?, ?, ?, ?, ?, ?, ?)",
             [forecast_id, product_id, year, month, forecast_units, now, now]
         )
+        conn.commit()
         return self.get_forecast(forecast_id)
 
     def get_forecast(self, forecast_id: int) -> Optional[Dict[str, Any]]:
@@ -1245,6 +1249,7 @@ class CRUDOperations(DatabaseSchema):
     def delete_forecast(self, forecast_id: int) -> bool:
         conn = self._get_connection()
         result = conn.execute("DELETE FROM forecasts WHERE forecast_id = ?", [forecast_id])
+        conn.commit()
         return result.rowcount > 0
 
     # =====================================
@@ -1259,6 +1264,7 @@ class CRUDOperations(DatabaseSchema):
             "INSERT INTO actuals (actual_id, product_id, year, month, actual_units, date_creation, date_last_update) VALUES (?, ?, ?, ?, ?, ?, ?)",
             [actual_id, product_id, year, month, actual_units, now, now]
         )
+        conn.commit()
         return self.get_actual(actual_id)
 
     def get_actual(self, actual_id: int) -> Optional[Dict[str, Any]]:
@@ -1328,6 +1334,7 @@ class CRUDOperations(DatabaseSchema):
     def delete_actual(self, actual_id: int) -> bool:
         conn = self._get_connection()
         result = conn.execute("DELETE FROM actuals WHERE actual_id = ?", [actual_id])
+        conn.commit()
         return result.rowcount > 0
 
     # =====================================

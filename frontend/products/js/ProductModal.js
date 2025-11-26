@@ -102,13 +102,31 @@ class ForecastManager {
         this.render();
     }
 
+    updateForecastData(year, month, units) {
+        year = parseInt(year);
+        month = parseInt(month);
+        this.forecasts = this.forecasts.filter(f => !(f.year === year && f.month === month));
+        if (units !== '' && units !== null && !isNaN(parseInt(units))) {
+             this.forecasts.push({ year, month, forecast_units: parseInt(units) });
+        }
+    }
+
+    updateActualData(year, month, units) {
+        year = parseInt(year);
+        month = parseInt(month);
+        this.actuals = this.actuals.filter(a => !(a.year === year && a.month === month));
+        if (units !== '' && units !== null && !isNaN(parseInt(units))) {
+            this.actuals.push({ year, month, actual_units: parseInt(units) });
+        }
+    }
+
     addForecast(year, month, units) {
-        this.forecasts.push({ year: parseInt(year), month: parseInt(month), forecast_units: parseInt(units) });
+        this.updateForecastData(year, month, units);
         this.render();
     }
 
     addActual(year, month, units) {
-        this.actuals.push({ year: parseInt(year), month: parseInt(month), actual_units: parseInt(units) });
+        this.updateActualData(year, month, units);
         this.render();
     }
 
@@ -186,25 +204,52 @@ class ForecastManager {
                 const type = input.dataset.type;
                 const value = e.target.value;
 
+                // Immediate visual feedback
+                if (type === 'forecast') {
+                    if (value) {
+                        input.classList.remove('text-muted-foreground');
+                        input.classList.add('text-orange-600');
+                    } else {
+                        input.classList.remove('text-orange-600');
+                        input.classList.add('text-muted-foreground');
+                    }
+                } else {
+                    if (value) {
+                        input.classList.remove('text-muted-foreground');
+                        input.style.color = '#255be3';
+                        input.style.borderColor = '#255be3';
+                        input.style.setProperty('--tw-ring-color', '#255be3');
+                    } else {
+                        input.classList.add('text-muted-foreground');
+                        input.style.color = '';
+                        input.style.borderColor = '';
+                        input.style.removeProperty('--tw-ring-color');
+                    }
+                }
+
+                // Immediate data update
+                if (type === 'forecast') {
+                    this.updateForecastData(this.currentYear, month, value);
+                } else {
+                    this.updateActualData(this.currentYear, month, value);
+                }
+
                 clearTimeout(debounceTimers[input]);
                 debounceTimers[input] = setTimeout(() => {
-                    if (type === 'forecast') {
-                        value ? this.addForecast(this.currentYear, month, value) : this.removeForecast(month);
-                    } else {
-                        value ? this.addActual(this.currentYear, month, value) : this.removeActual(month);
-                    }
+                    // Refresh chart only, preserve focus
+                    if (productModal.chart) productModal.chart.refresh();
                 }, 300);
             });
         });
     }
 
     removeForecast(month) {
-        this.forecasts = this.forecasts.filter(f => !(f.year === this.currentYear && f.month === month));
+        this.updateForecastData(this.currentYear, month, null);
         this.render();
     }
 
     removeActual(month) {
-        this.actuals = this.actuals.filter(a => !(a.year === this.currentYear && a.month === month));
+        this.updateActualData(this.currentYear, month, null);
         this.render();
     }
 
@@ -674,11 +719,8 @@ const productModal = {
             // Load contracts to populate the Select Process dropdown
             this.loadContracts();
         } else {
-            // In edit mode, reset only non-UI related state (but keep editingId)
-            // DON'T reset the item manager as we've already set up the processes
-            // this.itemManager.reset();
-            this.pricing.multipliers = {};
-            this.forecast.reset();
+            // In edit mode, we don't want to reset the data because editProduct() has already loaded it.
+            // We just need to reset the chart instance to ensure a clean render.
             this.chart?.destroy();
         }
 
@@ -967,6 +1009,8 @@ const productModal = {
             // Restore pricing
             if (product.price_multipliers) {
                 this.pricing.multipliers = product.price_multipliers;
+            } else {
+                this.pricing.multipliers = {};
             }
 
             // Restore forecasting
