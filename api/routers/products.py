@@ -4,10 +4,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 import os
-import sys
 
-# Add parent directory to path to import db module
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 from db.crud import get_crud
 
 

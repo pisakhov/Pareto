@@ -6,8 +6,6 @@ from typing import Dict
 import os
 import sys
 
-# Add parent directory to path to import db module
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 from db.crud import get_crud
 from db.calculation import get_calculation_service
 
