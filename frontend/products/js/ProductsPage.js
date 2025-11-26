@@ -13,19 +13,31 @@ class ProductGrid {
             providers: [],
             pricing: {}
         };
+        this.itemProcessMap = new Map();
     }
 
     setData(products, data) {
         this.products = products;
         this.filteredProducts = products;
         this.data = data || { items: [], contracts: [], providers: [], pricing: {} };
+        
+        // Pre-compute item -> process mapping for O(1) lookup
+        this.itemProcessMap.clear();
+        this.data.contracts.forEach(c => {
+            if (c.items) {
+                c.items.forEach(i => {
+                    this.itemProcessMap.set(i.item_id, { id: c.process_id, name: c.process_name });
+                });
+            }
+        });
     }
 
     filter(searchTerm, statusFilter) {
+        const lowerSearch = searchTerm ? searchTerm.toLowerCase() : '';
         this.filteredProducts = this.products.filter(p => {
-            const matchesSearch = !searchTerm ||
-                p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                p.description.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesSearch = !lowerSearch ||
+                p.name.toLowerCase().includes(lowerSearch) ||
+                (p.description && p.description.toLowerCase().includes(lowerSearch));
             const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
             return matchesSearch && matchesStatus;
         });
@@ -49,22 +61,23 @@ class ProductGrid {
         grid.classList.remove('hidden');
         emptyState.classList.add('hidden');
 
+        // Create fragment for better performance
+        const fragment = document.createDocumentFragment();
         this.filteredProducts.forEach(product => {
-            const card = this.createCard(product);
-            grid.appendChild(card);
+            fragment.appendChild(this.createCard(product));
         });
+        grid.appendChild(fragment);
 
         this.updateCount();
     }
 
     createCard(product) {
-        if (!product) return document.createElement('div');
-
         const isActive = product.status === 'active';
         const card = document.createElement('div');
         card.className = `bg-white border border-slate-200 rounded-xl overflow-hidden hover:shadow-xl hover:border-[#fb923c]/30 transition-all duration-300 ${!isActive ? 'opacity-70' : ''}`;
 
         const processInfo = this.getProcessInfo(product);
+        
         card.innerHTML = `
             <div class="bg-gradient-to-r from-[#fb923c]/10 to-[#fb923c]/5 border-b border-[#fb923c]/10 p-4">
                 <div class="flex items-start justify-between">
@@ -138,33 +151,20 @@ class ProductGrid {
             return '<p class="text-xs text-slate-500 italic">No processes assigned</p>';
         }
 
-        const processMap = new Map();
-        this.data.contracts.forEach(contract => {
-            if (contract.process_id && contract.process_name) {
-                processMap.set(contract.process_id, { name: contract.process_name, items: [] });
-            }
-        });
-
+        const productProcesses = new Map(); // processId -> {name, count}
+        
         product.item_ids.forEach(itemId => {
-            const item = this.data.items.find(i => i.item_id === itemId);
-            if (item) {
-                const contract = this.data.contracts.find(c =>
-                    c.items?.some(ci => ci.item_id === itemId)
-                );
-                if (contract?.process_id) {
-                    if (!processMap.has(contract.process_id)) {
-                        processMap.set(contract.process_id, { name: contract.process_name || `Process ${contract.process_id}`, items: [] });
-                    }
-                    processMap.get(contract.process_id).items.push(item);
+            const process = this.itemProcessMap.get(itemId);
+            if (process) {
+                if (!productProcesses.has(process.id)) {
+                    productProcesses.set(process.id, { name: process.name, count: 0 });
                 }
+                productProcesses.get(process.id).count++;
             }
         });
 
-        const processesHTML = Array.from(processMap.entries())
-            .filter(([_, process]) => process.items.length > 0)
-            .map(([_, process]) => {
-                const itemCount = process.items.length;
-                return `
+        return Array.from(productProcesses.values())
+            .map(process => `
                 <div class="bg-slate-50 rounded-lg p-3 border border-slate-200">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center">
@@ -172,14 +172,11 @@ class ProductGrid {
                             <span class="text-sm font-semibold text-slate-800">${this.escapeHtml(process.name)}</span>
                         </div>
                         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#fb923c]/10 text-[#fb923c] border border-[#fb923c]/20">
-                            ${itemCount} ${itemCount === 1 ? 'item' : 'items'}
+                            ${process.count} ${process.count === 1 ? 'item' : 'items'}
                         </span>
                     </div>
                 </div>
-            `;
-            }).join('');
-
-        return processesHTML;
+            `).join('');
     }
 
     updateCount() {
@@ -244,8 +241,6 @@ const productsPage = {
             Toast.show('Error loading data: ' + error.message, 'error');
         }
     },
-
-
 
     setupHandlers() {
         document.getElementById('addProductButton')?.addEventListener('click', () => {

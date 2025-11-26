@@ -15,7 +15,10 @@ class PricingAdjustments {
             multiplier: Math.max(0.01, Math.min(10, numValue)),
             notes: this.multipliers[itemId]?.notes || ''
         };
-        productModal.itemManager.render();
+        // Pass self to render to avoid global dependency inside ItemManager
+        if (productModal && productModal.itemManager) {
+            productModal.itemManager.render(this);
+        }
     }
 
     handleNotesChange(itemId, value) {
@@ -37,15 +40,32 @@ class PricingAdjustments {
 // Forecasting Manager
 class ForecastManager {
     constructor() {
-        this.forecasts = [];
-        this.actuals = [];
+        this.data = {
+            forecast: [],
+            actual: []
+        };
         this.currentYear = new Date().getFullYear();
         this.months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        
+        this.config = {
+            forecast: { 
+                key: 'forecast_units', 
+                colorClass: 'text-orange-600', 
+                ringClass: 'focus:ring-orange-400',
+                borderClass: 'focus:border-orange-400'
+            },
+            actual: { 
+                key: 'actual_units', 
+                colorClass: 'text-[#255be3]', 
+                ringClass: 'focus:ring-[#255be3]',
+                borderClass: 'focus:border-[#255be3]'
+            }
+        };
     }
 
     reset() {
-        this.forecasts = [];
-        this.actuals = [];
+        this.data.forecast = [];
+        this.data.actual = [];
         this.currentYear = new Date().getFullYear();
         this.render();
     }
@@ -53,47 +73,34 @@ class ForecastManager {
     updateData(type, year, month, units) {
         year = parseInt(year);
         month = parseInt(month);
-        const target = type === 'forecast' ? this.forecasts : this.actuals;
-        const key = type === 'forecast' ? 'forecast_units' : 'actual_units';
+        const key = this.config[type].key;
 
-        const updated = target.filter(f => !(f.year === year && f.month === month));
+        const updated = this.data[type].filter(f => !(f.year === year && f.month === month));
         if (units !== '' && units !== null && !isNaN(parseInt(units))) {
             updated.push({ year, month, [key]: parseInt(units) });
         }
-        
-        if (type === 'forecast') this.forecasts = updated;
-        else this.actuals = updated;
-    }
-
-    addForecast(year, month, units) {
-        this.updateData('forecast', year, month, units);
-        this.render();
-    }
-
-    addActual(year, month, units) {
-        this.updateData('actual', year, month, units);
-        this.render();
+        this.data[type] = updated;
     }
 
     getData() {
         return {
-            forecasts: this.forecasts.map(f => ({ year: f.year, month: f.month, forecast_units: f.forecast_units })),
-            actuals: this.actuals.map(a => ({ year: a.year, month: a.month, actual_units: a.actual_units }))
+            forecasts: this.data.forecast.map(f => ({ year: f.year, month: f.month, forecast_units: f.forecast_units })),
+            actuals: this.data.actual.map(a => ({ year: a.year, month: a.month, actual_units: a.actual_units }))
         };
     }
 
     loadFromProduct(product) {
-        this.forecasts = (product.forecasts || []).map(f => ({
+        this.data.forecast = (product.forecasts || []).map(f => ({
             year: f.year, month: f.month, forecast_units: f.forecast_units
         }));
-        this.actuals = (product.actuals || []).map(a => ({
+        this.data.actual = (product.actuals || []).map(a => ({
             year: a.year, month: a.month, actual_units: a.actual_units
         }));
 
-        if (this.forecasts.length || this.actuals.length) {
+        if (this.data.forecast.length || this.data.actual.length) {
             this.currentYear = Math.max(
-                ...this.forecasts.map(f => f.year),
-                ...this.actuals.map(a => a.year),
+                ...this.data.forecast.map(f => f.year),
+                ...this.data.actual.map(a => a.year),
                 new Date().getFullYear()
             );
         }
@@ -102,82 +109,61 @@ class ForecastManager {
     }
 
     render() {
-        const forecastContainer = document.getElementById('forecastTimeline');
-        const actualContainer = document.getElementById('actualTimeline');
-        const monthHeader = document.getElementById('monthHeaderRow');
-        const yearDisplay = document.getElementById('currentYearDisplay');
+        const elements = {
+            forecast: document.getElementById('forecastTimeline'),
+            actual: document.getElementById('actualTimeline'),
+            header: document.getElementById('monthHeaderRow'),
+            year: document.getElementById('currentYearDisplay')
+        };
 
-        if (!forecastContainer || !actualContainer || !monthHeader || !yearDisplay) return;
+        if (!elements.forecast || !elements.actual) return;
 
-        yearDisplay.textContent = this.currentYear;
-        monthHeader.innerHTML = this.months.map(m => `<div class="text-center"><div class="text-xs font-medium text-muted-foreground">${m}</div></div>`).join('');
+        elements.year.textContent = this.currentYear;
+        elements.header.innerHTML = this.months.map(m => `<div class="text-center"><div class="text-xs font-medium text-muted-foreground">${m}</div></div>`).join('');
 
-        const renderRow = (type) => {
-            const data = type === 'forecast' ? this.forecasts : this.actuals;
-            
-            return Array.from({ length: 12 }, (_, i) => {
+        ['forecast', 'actual'].forEach(type => {
+            const key = this.config[type].key;
+            elements[type].innerHTML = Array.from({ length: 12 }, (_, i) => {
                 const month = i + 1;
-                const entry = data.find(f => f.year === this.currentYear && f.month === month);
-                const val = type === 'forecast' ? entry?.forecast_units : entry?.actual_units;
-                const value = val !== undefined ? val : '';
-                
-                // Base styling that doesn't change
-                const baseClasses = "w-full text-center text-sm font-semibold bg-transparent border border-border rounded px-2 py-2 focus:ring-2 focus:outline-none";
+                const entry = this.data[type].find(f => f.year === this.currentYear && f.month === month);
+                const value = entry ? entry[key] : '';
                 
                 return `
                     <div class="month-cell">
                         <input type="number" min="0" placeholder="0" value="${value}"
-                               class="${baseClasses}"
+                               class="w-full text-center text-sm font-semibold bg-transparent border border-border rounded px-2 py-2 focus:outline-none transition-colors"
                                data-month="${month}" data-type="${type}" />
                     </div>
                 `;
             }).join('');
-        };
-
-        forecastContainer.innerHTML = renderRow('forecast');
-        actualContainer.innerHTML = renderRow('actual');
-
-        // Apply styles to initial inputs
-        document.querySelectorAll('#forecastTimeline input, #actualTimeline input').forEach(input => {
-            this.updateInputStyle(input);
         });
 
         this.setupInputs();
+        document.querySelectorAll('#forecastTimeline input, #actualTimeline input').forEach(input => this.updateInputStyle(input));
+        
         if (productModal.chart) productModal.chart.refresh();
     }
 
     updateInputStyle(input) {
         const type = input.dataset.type;
-        const value = input.value;
-        
-        const hasValue = value !== '' && value !== null;
+        const hasValue = input.value !== '' && input.value !== null;
+        const cfg = this.config[type];
 
-        if (type === 'forecast') {
-            input.classList.remove('text-orange-600', 'text-muted-foreground', 'focus:ring-orange-400', 'focus:border-orange-400');
-            
-            input.classList.add('focus:ring-orange-400', 'focus:border-orange-400');
-            if (hasValue) {
-                input.classList.add('text-orange-600');
-            } else {
-                input.classList.add('text-muted-foreground');
-            }
-        } else {
-            input.classList.remove('text-muted-foreground', 'focus:ring-[#255be3]', 'focus:border-[#255be3]');
-            // Remove inline styles first
-            input.style.color = '';
-            input.style.borderColor = '';
-            input.style.removeProperty('--tw-ring-color');
-            
-            input.classList.add('focus:ring-[#255be3]', 'focus:border-[#255be3]');
-            
-            if (hasValue) {
-                // Apply active styles
+        // Reset base classes
+        input.className = "w-full text-center text-sm font-semibold bg-transparent border border-border rounded px-2 py-2 focus:outline-none transition-colors";
+        
+        // Apply active/inactive state
+        if (hasValue) {
+            input.classList.add(cfg.colorClass, cfg.ringClass, cfg.borderClass, 'ring-1', 'border-transparent');
+             // Specifically for blue (actuals) which uses hex
+            if (type === 'actual') {
                 input.style.color = '#255be3';
                 input.style.borderColor = '#255be3';
-                input.style.setProperty('--tw-ring-color', '#255be3');
-            } else {
-                input.classList.add('text-muted-foreground');
             }
+        } else {
+            input.classList.add('text-muted-foreground', cfg.ringClass, cfg.borderClass, 'focus:ring-2');
+            input.style.color = '';
+            input.style.borderColor = '';
         }
     }
 
@@ -187,63 +173,41 @@ class ForecastManager {
             input.addEventListener('input', (e) => {
                 const month = parseInt(input.dataset.month);
                 const type = input.dataset.type;
-                const value = e.target.value;
-
-                // Visual feedback using shared method
+                
                 this.updateInputStyle(input);
-
-                // Immediate data update
-                this.updateData(type, this.currentYear, month, value);
+                this.updateData(type, this.currentYear, month, e.target.value);
 
                 clearTimeout(debounceTimers[input]);
                 debounceTimers[input] = setTimeout(() => {
-                    // Refresh chart only, preserve focus
                     if (productModal.chart) productModal.chart.refresh();
                 }, 300);
             });
         });
     }
 
-    removeForecast(month) {
-        this.updateData('forecast', this.currentYear, month, null);
-        this.render();
-    }
-
-    removeActual(month) {
-        this.updateData('actual', this.currentYear, month, null);
-        this.render();
-    }
-
     setupHandlers() {
-        const prevYear = document.getElementById('prevYear');
-        const nextYear = document.getElementById('nextYear');
-
-        if (prevYear) prevYear.onclick = () => { this.currentYear--; this.render(); };
-        if (nextYear) nextYear.onclick = () => { this.currentYear++; this.render(); };
+        document.getElementById('prevYear').onclick = () => { this.currentYear--; this.render(); };
+        document.getElementById('nextYear').onclick = () => { this.currentYear++; this.render(); };
 
         ['forecast', 'actual'].forEach(type => {
-            document.getElementById(`clearAll${type.charAt(0).toUpperCase() + type.slice(1)}s`)?.addEventListener('click', () => {
-                this[type + 's'] = [];
+            const capType = type.charAt(0).toUpperCase() + type.slice(1);
+            
+            document.getElementById(`clearAll${capType}s`)?.addEventListener('click', () => {
+                this.data[type] = [];
                 this.render();
             });
 
-            document.getElementById(`applyAll${type.charAt(0).toUpperCase() + type.slice(1)}s`)?.addEventListener('click', () => {
+            document.getElementById(`applyAll${capType}s`)?.addEventListener('click', () => {
                 const firstInput = document.querySelector(`#${type}Timeline input[data-month="1"]`);
                 const value = parseInt(firstInput?.value);
                 if (!value) return;
 
-                const entries = [];
-                for (let month = 1; month <= 12; month++) {
-                    entries.push({
-                        year: this.currentYear,
-                        month,
-                        [type === 'forecast' ? 'forecast_units' : 'actual_units']: value
-                    });
-                }
-
-                if (type === 'forecast') this.forecasts = entries;
-                else this.actuals = entries;
-
+                const key = this.config[type].key;
+                this.data[type] = Array.from({ length: 12 }, (_, i) => ({
+                    year: this.currentYear,
+                    month: i + 1,
+                    [key]: value
+                }));
                 this.render();
             });
         });
@@ -307,11 +271,11 @@ class ChartManager {
         const forecastMap = new Map();
         const actualMap = new Map();
 
-        productModal.forecast.forecasts.forEach(f => {
+        productModal.forecast.data.forecast.forEach(f => {
             forecastMap.set(`${f.year}-${f.month}`, f.forecast_units);
         });
 
-        productModal.forecast.actuals.forEach(a => {
+        productModal.forecast.data.actual.forEach(a => {
             actualMap.set(`${a.year}-${a.month}`, a.actual_units);
         });
 
@@ -365,9 +329,8 @@ class ItemManager {
         });
 
         this.rebuildSelectedItems();
-        this.render();
+        this.render(productModal.pricing);
 
-        // Refresh dropdown to hide added process
         if (window.productModal) {
             window.productModal.renderProcessSelect(this.allContracts);
         }
@@ -376,9 +339,8 @@ class ItemManager {
     removeProcess(processId) {
         this.contracts.delete(processId);
         this.rebuildSelectedItems();
-        this.render();
+        this.render(productModal.pricing);
 
-        // Refresh dropdown to show removed process again
         if (window.productModal) {
             window.productModal.renderProcessSelect(this.allContracts);
         }
@@ -398,7 +360,7 @@ class ItemManager {
         }
 
         this.rebuildSelectedItems();
-        this.render();
+        this.render(productModal.pricing);
     }
 
     toggleProcessSelectAll(processId, checked) {
@@ -407,7 +369,7 @@ class ItemManager {
 
         contract.selectedItems = checked ? [...contract.data.items] : [];
         this.rebuildSelectedItems();
-        this.render();
+        this.render(productModal.pricing);
     }
 
     updateProviderValue(processId, providerId, value) {
@@ -416,7 +378,7 @@ class ItemManager {
 
         const numValue = parseFloat(value) || 0;
         contract.allocation.providerValues.set(parseInt(providerId), numValue);
-        this.render();
+        this.render(productModal.pricing);
     }
 
     toggleAllocationMode(processId, mode) {
@@ -427,7 +389,7 @@ class ItemManager {
         contract.allocation.providerValues.forEach((_, id) => {
             contract.allocation.providerValues.set(id, 0);
         });
-        this.render();
+        this.render(productModal.pricing);
     }
 
     lockProvider(processId, providerId) {
@@ -437,7 +399,7 @@ class ItemManager {
         contract.allocation.providerValues.forEach((_, id) => {
             contract.allocation.providerValues.set(id, id == providerId ? 100 : 0);
         });
-        this.render();
+        this.render(productModal.pricing);
     }
 
     rebuildSelectedItems() {
@@ -498,10 +460,10 @@ class ItemManager {
     reset() {
         this.selectedItems = [];
         this.contracts.clear();
-        this.render();
+        this.render(productModal.pricing);
     }
 
-    render() {
+    render(pricingManager) {
         const container = document.getElementById('productItemsContainer');
         if (!container) return;
 
@@ -513,14 +475,14 @@ class ItemManager {
         let html = '<div class="space-y-6">';
 
         this.contracts.forEach((contract, processId) => {
-            html += this.renderContract(processId, contract);
+            html += this.renderContract(processId, contract, pricingManager);
         });
 
         container.innerHTML = html + '</div>';
 
     }
 
-    renderContract(processId, contract) {
+    renderContract(processId, contract, pricingManager) {
         const headerId = `selectAll_${processId}`;
 
         let html = `
@@ -564,11 +526,11 @@ class ItemManager {
             const providers = item.providers.map(p => this.escapeHtml(p.provider_name)).join(' · ');
 
             let pricingHtml = '';
-            if (isSelected) {
-                if (!productModal.pricing.multipliers[item.item_id]) {
-                    productModal.pricing.multipliers[item.item_id] = { multiplier: 1.0, notes: '' };
+            if (isSelected && pricingManager) {
+                if (!pricingManager.multipliers[item.item_id]) {
+                    pricingManager.multipliers[item.item_id] = { multiplier: 1.0, notes: '' };
                 }
-                const pricing = productModal.pricing.multipliers[item.item_id];
+                const pricing = pricingManager.multipliers[item.item_id];
                 
                 const pct = ((pricing.multiplier - 1) * 100).toFixed(1);
                 const label = pricing.multiplier < 1 ? `${Math.abs(pct)}% discount` :
@@ -1012,7 +974,7 @@ const productModal = {
             this.renderProcessSelect(allContracts);
 
             // Render UI once after all data is loaded
-            this.itemManager.render();
+            this.itemManager.render(this.pricing);
             this.show(true);
         } catch (error) {
             console.error('Error in editProduct:', error);

@@ -298,6 +298,51 @@ class CalculationService:
 
         return result
 
+    def calculate_item_price(self, provider_id, item_id, process_id, price_multipliers, allocations_data):
+        """Calculate price for a specific item and provider."""
+        # Calculate total files for provider to determine tier
+        total_files = 0
+        if str(provider_id) in allocations_data:
+            for item_data in allocations_data[str(provider_id)].values():
+                total_files += item_data.get('total', 0)
+
+        # Determine Tier
+        tier_data = self.crud.get_provider_tier_thresholds(provider_id)
+        thresholds = tier_data.get('thresholds', {})
+        current_tier = 1
+
+        if total_files > 0 and thresholds:
+            tier_keys = sorted([int(k) for k in thresholds.keys()])
+            for tier in tier_keys:
+                if total_files < thresholds[str(tier)]:
+                    current_tier = tier
+                    break
+                current_tier = tier
+
+        # Get Base Price
+        base_price = self.crud.get_price_for_item_at_tier(provider_id, item_id, current_tier, process_id)
+        if base_price is None:
+            return None
+
+        # Apply Multiplier
+        multiplier = 1.0
+        if price_multipliers:
+            m = price_multipliers.get(item_id) or price_multipliers.get(str(item_id))
+            if m is not None:
+                if isinstance(m, dict) and 'multiplier' in m:
+                    multiplier = float(m['multiplier'])
+                else:
+                    multiplier = float(m)
+
+        return {
+            'provider_id': provider_id,
+            'provider_name': self.crud.get_provider(provider_id)['company_name'],
+            'tier': current_tier,
+            'base_price': base_price,
+            'multiplier': multiplier,
+            'final_price': base_price * multiplier
+        }
+
 
 # Global calculation service instance
 _calculation_service = None
