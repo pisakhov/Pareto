@@ -11,48 +11,10 @@ class PricingAdjustments {
 
     render(selectedItems) {
         const container = document.getElementById('pricingAdjustmentsContainer');
-        if (!container) return;
-
-        if (!selectedItems.length) {
-            container.innerHTML = '<p class="text-sm text-muted-foreground text-center py-8">Select items above to configure pricing adjustments</p>';
-            this.multipliers = {};
-            return;
+        if (container) {
+            container.innerHTML = '';
+            container.style.display = 'none';
         }
-
-        let html = '<div class="space-y-3">';
-        html += '<p class="text-xs text-muted-foreground mb-3">Set multipliers: &lt; 1.0 = Discount, 1.0 = Standard (default), &gt; 1.0 = Premium</p>';
-
-        selectedItems.forEach(item => {
-            const itemId = item.item_id;
-            if (!this.multipliers[itemId]) {
-                this.multipliers[itemId] = { multiplier: 1.0, notes: '' };
-            }
-
-            const m = this.multipliers[itemId];
-            const pct = ((m.multiplier - 1) * 100).toFixed(1);
-            const label = m.multiplier < 1 ? `${Math.abs(pct)}% discount` :
-                         m.multiplier > 1 ? `+${pct}% premium` : 'Standard pricing';
-            const color = m.multiplier < 1 ? 'text-green-600' : m.multiplier > 1 ? 'text-amber-600' : 'text-muted-foreground';
-
-            html += `
-                <div class="border border-border rounded-md p-3">
-                    <div class="flex items-center gap-3 mb-2">
-                        <label class="font-medium text-sm flex-1">${this.escapeHtml(item.item_name)}</label>
-                        <div class="flex items-center gap-2">
-                            <input type="number" value="${m.multiplier}" step="0.01" min="0.01" max="10"
-                                   onchange="productModal.pricing.handleMultiplierChange(${itemId}, this.value)"
-                                   class="w-20 px-2 py-1 text-sm border border-input rounded-md focus:ring-2 focus:ring-ring">
-                            <span class="text-xs ${color} font-medium w-28">${label}</span>
-                        </div>
-                    </div>
-                    <input type="text" placeholder="Notes (optional)" value="${this.escapeHtml(m.notes)}"
-                           onchange="productModal.pricing.handleNotesChange(${itemId}, this.value)"
-                           class="w-full px-2 py-1 text-xs border border-input rounded-md focus:ring-2 focus:ring-ring">
-                </div>
-            `;
-        });
-
-        container.innerHTML = html + '</div>';
     }
 
     handleMultiplierChange(itemId, value) {
@@ -61,7 +23,7 @@ class PricingAdjustments {
             multiplier: Math.max(0.01, Math.min(10, numValue)),
             notes: this.multipliers[itemId]?.notes || ''
         };
-        this.render(productModal.itemManager.selectedItems);
+        productModal.itemManager.render();
     }
 
     handleNotesChange(itemId, value) {
@@ -602,12 +564,43 @@ class ItemManager {
         contract.data.items.forEach(item => {
             const isSelected = contract.selectedItems.find(i => i.item_id === item.item_id);
             const providers = item.providers.map(p => this.escapeHtml(p.provider_name)).join(' · ');
+
+            let pricingHtml = '';
+            if (isSelected) {
+                if (!productModal.pricing.multipliers[item.item_id]) {
+                    productModal.pricing.multipliers[item.item_id] = { multiplier: 1.0, notes: '' };
+                }
+                const pricing = productModal.pricing.multipliers[item.item_id];
+                
+                const pct = ((pricing.multiplier - 1) * 100).toFixed(1);
+                const label = pricing.multiplier < 1 ? `${Math.abs(pct)}% discount` :
+                             pricing.multiplier > 1 ? `+${pct}% premium` : 'Standard';
+                const color = pricing.multiplier < 1 ? 'text-green-600' : pricing.multiplier > 1 ? 'text-amber-600' : 'text-muted-foreground';
+
+                pricingHtml = `
+                    <div class="mt-3 pt-3 border-t border-[#fb923c]/20" onclick="event.preventDefault()">
+                        <div class="flex items-center gap-2 mb-2">
+                            <div class="flex items-center gap-2 bg-white rounded-md border border-[#fb923c]/30 px-2 py-1 shadow-sm">
+                                <span class="text-xs text-slate-500 font-medium">Price:</span>
+                                <input type="number" value="${pricing.multiplier}" step="0.01" min="0.01" max="10"
+                                       onchange="productModal.pricing.handleMultiplierChange(${item.item_id}, this.value)"
+                                       class="w-16 text-sm font-bold text-slate-700 bg-transparent border-none p-0 focus:ring-0 text-center">
+                            </div>
+                            <span class="text-xs font-semibold ${color} px-2 py-1 rounded-md bg-white/50 border border-transparent">${label}</span>
+                        </div>
+                        <input type="text" placeholder="Add notes..." value="${this.escapeHtml(pricing.notes || '')}"
+                               onchange="productModal.pricing.handleNotesChange(${item.item_id}, this.value)"
+                               class="w-full text-xs border border-[#fb923c]/30 rounded px-2 py-1.5 focus:ring-2 focus:ring-[#fb923c] focus:border-[#fb923c] bg-white/80">
+                    </div>
+                `;
+            }
+
             html += `
                 <div class="border-2 rounded-xl p-4 transition-all duration-200 hover:shadow-md ${isSelected ? 'border-[#fb923c] bg-gradient-to-br from-[#fb923c]/5 to-[#fb923c]/10 shadow-sm' : 'border-slate-200 hover:border-slate-300'}">
                     <label class="flex items-start gap-3 cursor-pointer">
                         <input type="checkbox" ${isSelected ? 'checked' : ''}
                                onchange="productModal.toggleProcessItem(${processId}, ${item.item_id}, this.checked)"
-                               class="mt-1 w-5 h-5 text-[#fb923c] focus:ring-2 focus:ring-[#fb923c] rounded border-2 border-slate-300">
+                               class="mt-1 w-5 h-5 text-[#fb923c] focus:ring-2 focus:ring-[#fb923c] rounded border-2 border-slate-300 flex-shrink-0">
                         <div class="flex-1 min-w-0">
                             <div class="text-sm font-semibold text-slate-900 mb-1">${this.escapeHtml(item.item_name)}</div>
                             <div class="text-xs text-slate-600 flex items-center gap-1">
@@ -618,6 +611,7 @@ class ItemManager {
                             </div>
                         </div>
                     </label>
+                    ${pricingHtml}
                 </div>
             `;
         });
@@ -685,7 +679,7 @@ class ItemManager {
                 </div>
                 <div class="mt-3 pt-3 border-t border-[#fb923c]/30 flex items-center justify-between">
                     <span class="text-sm font-semibold text-slate-700">Total:</span>
-                    <span class="text-sm font-semibold ${isValid ? 'text-green-600' : 'text-amber-600'}">${total} ${suffix} ${isValid ? '✓' : '⚠️'}</span>
+                    <span class="text-sm font-semibold ${isValid ? 'text-green-600' : 'text-amber-600'}">${total.toLocaleString()} ${suffix} ${isValid ? '✓' : '⚠️'}</span>
                 </div>
             </div>
         `;
