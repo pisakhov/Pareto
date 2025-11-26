@@ -28,25 +28,6 @@ const uiManager = {
         }
     },
 
-    updateItemSelect(items) {
-        const select = document.getElementById('productItems');
-        if (!select) return;
-
-        // Clear existing options
-        select.innerHTML = '';
-
-        // Add item options
-        items.forEach(item => {
-            const option = document.createElement('option');
-            option.value = item.item_id;
-            option.textContent = item.item_name;
-            if (item.status !== 'active') {
-                option.textContent += ' (inactive)';
-            }
-            select.appendChild(option);
-        });
-    },
-
     showNotification(message, type = 'info') {
         const notification = document.createElement('div');
         notification.className = `fixed top-4 right-4 p-4 rounded-md shadow-lg z-50 transition-all duration-300 transform translate-x-full`;

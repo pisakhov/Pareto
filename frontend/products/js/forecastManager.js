@@ -34,11 +34,6 @@ class ForecastManager {
         this.advanceToNextMonth('forecast');
     }
 
-    removeForecast(id) {
-        this.forecasts = this.forecasts.filter(f => f.id !== id);
-        this.updateChart();
-    }
-
     removeForecastForMonth(year, month) {
         this.forecasts = this.forecasts.filter(f => !(f.year === year && f.month !== month));
         this.updateChart();
@@ -56,11 +51,6 @@ class ForecastManager {
 
         // Auto-advance to next month/year
         this.advanceToNextMonth('actual');
-    }
-
-    removeActual(id) {
-        this.actuals = this.actuals.filter(a => a.id !== id);
-        this.updateChart();
     }
 
     removeActualForMonth(year, month) {

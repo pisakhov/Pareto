@@ -404,36 +404,6 @@ class ItemManager {
     return allocationBlock;
   }
 
-  createProviderRow(provider) {
-    const allocation = this.collectiveAllocation;
-    const suffix = allocation.mode === 'percentage' ? '%' : 'units';
-    const value = allocation.providerValues.get(provider.provider_id) || 0;
-
-    const row = document.createElement('tr');
-    row.innerHTML = `
-      <td class="py-2">${this.escapeHtml(provider.company_name)}</td>
-      <td class="py-2">
-        <input type="number"
-               value="${value}"
-               min="0"
-               max="${allocation.mode === 'percentage' ? '100' : ''}"
-               onchange="window.itemManager.handleAllocationChange(${provider.provider_id}, this.value)"
-               class="w-24 px-2 py-1 border border-input rounded-md focus:ring-2 focus:ring-ring">
-        <span class="ml-1 text-muted-foreground">${suffix}</span>
-      </td>
-      <td class="py-2 text-right">
-        <button type="button"
-                onclick="window.itemManager.handleLockProvider(${provider.provider_id})"
-                title="Assign 100% to this provider"
-                class="px-3 py-1 text-sm rounded-md border border-input hover:bg-accent">
-          🔒 Lock
-        </button>
-      </td>
-    `;
-
-    return row;
-  }
-
   handleModeToggle(processId, mode) {
     const processData = this.selectedContracts.get(parseInt(processId, 10));
     if (!processData) return;
@@ -508,14 +478,12 @@ class ItemManager {
     for (const [processId, processData] of this.selectedContracts) {
       const total = this.calculateTotal(processId);
       const allocation = processData.allocation;
-      const proxyQuantity = parseInt(document.getElementById('proxyQuantity')?.value) || 0;
 
+      // Percentage mode must total 100%
       if (allocation.mode === 'percentage' && total !== 100) {
         return false;
       }
-      if (allocation.mode === 'units' && total !== proxyQuantity) {
-        return false;
-      }
+      // Units mode has no limit
     }
     return true;
   }

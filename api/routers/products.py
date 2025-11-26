@@ -401,21 +401,3 @@ async def delete_product(product_id: int):
 
     crud.delete_product(product_id)
     return JSONResponse(content={"message": "Product deleted successfully"})
-
-
-@router.get("/api/products/{product_id}/items")
-async def get_product_items(product_id: int):
-    """Get all items for a specific product."""
-    crud = get_crud()
-    items = crud.get_items_for_product(product_id)
-    return JSONResponse(
-        content=[
-            {
-                "item_id": i.item_id,
-                "item_name": i.item_name,
-                "description": i.description,
-                "status": i.status,
-            }
-            for i in items
-        ]
-    )

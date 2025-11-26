@@ -128,14 +128,6 @@ const dataService = {
         }
     },
 
-    async getItemProviders(itemId) {
-        const response = await fetch(`/api/items/${itemId}/providers`);
-        if (!response.ok) {
-            throw new Error('Failed to load providers for item');
-        }
-        return await response.json();
-    },
-
     async loadProductsPricing() {
         try {
             const response = await fetch('/api/products/pricing-details');
