@@ -9,7 +9,6 @@ import sys
 # Add parent directory to path to import db module
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 from db.crud import get_crud
-from db.calculation import get_calculation_service
 
 
 router = APIRouter()
@@ -145,45 +144,6 @@ async def create_product(product: ProductCreate):
     item_ids = crud.get_item_ids_for_product(new_product['product_id'])
 
     return JSONResponse(content=_format_product_summary(new_product, item_ids))
-
-
-@router.get("/api/products/pricing-details")
-async def get_products_pricing_details(process_id: int = 1):
-    """Get pricing details for all products including per-item rates."""
-    crud = get_crud()
-    calc_service = get_calculation_service()
-    
-    products = crud.get_all_products()
-    allocations_data = crud.get_all_allocations() # Load once for efficiency
-    result = {}
-
-    for product in products:
-        product_id = product[0]
-        allocations = crud.get_allocations_for_product(product_id)
-        price_multipliers = crud.get_price_multipliers_for_product(product_id)
-        product_pricing = {}
-        
-        # Collective format: Same providers for all items (standard UAT format)
-        providers_list = allocations.get('providers', [])
-        all_item_ids = crud.get_item_ids_for_product(product_id)
-        
-        # Calculate prices
-        for item_id in all_item_ids:
-            item_prices = []
-            for provider_alloc in providers_list:
-                provider_id = provider_alloc.get('provider_id')
-                price_info = calc_service.calculate_item_price(
-                    provider_id, item_id, process_id, price_multipliers, allocations_data
-                )
-                if price_info:
-                    item_prices.append(price_info)
-            
-            if item_prices:
-                product_pricing[str(item_id)] = item_prices[0] if len(item_prices) == 1 else item_prices
-
-        result[str(product_id)] = product_pricing
-
-    return JSONResponse(content=result)
 
 
 @router.get("/api/products/{product_id}")

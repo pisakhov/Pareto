@@ -26,12 +26,6 @@ const dataService = {
         return await response.json();
     },
 
-    async loadProductsPricing() {
-        const response = await fetch('/api/products/pricing-details');
-        if (!response.ok) throw new Error(`Failed to load pricing: ${response.status}`);
-        return await response.json();
-    },
-
     async saveProduct(productData, productId) {
         const url = productId ? `/api/products/${productId}` : '/api/products';
         const method = productId ? 'PUT' : 'POST';

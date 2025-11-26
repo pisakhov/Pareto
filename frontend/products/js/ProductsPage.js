@@ -10,8 +10,7 @@ class ProductGrid {
         this.data = {
             items: [],
             contracts: [],
-            providers: [],
-            pricing: {}
+            providers: []
         };
         this.itemProcessMap = new Map();
     }
@@ -19,7 +18,7 @@ class ProductGrid {
     setData(products, data) {
         this.products = products;
         this.filteredProducts = products;
-        this.data = data || { items: [], contracts: [], providers: [], pricing: {} };
+        this.data = data || { items: [], contracts: [], providers: [] };
         
         // Pre-compute item -> process mapping for O(1) lookup
         this.itemProcessMap.clear();
@@ -207,7 +206,7 @@ class ProductGrid {
 
 const productsPage = {
     grid: new ProductGrid(),
-    data: { products: [], items: [], contracts: [], providers: [], pricing: {} },
+    data: { products: [], items: [], contracts: [], providers: [] },
 
     async init() {
         this.setupHandlers();
@@ -216,14 +215,13 @@ const productsPage = {
 
     async refresh() {
         try {
-            const [products, contracts, providers, pricing] = await Promise.all([
+            const [products, contracts, providers] = await Promise.all([
                 dataService.loadProducts(),
                 dataService.getAllContracts(),
-                dataService.loadProviders(),
-                dataService.loadProductsPricing()
+                dataService.loadProviders()
             ]);
 
-            this.data = { products, contracts, providers, pricing };
+            this.data = { products, contracts, providers };
             this.grid.setData(products, this.data);
             
             // Re-apply active filters
