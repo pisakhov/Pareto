@@ -19,8 +19,6 @@ const providerAllocator = {
             if (!this.allocations[item.id]) {
                 this.allocations[item.id] = {
                     mode: 'percentage',
-                    locked: false,
-                    lockedProviderId: null,
                     providers: item.providers.map(p => ({ provider_id: p.provider_id, provider_name: p.company_name, value: 0 }))
                 };
             } else {
@@ -68,14 +66,7 @@ const providerAllocator = {
                     </label>
                 </div>
             </div>
-            
-            ${allocation.locked ? `
-                <div class="mb-3 px-3 py-2 rounded-md bg-amber-50 border border-amber-200 text-amber-900 text-sm flex items-center gap-2">
-                    <span>🔒</span>
-                    <span><strong>Non-negotiable constraint:</strong> Locked to ${this.getProviderName(item.id, allocation.lockedProviderId)}</span>
-                </div>
-            ` : ''}
-            
+
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead class="border-b border-border">
@@ -111,7 +102,6 @@ const providerAllocator = {
     },
 
     createProviderRow(itemId, provider, allocation) {
-        const isLocked = allocation.locked && allocation.lockedProviderId === provider.provider_id;
         const suffix = allocation.mode === 'percentage' ? '%' : 'units';
 
         return `
@@ -127,21 +117,12 @@ const providerAllocator = {
                     <span class="ml-1 text-muted-foreground">${suffix}</span>
                 </td>
                 <td class="py-2 text-right">
-                    ${isLocked ? `
-                        <button type="button"
-                                onclick="providerAllocator.handleUnlock(${itemId})"
-                                title="Unlock allocation"
-                                class="px-3 py-1 text-sm rounded-md border border-input hover:bg-accent">
-                            🔓 Unlock
-                        </button>
-                    ` : `
-                        <button type="button"
-                                onclick="providerAllocator.handleLockProvider(${itemId}, ${provider.provider_id})"
-                                title="Lock to this provider"
-                                class="px-3 py-1 text-sm rounded-md border border-input hover:bg-accent">
-                            🔒 Lock
-                        </button>
-                    `}
+                    <button type="button"
+                            onclick="providerAllocator.handleLockProvider(${itemId}, ${provider.provider_id})"
+                            title="Assign 100% to this provider"
+                            class="px-3 py-1 text-sm rounded-md border border-input hover:bg-accent">
+                        🔒 Lock
+                    </button>
                 </td>
             </tr>
         `;
@@ -182,24 +163,13 @@ const providerAllocator = {
         // Convert string to number for comparison
         const numericProviderId = parseInt(providerId, 10);
 
-        this.allocations[itemId].locked = true;
-        this.allocations[itemId].lockedProviderId = numericProviderId;
-
+        // Assign 100% to selected provider, 0% to others (pure UX feature)
         if (this.allocations[itemId].mode === 'percentage') {
             this.allocations[itemId].providers.forEach(p => {
                 p.value = p.provider_id === numericProviderId ? 100 : 0;
             });
         }
 
-        this.rerenderPanel(itemId);
-    },
-
-    handleUnlock(itemId) {
-        if (!this.allocations[itemId]) return;
-        
-        this.allocations[itemId].locked = false;
-        this.allocations[itemId].lockedProviderId = null;
-        
         this.rerenderPanel(itemId);
     },
 

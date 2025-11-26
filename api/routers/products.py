@@ -128,8 +128,6 @@ async def create_product(product: ProductCreate):
     )
 
 
-
-
 @router.get("/api/products/pricing-details")
 async def get_products_pricing_details(process_id: int = 1):
     """Get pricing details for all products including per-item rates."""
@@ -138,15 +136,9 @@ async def get_products_pricing_details(process_id: int = 1):
     products = crud.get_all_products()
     result = {}
 
-    print(f"[PRICING DETAILS] Starting pricing details calculation for {len(products)} products")
-
     for product in products:
-        print(f"[PRICING DETAILS] Processing product ID: {product[0]}, Name: {product[1]}")
         allocations = crud.get_allocations_for_product(product[0])
         price_multipliers = crud.get_price_multipliers_for_product(product[0])
-
-        print(f"[PRICING DETAILS] Product {product[0]} allocations structure: {allocations}")
-        print(f"[PRICING DETAILS] Product {product[0]} price_multipliers: {price_multipliers}")
 
         product_pricing = {}
 
@@ -169,35 +161,21 @@ async def get_products_pricing_details(process_id: int = 1):
                 # If we can't parse it as integer, it's likely a field name (collective format)
                 is_collective_format = True
 
-        print(f"[PRICING DETAILS] Product {product[0]} is_collective_format: {is_collective_format}")
-
         if is_collective_format:
             # Collective allocation format - apply to all items
-            print(f"[PRICING DETAILS] Product {product[0]} using collective allocation format")
+
             # For collective allocations, we need to get all items for this product
             item_ids = crud.get_item_ids_for_product(product[0])
-            print(f"[PRICING DETAILS] Product {product[0]} has {len(item_ids)} items: {item_ids}")
 
             # Get providers from the collective allocation
             providers_list = allocations.get('providers', [])
-            print(f"[PRICING DETAILS] Product {product[0]} has {len(providers_list)} providers in collective allocation")
 
             for item_id in item_ids:
                 item_prices = []
-                print(f"[PRICING DETAILS] Product {product[0]}, Item {item_id}: Processing collective providers")
 
                 for provider_alloc in providers_list:
                     provider_id = provider_alloc.get('provider_id')
-                    print(f"[PRICING DETAILS] Product {product[0]}, Item {item_id}: Processing provider {provider_id}")
-
                     provider = crud.get_provider(provider_id)
-                    if not provider:
-                        print(f"[PRICING DETAILS] Product {product[0]}, Item {item_id}: Provider {provider_id} not found!")
-                        continue
-
-                    tier_data = crud.get_provider_tier_thresholds(provider_id)
-                    thresholds = tier_data.get('thresholds', {})
-                    print(f"[PRICING DETAILS] Product {product[0]}, Item {item_id}: Provider {provider_id} tier thresholds: {thresholds}")
 
                     allocations_data = crud.get_all_allocations()
                     provider_items = allocations_data
@@ -206,25 +184,20 @@ async def get_products_pricing_details(process_id: int = 1):
                         for item_data in provider_items[str(provider_id)].values():
                             total_files += item_data.get('total', 0)
 
-                    print(f"[PRICING DETAILS] Product {product[0]}, Item {item_id}: Provider {provider_id} total_files: {total_files}")
+                    tier_data = crud.get_provider_tier_thresholds(provider_id)
+                    thresholds = tier_data.get('thresholds', {})
 
                     current_tier = 1
                     if total_files > 0 and thresholds:
                         tier_keys = sorted([int(k) for k in thresholds.keys()])
-                        print(f"[PRICING DETAILS] Product {product[0]}, Item {item_id}: Provider {provider_id} tier_keys: {tier_keys}")
                         for tier in tier_keys:
                             if total_files < thresholds[str(tier)]:
                                 current_tier = tier
                                 break
                             current_tier = tier
 
-                    print(f"[PRICING DETAILS] Product {product[0]}, Item {item_id}: Provider {provider_id} current_tier: {current_tier}")
-
                     base_price = crud.get_price_for_item_at_tier(provider_id, item_id, current_tier, process_id)
-                    print(f"[PRICING DETAILS] Product {product[0]}, Item {item_id}: Provider {provider_id} base_price: {base_price}")
-
                     if base_price:
-
                         multiplier = 1.0
                         if price_multipliers:
                             m = price_multipliers.get(item_id) or price_multipliers.get(str(item_id))
@@ -233,11 +206,7 @@ async def get_products_pricing_details(process_id: int = 1):
                                     multiplier = float(m['multiplier'])
                                 else:
                                     multiplier = float(m)
-                        print(f"[PRICING DETAILS] Product {product[0]}, Item {item_id}: Provider {provider_id} multiplier: {multiplier}")
-
                         final_price = base_price * multiplier
-                        print(f"[PRICING DETAILS] Product {product[0]}, Item {item_id}: Provider {provider_id} final_price: {final_price}")
-
                         item_prices.append({
                             'provider_id': provider_id,
                             'provider_name': provider['company_name'],
@@ -249,25 +218,16 @@ async def get_products_pricing_details(process_id: int = 1):
 
                 if item_prices:
                     product_pricing[str(item_id)] = item_prices[0] if len(item_prices) == 1 else item_prices
-                    print(f"[PRICING DETAILS] Product {product[0]}, Item {item_id}: Added pricing data")
-
         else:
-            # Legacy per-item allocation format
-            print(f"[PRICING DETAILS] Product {product[0]} using legacy per-item allocation format")
+            # Legacy per-item format
+            providers_list = allocations.get('providers', [])
 
             for item_id, item_data in allocations.items():
                 item_prices = []
 
-                providers_list = item_data.get('providers', [])
-                print(f"[PRICING DETAILS] Product {product[0]}, Item {item_id}: Has {len(providers_list)} providers")
-
                 for provider_alloc in providers_list:
                     provider_id = provider_alloc.get('provider_id')
-
                     provider = crud.get_provider(provider_id)
-                    if not provider:
-                        print(f"[PRICING DETAILS] Product {product[0]}, Item {item_id}: Provider {provider_id} not found!")
-                        continue
 
                     tier_data = crud.get_provider_tier_thresholds(provider_id)
                     thresholds = tier_data.get('thresholds', {})
@@ -290,7 +250,6 @@ async def get_products_pricing_details(process_id: int = 1):
 
                     base_price = crud.get_price_for_item_at_tier(provider_id, item_id, current_tier, process_id)
                     if base_price:
-
                         multiplier = 1.0
                         if price_multipliers:
                             m = price_multipliers.get(item_id) or price_multipliers.get(str(item_id))
@@ -313,9 +272,7 @@ async def get_products_pricing_details(process_id: int = 1):
                     product_pricing[str(item_id)] = item_prices[0] if len(item_prices) == 1 else item_prices
 
         result[str(product[0])] = product_pricing
-        print(f"[PRICING DETAILS] Product {product[0]}: Final pricing data: {product_pricing}")
 
-    print(f"[PRICING DETAILS] Completed. Returning data for {len(result)} products")
     return JSONResponse(content=result)
 
 
@@ -426,11 +383,6 @@ async def update_product(product_id: int, product: ProductUpdate):
             )
 
     return JSONResponse(content={"message": "Product updated successfully"})
-
-
-
-
-
 
 
 @router.delete("/api/products/{product_id}")

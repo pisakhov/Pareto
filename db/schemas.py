@@ -163,7 +163,6 @@ class ProductItemAllocation:
     provider_id: int
     allocation_mode: str
     allocation_value: float
-    is_locked: bool
     date_creation: str
     date_last_update: str
 
@@ -378,7 +377,6 @@ class DatabaseSchema:
                 provider_id INTEGER,
                 allocation_mode VARCHAR NOT NULL,
                 allocation_value DECIMAL(10,2) NOT NULL,
-                is_locked BOOLEAN DEFAULT FALSE,
                 date_creation VARCHAR NOT NULL,
                 date_last_update VARCHAR NOT NULL,
                 PRIMARY KEY (product_id, item_id, provider_id)

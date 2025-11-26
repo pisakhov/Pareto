@@ -515,23 +515,20 @@ class CRUDOperations(DatabaseSchema):
             for item_id_str, allocation in allocations_data.items():
                 item_id = int(item_id_str)
                 mode = allocation.get('mode', 'percentage')
-                locked = allocation.get('locked', False)
 
                 for provider in allocation.get('providers', []):
                     provider_id = provider.get('provider_id')
                     value = provider.get('value', 0)
 
-                    if value > 0 or (locked and provider_id == allocation.get('lockedProviderId')):
+                    if value > 0:
                         conn.execute(
-                            "INSERT INTO product_item_allocations (product_id, item_id, provider_id, allocation_mode, allocation_value, is_locked, date_creation, date_last_update) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                            [product_id, item_id, provider_id, mode, value, locked, now, now]
+                            "INSERT INTO product_item_allocations (product_id, item_id, provider_id, allocation_mode, allocation_value, date_creation, date_last_update) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                            [product_id, item_id, provider_id, mode, value, now, now]
                         )
         else:
             # New collective allocation format - apply same allocation to ALL items in product
             allocation = allocations_data
             mode = allocation.get('mode', 'percentage')
-            locked = allocation.get('locked', False)
-            locked_provider_id = allocation.get('lockedProviderId')
 
             # Get all items for this product
             item_ids = self.get_item_ids_for_product(product_id)
@@ -542,10 +539,10 @@ class CRUDOperations(DatabaseSchema):
 
                 # Apply this allocation to ALL items in the product
                 for item_id in item_ids:
-                    if value > 0 or (locked and provider_id == locked_provider_id):
+                    if value > 0:
                         conn.execute(
-                            "INSERT INTO product_item_allocations (product_id, item_id, provider_id, allocation_mode, allocation_value, is_locked, date_creation, date_last_update) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                            [product_id, item_id, provider_id, mode, value, locked, now, now]
+                            "INSERT INTO product_item_allocations (product_id, item_id, provider_id, allocation_mode, allocation_value, date_creation, date_last_update) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                            [product_id, item_id, provider_id, mode, value, now, now]
                         )
 
     def get_allocations_for_product(self, product_id: int) -> dict:
@@ -557,8 +554,7 @@ class CRUDOperations(DatabaseSchema):
                 a.provider_id,
                 p.company_name,
                 a.allocation_mode,
-                a.allocation_value,
-                a.is_locked
+                a.allocation_value
             FROM product_item_allocations a
             JOIN providers p ON a.provider_id = p.provider_id
             WHERE a.product_id = ?
@@ -575,13 +571,10 @@ class CRUDOperations(DatabaseSchema):
             provider_name = row[2]
             mode = row[3]
             value = float(row[4])
-            is_locked = row[5]
 
             if item_id not in item_allocations:
                 item_allocations[item_id] = {
                     'mode': mode,
-                    'locked': is_locked,
-                    'lockedProviderId': None,
                     'providers': []
                 }
 
@@ -590,9 +583,6 @@ class CRUDOperations(DatabaseSchema):
                 'provider_name': provider_name,
                 'value': value
             })
-
-            if is_locked and value > 0:
-                item_allocations[item_id]['lockedProviderId'] = provider_id
 
         # If we have allocations, check if all items have the same allocation (collective allocation)
         if item_allocations:
@@ -608,16 +598,6 @@ class CRUDOperations(DatabaseSchema):
 
                 # Compare mode
                 if current['mode'] != first_allocation['mode']:
-                    all_same = False
-                    break
-
-                # Compare locked status
-                if current['locked'] != first_allocation['locked']:
-                    all_same = False
-                    break
-
-                # Compare lockedProviderId
-                if current['lockedProviderId'] != first_allocation['lockedProviderId']:
                     all_same = False
                     break
 
@@ -642,8 +622,6 @@ class CRUDOperations(DatabaseSchema):
             if all_same:
                 collective = {
                     'mode': first_allocation['mode'],
-                    'locked': first_allocation['locked'],
-                    'lockedProviderId': first_allocation['lockedProviderId'],
                     'providers': first_allocation['providers']
                 }
                 return collective
@@ -659,8 +637,7 @@ class CRUDOperations(DatabaseSchema):
             SELECT
                 a.provider_id,
                 a.item_id,
-                a.allocation_value,
-                a.is_locked
+                a.allocation_value
             FROM product_item_allocations a
             ORDER BY a.provider_id, a.item_id
             """
@@ -672,7 +649,6 @@ class CRUDOperations(DatabaseSchema):
             provider_id = row[0]
             item_id = row[1]
             allocation_value = float(row[2])
-            is_locked = row[3]
 
             if provider_id not in allocations:
                 allocations[str(provider_id)] = {}
@@ -684,8 +660,6 @@ class CRUDOperations(DatabaseSchema):
                 }
 
             allocations[str(provider_id)][str(item_id)]['total'] += allocation_value
-            if is_locked:
-                allocations[str(provider_id)][str(item_id)]['products'].append(f'locked_{provider_id}')
 
         return allocations
 

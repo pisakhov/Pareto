@@ -89,8 +89,6 @@ class ItemManager {
       selectAll: true,
       allocation: {
         mode: 'percentage',
-        locked: false,
-        lockedProviderId: null,
         providers: processProviders,
         providerValues: new Map(processProviders.map(p => [p.provider_id, 0]))
       }
@@ -364,7 +362,6 @@ class ItemManager {
     table.className = 'space-y-2';
 
     allocation.providers.forEach(provider => {
-      const isLocked = allocation.locked && allocation.lockedProviderId === provider.provider_id;
       const suffix = allocation.mode === 'percentage' ? '%' : 'units';
       const value = allocation.providerValues.get(provider.provider_id) || 0;
 
@@ -373,23 +370,16 @@ class ItemManager {
       row.innerHTML = `
         <div class="flex items-center gap-3">
           <span class="font-medium text-slate-900">${this.escapeHtml(provider.company_name || 'Unknown Provider')}</span>
-          ${isLocked ? '<span class="text-xs text-amber-600">🔒 Locked</span>' : ''}
         </div>
         <div class="flex items-center gap-2">
           <input type="number" value="${value}" min="0"
                  onchange="window.itemManager.handleAllocationChange('${processId}', '${provider.provider_id}', this.value)"
                  class="w-20 px-2 py-1 border border-slate-300 rounded text-center text-sm font-medium focus:ring-2 focus:ring-[#fb923c] focus:border-[#fb923c]">
           <span class="text-sm text-slate-600 w-12 text-left">${suffix}</span>
-          ${allocation.mode === 'percentage' && !isLocked ? `
+          ${allocation.mode === 'percentage' ? `
             <button type="button" onclick="window.itemManager.handleLockProvider('${processId}', '${provider.provider_id}')"
                     class="text-xs text-slate-500 hover:text-[#fb923c] px-2 py-1 hover:bg-slate-50 rounded transition-colors">
-              Lock
-            </button>
-          ` : ''}
-          ${isLocked ? `
-            <button type="button" onclick="window.itemManager.handleUnlock('${processId}')"
-                    class="text-xs text-amber-600 hover:text-amber-800 px-2 py-1 hover:bg-amber-50 rounded transition-colors">
-              Unlock
+              🔒 Lock
             </button>
           ` : ''}
         </div>
@@ -416,16 +406,10 @@ class ItemManager {
 
   createProviderRow(provider) {
     const allocation = this.collectiveAllocation;
-    const isLocked = allocation.locked && allocation.lockedProviderId === provider.provider_id;
-    const isDisabled = allocation.locked && !isLocked;
     const suffix = allocation.mode === 'percentage' ? '%' : 'units';
     const value = allocation.providerValues.get(provider.provider_id) || 0;
 
     const row = document.createElement('tr');
-    if (isDisabled) {
-      row.className = 'opacity-50';
-    }
-
     row.innerHTML = `
       <td class="py-2">${this.escapeHtml(provider.company_name)}</td>
       <td class="py-2">
@@ -433,28 +417,17 @@ class ItemManager {
                value="${value}"
                min="0"
                max="${allocation.mode === 'percentage' ? '100' : ''}"
-               ${isDisabled ? 'disabled' : ''}
                onchange="window.itemManager.handleAllocationChange(${provider.provider_id}, this.value)"
-               class="w-24 px-2 py-1 border border-input rounded-md focus:ring-2 focus:ring-ring ${isDisabled ? 'bg-muted' : ''}">
+               class="w-24 px-2 py-1 border border-input rounded-md focus:ring-2 focus:ring-ring">
         <span class="ml-1 text-muted-foreground">${suffix}</span>
       </td>
       <td class="py-2 text-right">
-        ${isLocked ? `
-          <button type="button"
-                  onclick="window.itemManager.handleUnlock()"
-                  title="Unlock allocation"
-                  class="px-3 py-1 text-sm rounded-md border border-input hover:bg-accent">
-            🔓 Unlock
-          </button>
-        ` : `
-          <button type="button"
-                  onclick="window.itemManager.handleLockProvider(${provider.provider_id})"
-                  title="Lock to this provider"
-                  ${isDisabled ? 'disabled' : ''}
-                  class="px-3 py-1 text-sm rounded-md border border-input hover:bg-accent ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}">
-            🔒 Lock
-          </button>
-        `}
+        <button type="button"
+                onclick="window.itemManager.handleLockProvider(${provider.provider_id})"
+                title="Assign 100% to this provider"
+                class="px-3 py-1 text-sm rounded-md border border-input hover:bg-accent">
+          🔒 Lock
+        </button>
       </td>
     `;
 
@@ -469,8 +442,8 @@ class ItemManager {
 
     // Always reset values when switching modes
     allocation.mode = mode;
-    allocation.locked = false;
-    allocation.lockedProviderId = null;
+    
+    
 
     allocation.providerValues.forEach((value, providerId) => {
       allocation.providerValues.set(providerId, 0);
@@ -491,8 +464,8 @@ class ItemManager {
     // Convert string to number for comparison
     const numericProviderId = parseInt(providerId, 10);
 
-    allocation.locked = true;
-    allocation.lockedProviderId = numericProviderId;
+    
+    
 
     allocation.providerValues.forEach((value, pId) => {
       const newValue = pId === numericProviderId ? 100 : 0;
@@ -502,16 +475,6 @@ class ItemManager {
     this.render();
   }
 
-  handleUnlock(processId) {
-    const processData = this.selectedContracts.get(parseInt(processId, 10));
-    if (!processData) return;
-
-    const allocation = processData.allocation;
-    allocation.locked = false;
-    allocation.lockedProviderId = null;
-
-    this.render();
-  }
 
   handleAllocationChange(processId, providerId, value) {
     const processData = this.selectedContracts.get(parseInt(processId, 10));
@@ -539,18 +502,6 @@ class ItemManager {
     return total;
   }
 
-  getLockedProviderName(processId) {
-    const processData = this.selectedContracts.get(parseInt(processId, 10));
-    if (!processData) return '';
-
-    const allocation = processData.allocation;
-    if (!allocation.lockedProviderId) {
-      return '';
-    }
-
-    const provider = allocation.providers.find(p => p.provider_id === allocation.lockedProviderId);
-    return provider ? provider.company_name : '';
-  }
 
   validateAllocations() {
     // All process allocations must be valid
