@@ -29,6 +29,7 @@ class ProductView {
         const container = document.getElementById('pricingTablesContainer');
         const headerMonthYear = document.getElementById('pricingMonthYear');
         const headerActuals = document.getElementById('pricingActuals');
+        const headerTotalCost = document.getElementById('pricingTotalCost');
         
         if (!container) return;
         
@@ -40,10 +41,23 @@ class ProductView {
             
             const data = await response.json();
             
+            // Calculate Grand Total
+            let grandTotal = 0;
+            if (data.processes) {
+                data.processes.forEach(process => {
+                    if (process.rows) {
+                        process.rows.forEach(row => {
+                            grandTotal += row.total_cost || 0;
+                        });
+                    }
+                });
+            }
+
             // Update Header
             const monthName = new Date(data.year, data.month - 1).toLocaleString('default', { month: 'long' });
             if (headerMonthYear) headerMonthYear.textContent = `${monthName} ${data.year}`;
             if (headerActuals) headerActuals.textContent = data.actual_units.toLocaleString();
+            if (headerTotalCost) headerTotalCost.textContent = `$${grandTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             
             this.renderPricingTables(data, container);
             
