@@ -75,8 +75,8 @@ class ProductView {
                         <table class="w-full text-sm text-left">
                             <thead class="bg-white border-b border-slate-100 text-xs text-slate-500 uppercase bg-slate-50/50">
                                 <tr>
+                                    <th class="px-4 py-3 font-medium border-r border-slate-100">Provider</th>
                                     <th class="px-4 py-3 font-medium">Item</th>
-                                    <th class="px-4 py-3 font-medium">Provider</th>
                                     <th class="px-4 py-3 font-medium text-center">Tier</th>
                                     <th class="px-4 py-3 font-medium text-right">Price</th>
                                     <th class="px-4 py-3 font-medium text-right">Multiplier</th>
@@ -87,27 +87,52 @@ class ProductView {
                             <tbody class="divide-y divide-slate-100">
             `;
             
+            // Group rows by provider to calculate rowspan
+            const providerGroups = [];
+            let currentGroup = null;
+            
             process.rows.forEach(row => {
-                html += `
-                    <tr class="hover:bg-slate-50/50 transition-colors">
-                        <td class="px-4 py-3 font-medium text-slate-900">${this.escapeHtml(row.item_name)}</td>
-                        <td class="px-4 py-3 text-slate-600">${this.escapeHtml(row.provider_name)}</td>
-                        <td class="px-4 py-3 text-center">
-                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">
-                                Tier ${row.tier}
-                            </span>
-                        </td>
-                        <td class="px-4 py-3 text-right text-slate-600">$${row.price_per_unit.toFixed(2)}</td>
-                        <td class="px-4 py-3 text-right text-slate-500 text-xs">${row.multiplier_display}</td>
-                        <td class="px-4 py-3 text-right font-medium text-slate-700">
-                            ${row.allocation_mode === 'units' 
-                                ? row.allocation 
-                                : `${row.allocation}<div class="text-[10px] text-slate-400 font-normal">(${row.allocated_units.toLocaleString()} units)</div>`
-                            }
-                        </td>
-                        <td class="px-4 py-3 text-right font-bold text-[#fb923c]">$${row.total_cost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                    </tr>
-                `;
+                if (!currentGroup || currentGroup.providerName !== row.provider_name) {
+                    currentGroup = {
+                        providerName: row.provider_name,
+                        rows: []
+                    };
+                    providerGroups.push(currentGroup);
+                }
+                currentGroup.rows.push(row);
+            });
+
+            providerGroups.forEach(group => {
+                group.rows.forEach((row, index) => {
+                    const isFirst = index === 0;
+                    const isLast = index === group.rows.length - 1;
+                    const borderClass = isLast ? '' : ''; // Can add specific styling if needed
+                    
+                    html += `
+                        <tr class="hover:bg-slate-50/50 transition-colors">
+                            ${isFirst ? `
+                                <td class="px-4 py-3 font-medium text-slate-900 border-r border-slate-100 bg-white align-top" rowspan="${group.rows.length}">
+                                    ${this.escapeHtml(row.provider_name)}
+                                </td>
+                            ` : ''}
+                            <td class="px-4 py-3 text-slate-600 font-medium">${this.escapeHtml(row.item_name)}</td>
+                            <td class="px-4 py-3 text-center">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">
+                                    Tier ${row.tier}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-right text-slate-600">$${row.price_per_unit.toFixed(2)}</td>
+                            <td class="px-4 py-3 text-right text-slate-500 text-xs">${row.multiplier_display}</td>
+                            <td class="px-4 py-3 text-right font-medium text-slate-700">
+                                ${row.allocation_mode === 'units' 
+                                    ? row.allocation 
+                                    : `${row.allocation}<div class="text-[10px] text-slate-400 font-normal">(${row.allocated_units.toLocaleString()} units)</div>`
+                                }
+                            </td>
+                            <td class="px-4 py-3 text-right font-bold text-[#fb923c]">$${row.total_cost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        </tr>
+                    `;
+                });
             });
             
             html += `

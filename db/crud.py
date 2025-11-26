@@ -1716,6 +1716,9 @@ class CRUDOperations(DatabaseSchema):
                         "allocated_units": alloc_val
                     })
             
+            # Sort by Provider Name then Item Name for grouping
+            process_rows.sort(key=lambda x: (x['provider_name'], x['item_name']))
+
             if process_rows:
                 processes_data.append({
                     "process_name": process['process_name'],
