@@ -1648,7 +1648,12 @@ class CRUDOperations(DatabaseSchema):
                             alloc_display = f"{val}%"
                         else: # units
                             alloc_val = int(val)
-                            alloc_display = f"{val}"
+                            # Format cleanly (remove .0)
+                            alloc_display = f"{int(val):,}" if val == int(val) else f"{val:,}"
+                    
+                    # Skip if no allocation
+                    if alloc_val <= 0:
+                        continue
                     
                     # Find Tier
                     tiers = self.get_contract_tiers_for_contract(contract_id)
@@ -1706,6 +1711,7 @@ class CRUDOperations(DatabaseSchema):
                         "price_per_unit": price,
                         "multiplier_display": mult_display,
                         "allocation": alloc_display,
+                        "allocation_mode": mode,
                         "total_cost": total_cost,
                         "allocated_units": alloc_val
                     })
