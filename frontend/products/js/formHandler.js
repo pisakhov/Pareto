@@ -88,17 +88,18 @@ class FormHandler {
                 const allContracts = await this.dataService.getAllContracts();
                 window.itemManager.setContracts(allContracts);
 
-                if (product.contracts && product.contracts.length > 0) {
+                if (product.contracts) {
                     for (const processData of product.contracts) {
                         const fullProcess = allContracts.find(p => p.process_id === processData.process_id);
                         if (fullProcess) {
-                            const processCopy = {
-                                ...fullProcess,
-                                items: fullProcess.items.filter(item =>
-                                    processData.items.some(si => si.item_id === item.item_id)
-                                )
-                            };
-                            await window.itemManager.addProcess(processCopy);
+                            await window.itemManager.addProcess(fullProcess);
+
+                            // Restore saved item selections
+                            const addedProcess = window.itemManager.selectedContracts.get(processData.process_id);
+                            const savedItemIds = processData.items.map(i => i.item_id);
+                            addedProcess.selectedItems = addedProcess.selectedItems.filter(i => savedItemIds.includes(i.item_id));
+                            addedProcess.selectAll = addedProcess.selectedItems.length === addedProcess.process.items.length;
+                            window.itemManager.render();
                         }
                     }
                 }
@@ -126,7 +127,7 @@ class FormHandler {
                             // Ensure ALL providers (from UI) have entries in the Map
                             // The backend may only return locked provider(s), but UI loaded all providers
                             processData.allocation.providers.forEach(provider => {
-                                const backendProvider = allocation.providers.find(p => p.provider_id === provider.provider_id);
+                                const backendProvider = allocation.providers && allocation.providers.find(p => p.provider_id === provider.provider_id);
                                 const value = backendProvider ? (backendProvider.value || 0) : 0;
                                 processData.allocation.providerValues.set(provider.provider_id, value);
                             });

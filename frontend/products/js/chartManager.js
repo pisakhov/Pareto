@@ -155,25 +155,6 @@ window.chartManager = (function() {
         return { labels, forecastData, actualData };
     }
 
-    // Update chart with forecast data
-    function updateForecastData(forecastData) {
-        chart.data.datasets[0].data = forecastData;
-        chart.update('none');
-    }
-
-    // Update chart with actual data
-    function updateActualData(actualData) {
-        chart.data.datasets[1].data = actualData;
-        chart.update('none');
-    }
-
-    // Update chart with both forecast and actual data
-    function updateChartData(forecastData, actualData) {
-        chart.data.datasets[0].data = forecastData;
-        chart.data.datasets[1].data = actualData;
-        chart.update('none');
-    }
-
     // Refresh chart with current data from forecastManager
     function refreshChart() {
         if (!chart) return;
@@ -196,9 +177,6 @@ window.chartManager = (function() {
     return {
         initChart: initChart,
         destroyChart: destroyChart,
-        updateForecastData: updateForecastData,
-        updateActualData: updateActualData,
-        updateChartData: updateChartData,
         refreshChart: refreshChart
     };
 })();

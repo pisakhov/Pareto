@@ -157,31 +157,6 @@ class ItemManager {
     });
   }
 
-  async loadAllProviders() {
-    const uniqueProviders = new Map();
-
-    this.selectedContracts.forEach(processData => {
-      processData.selectedItems.forEach(item => {
-        item.providers.forEach(provider => {
-          if (!uniqueProviders.has(provider.provider_id)) {
-            uniqueProviders.set(provider.provider_id, {
-              provider_id: provider.provider_id,
-              company_name: provider.provider_name
-            });
-          }
-        });
-      });
-    });
-
-    this.availableProviders.forEach(p => {
-      if (!uniqueProviders.has(p.provider_id)) {
-        uniqueProviders.set(p.provider_id, p);
-      }
-    });
-
-    return Array.from(uniqueProviders.values());
-  }
-
   async loadProvidersForProcess(processData) {
     const uniqueProviders = new Map();
 
