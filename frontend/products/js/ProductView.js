@@ -86,19 +86,24 @@ class ProductView {
                             <tbody class="divide-y divide-slate-100">
             `;
             
-            // Group rows by provider to calculate rowspan
+            // Group rows by provider to calculate rowspan and totals
             const providerGroups = [];
             let currentGroup = null;
+            let processTotal = 0;
             
             process.rows.forEach(row => {
+                processTotal += row.total_cost;
+
                 if (!currentGroup || currentGroup.providerName !== row.provider_name) {
                     currentGroup = {
                         providerName: row.provider_name,
-                        rows: []
+                        rows: [],
+                        total: 0
                     };
                     providerGroups.push(currentGroup);
                 }
                 currentGroup.rows.push(row);
+                currentGroup.total += row.total_cost;
             });
 
             providerGroups.forEach(group => {
@@ -116,6 +121,10 @@ class ProductView {
                                         <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
                                             Tier ${row.tier}
                                         </span>
+                                    </div>
+                                    <div class="mt-2 pt-2 border-t border-slate-100">
+                                        <div class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Total</div>
+                                        <div class="text-sm font-bold text-slate-700">$${group.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
                                     </div>
                                 </td>
                             ` : ''}
@@ -136,6 +145,14 @@ class ProductView {
             
             html += `
                             </tbody>
+                            <tfoot class="bg-slate-50 border-t border-slate-200">
+                                <tr>
+                                    <td colspan="5" class="px-4 py-3 text-right font-semibold text-slate-700">Process Subtotal</td>
+                                    <td class="px-4 py-3 text-right font-bold text-slate-900 text-base">
+                                        $${processTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                    </td>
+                                </tr>
+                            </tfoot>
                         </table>
                     </div>
                 </div>
