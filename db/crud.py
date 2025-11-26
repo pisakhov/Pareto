@@ -1629,6 +1629,11 @@ class CRUDOperations(DatabaseSchema):
                 multiplier_data = multipliers.get(item_id, {'multiplier': 1.0})
                 multiplier = multiplier_data['multiplier']
                 
+                # Calculate total weight for proportional unit allocation
+                total_alloc_weight = 0
+                if mode != 'percentage' and item_alloc_providers:
+                    total_alloc_weight = sum(p['value'] for p in item_alloc_providers)
+                
                 for provider in item['providers']:
                     provider_id = provider['provider_id']
                     contract_id = provider['contract_id']
@@ -1646,8 +1651,13 @@ class CRUDOperations(DatabaseSchema):
                         if mode == 'percentage':
                             alloc_val = int(actual_units * (val / 100.0))
                             alloc_display = f"{val}%"
-                        else: # units
-                            alloc_val = int(val)
+                        else: # units (treated as proportional weight)
+                            if total_alloc_weight > 0:
+                                share = val / total_alloc_weight
+                                alloc_val = int(actual_units * share)
+                            else:
+                                alloc_val = 0
+                            
                             # Format cleanly (remove .0)
                             alloc_display = f"{int(val):,}" if val == int(val) else f"{val:,}"
                     

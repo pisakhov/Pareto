@@ -146,10 +146,8 @@ class ProductView {
                             <td class="px-4 py-3 text-right text-slate-600">$${row.price_per_unit.toFixed(2)}</td>
                             <td class="px-4 py-3 text-right text-slate-500 text-xs">${row.multiplier_display}</td>
                             <td class="px-4 py-3 text-right font-medium text-slate-700">
-                                ${row.allocation_mode === 'units' 
-                                    ? row.allocation 
-                                    : `${row.allocation}<div class="text-[10px] text-slate-400 font-normal">(${row.allocated_units.toLocaleString()} units)</div>`
-                                }
+                                ${row.allocation}
+                                <div class="text-[10px] text-slate-400 font-normal">(${row.allocated_units.toLocaleString()} units)</div>
                             </td>
                             <td class="px-4 py-3 text-right font-bold text-[#fb923c]">$${row.total_cost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                         </tr>
