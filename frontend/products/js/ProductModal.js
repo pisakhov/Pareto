@@ -9,14 +9,6 @@ class PricingAdjustments {
         this.multipliers = {};
     }
 
-    render(selectedItems) {
-        const container = document.getElementById('pricingAdjustmentsContainer');
-        if (container) {
-            container.innerHTML = '';
-            container.style.display = 'none';
-        }
-    }
-
     handleMultiplierChange(itemId, value) {
         const numValue = parseFloat(value) || 1.0;
         this.multipliers[itemId] = {
@@ -40,12 +32,6 @@ class PricingAdjustments {
         }
         return data;
     }
-
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
 }
 
 // Forecasting Manager
@@ -64,31 +50,28 @@ class ForecastManager {
         this.render();
     }
 
-    updateForecastData(year, month, units) {
+    updateData(type, year, month, units) {
         year = parseInt(year);
         month = parseInt(month);
-        this.forecasts = this.forecasts.filter(f => !(f.year === year && f.month === month));
-        if (units !== '' && units !== null && !isNaN(parseInt(units))) {
-             this.forecasts.push({ year, month, forecast_units: parseInt(units) });
-        }
-    }
+        const target = type === 'forecast' ? this.forecasts : this.actuals;
+        const key = type === 'forecast' ? 'forecast_units' : 'actual_units';
 
-    updateActualData(year, month, units) {
-        year = parseInt(year);
-        month = parseInt(month);
-        this.actuals = this.actuals.filter(a => !(a.year === year && a.month === month));
+        const updated = target.filter(f => !(f.year === year && f.month === month));
         if (units !== '' && units !== null && !isNaN(parseInt(units))) {
-            this.actuals.push({ year, month, actual_units: parseInt(units) });
+            updated.push({ year, month, [key]: parseInt(units) });
         }
+        
+        if (type === 'forecast') this.forecasts = updated;
+        else this.actuals = updated;
     }
 
     addForecast(year, month, units) {
-        this.updateForecastData(year, month, units);
+        this.updateData('forecast', year, month, units);
         this.render();
     }
 
     addActual(year, month, units) {
-        this.updateActualData(year, month, units);
+        this.updateData('actual', year, month, units);
         this.render();
     }
 
@@ -127,35 +110,75 @@ class ForecastManager {
         if (!forecastContainer || !actualContainer || !monthHeader || !yearDisplay) return;
 
         yearDisplay.textContent = this.currentYear;
-
         monthHeader.innerHTML = this.months.map(m => `<div class="text-center"><div class="text-xs font-medium text-muted-foreground">${m}</div></div>`).join('');
 
-        const months = Array.from({ length: 12 }, (_, i) => {
-            const month = i + 1;
-            const forecast = this.forecasts.find(f => f.year === this.currentYear && f.month === month);
-            const actual = this.actuals.find(a => a.year === this.currentYear && a.month === month);
-            return { month, forecast: forecast?.forecast_units || '', actual: actual?.actual_units || '' };
+        const renderRow = (type) => {
+            const data = type === 'forecast' ? this.forecasts : this.actuals;
+            
+            return Array.from({ length: 12 }, (_, i) => {
+                const month = i + 1;
+                const entry = data.find(f => f.year === this.currentYear && f.month === month);
+                const val = type === 'forecast' ? entry?.forecast_units : entry?.actual_units;
+                const value = val !== undefined ? val : '';
+                
+                // Base styling that doesn't change
+                const baseClasses = "w-full text-center text-sm font-semibold bg-transparent border border-border rounded px-2 py-2 focus:ring-2 focus:outline-none";
+                
+                return `
+                    <div class="month-cell">
+                        <input type="number" min="0" placeholder="0" value="${value}"
+                               class="${baseClasses}"
+                               data-month="${month}" data-type="${type}" />
+                    </div>
+                `;
+            }).join('');
+        };
+
+        forecastContainer.innerHTML = renderRow('forecast');
+        actualContainer.innerHTML = renderRow('actual');
+
+        // Apply styles to initial inputs
+        document.querySelectorAll('#forecastTimeline input, #actualTimeline input').forEach(input => {
+            this.updateInputStyle(input);
         });
-
-        forecastContainer.innerHTML = months.map(m => `
-            <div class="month-cell">
-                <input type="number" min="0" placeholder="0" value="${m.forecast}"
-                       class="w-full text-center text-sm font-semibold bg-transparent border border-border rounded px-2 py-2 focus:ring-2 focus:ring-orange-400 focus:border-orange-400 focus:outline-none ${m.forecast ? 'text-orange-600' : 'text-muted-foreground'}"
-                       data-month="${m.month}" data-type="forecast" />
-            </div>
-        `).join('');
-
-        actualContainer.innerHTML = months.map(m => `
-            <div class="month-cell">
-                <input type="number" min="0" placeholder="0" value="${m.actual}"
-                       class="w-full text-center text-sm font-semibold bg-transparent border border-border rounded px-2 py-2 focus:ring-2 focus:border-[#255be3] focus:outline-none ${m.actual ? '' : 'text-muted-foreground'}"
-                       style="${m.actual ? 'color: #255be3; border-color: #255be3; --tw-ring-color: #255be3;' : ''}"
-                       data-month="${m.month}" data-type="actual" />
-            </div>
-        `).join('');
 
         this.setupInputs();
         if (productModal.chart) productModal.chart.refresh();
+    }
+
+    updateInputStyle(input) {
+        const type = input.dataset.type;
+        const value = input.value;
+        
+        const hasValue = value !== '' && value !== null;
+
+        if (type === 'forecast') {
+            input.classList.remove('text-orange-600', 'text-muted-foreground', 'focus:ring-orange-400', 'focus:border-orange-400');
+            
+            input.classList.add('focus:ring-orange-400', 'focus:border-orange-400');
+            if (hasValue) {
+                input.classList.add('text-orange-600');
+            } else {
+                input.classList.add('text-muted-foreground');
+            }
+        } else {
+            input.classList.remove('text-muted-foreground', 'focus:ring-[#255be3]', 'focus:border-[#255be3]');
+            // Remove inline styles first
+            input.style.color = '';
+            input.style.borderColor = '';
+            input.style.removeProperty('--tw-ring-color');
+            
+            input.classList.add('focus:ring-[#255be3]', 'focus:border-[#255be3]');
+            
+            if (hasValue) {
+                // Apply active styles
+                input.style.color = '#255be3';
+                input.style.borderColor = '#255be3';
+                input.style.setProperty('--tw-ring-color', '#255be3');
+            } else {
+                input.classList.add('text-muted-foreground');
+            }
+        }
     }
 
     setupInputs() {
@@ -166,35 +189,11 @@ class ForecastManager {
                 const type = input.dataset.type;
                 const value = e.target.value;
 
-                // Immediate visual feedback
-                if (type === 'forecast') {
-                    if (value) {
-                        input.classList.remove('text-muted-foreground');
-                        input.classList.add('text-orange-600');
-                    } else {
-                        input.classList.remove('text-orange-600');
-                        input.classList.add('text-muted-foreground');
-                    }
-                } else {
-                    if (value) {
-                        input.classList.remove('text-muted-foreground');
-                        input.style.color = '#255be3';
-                        input.style.borderColor = '#255be3';
-                        input.style.setProperty('--tw-ring-color', '#255be3');
-                    } else {
-                        input.classList.add('text-muted-foreground');
-                        input.style.color = '';
-                        input.style.borderColor = '';
-                        input.style.removeProperty('--tw-ring-color');
-                    }
-                }
+                // Visual feedback using shared method
+                this.updateInputStyle(input);
 
                 // Immediate data update
-                if (type === 'forecast') {
-                    this.updateForecastData(this.currentYear, month, value);
-                } else {
-                    this.updateActualData(this.currentYear, month, value);
-                }
+                this.updateData(type, this.currentYear, month, value);
 
                 clearTimeout(debounceTimers[input]);
                 debounceTimers[input] = setTimeout(() => {
@@ -206,12 +205,12 @@ class ForecastManager {
     }
 
     removeForecast(month) {
-        this.updateForecastData(this.currentYear, month, null);
+        this.updateData('forecast', this.currentYear, month, null);
         this.render();
     }
 
     removeActual(month) {
-        this.updateActualData(this.currentYear, month, null);
+        this.updateData('actual', this.currentYear, month, null);
         this.render();
     }
 
@@ -508,7 +507,6 @@ class ItemManager {
 
         if (this.contracts.size === 0) {
             container.innerHTML = '<p class="text-sm text-muted-foreground text-center py-4">No items added yet</p>';
-            productModal.pricing.render([]);
             return;
         }
 
@@ -519,7 +517,7 @@ class ItemManager {
         });
 
         container.innerHTML = html + '</div>';
-        productModal.pricing.render(this.selectedItems);
+
     }
 
     renderContract(processId, contract) {

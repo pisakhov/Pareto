@@ -182,71 +182,6 @@ class ProductGrid {
         return processesHTML;
     }
 
-    getItemBreakdown(product) {
-        if (!product.item_ids?.length) {
-            return '<div class="text-xs text-muted-foreground">No items assigned</div>';
-        }
-
-        const pricing = this.data.pricing[product.product_id] || {};
-        const providers = {};
-
-        product.item_ids.forEach(itemId => {
-            const item = this.data.items.find(i => i.item_id === itemId);
-            const itemName = item?.item_name || `Item #${itemId}`;
-            const itemPricing = pricing[itemId];
-            const list = Array.isArray(itemPricing) ? itemPricing : (itemPricing ? [itemPricing] : []);
-
-            list.forEach(pd => {
-                const pid = String(pd.provider_id);
-                const base = Number(pd.base_price ?? pd.final_price ?? 0);
-                const mult = Number(pd.multiplier ?? 1);
-                const final = Number(pd.final_price ?? base * mult);
-                if (!providers[pid]) providers[pid] = { name: pd.provider_name || `Provider ${pid}`, items: [], subtotal: 0 };
-                providers[pid].items.push({ id: itemId, name: itemName, base, final, tier: pd.tier, mult });
-                providers[pid].subtotal += final;
-            });
-        });
-
-        const groupHtml = Object.values(providers).map(group => {
-            const rows = group.items.map(it => {
-                const isMult = it.mult !== 1;
-                const isPremium = it.mult > 1;
-                const change = `${isPremium ? '+' : '-'}${Math.abs((it.mult - 1) * 100).toFixed(0)}%`;
-                const dotClass = isPremium ? 'bg-amber-500' : 'bg-green-500';
-                const popId = `pp-${product.product_id}-${group.name.replace(/\s+/g, '-')}-${it.id}`;
-                const pop = isMult ? `
-                    <span class=\"relative inline-flex items-center ml-1\" data-popover-root>
-                        <button type=\"button\" class=\"inline-block w-1.5 h-1.5 rounded-full ${dotClass}\" aria-label=\"Pricing adjustment\" onclick=\"productsPage.togglePopover('${popId}')\"></button>
-                        <div id=\"${popId}\" class=\"price-popover hidden absolute z-50 mt-2 right-0 w-44 rounded-md border border-border bg-card shadow p-2 text-[11px]\">
-                            <div class=\"flex items-center justify-between\"><span class=\"text-muted-foreground\">Base</span><span class=\"font-medium\">$${this.formatPrice(it.base)}</span></div>
-                            <div class=\"flex items-center justify-between\"><span class=\"text-muted-foreground\">Multiplier</span><span class=\"font-medium ${isPremium ? 'text-amber-700' : 'text-green-700'}\">×${it.mult.toFixed(2)}</span></div>
-                            <div class=\"flex items-center justify-between\"><span class=\"text-muted-foreground\">Change</span><span class=\"font-medium ${isPremium ? 'text-amber-700' : 'text-green-700'}\">${change}</span></div>
-                        </div>
-                    </span>` : '';
-                return `<div class=\"text-xs text-muted-foreground flex items-start\">
-                    <svg class=\"w-3 h-3 mr-1 mt-0.5 flex-shrink-0\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\">
-                        <path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M9 5l7 7-7 7\" />
-                    </svg>
-                    <span class=\"flex-1\">${this.escapeHtml(it.name)}</span>
-                    <div class=\"ml-auto text-right flex items-center\">
-                        <span class=\"font-semibold text-green-600\">$${this.formatPrice(it.final)}</span>
-                        <span class=\"text-xs text-muted-foreground ml-1\">(T${it.tier})</span>
-                        ${pop}
-                    </div>
-                </div>`;
-            }).join('');
-            return `<div class=\"mb-2\">
-                <div class=\"flex items-center justify-between font-medium text-foreground mb-1\">
-                    <span>${this.escapeHtml(group.name)}</span>
-                    <span class=\"text-sm\">$${this.formatPrice(group.subtotal)}</span>
-                </div>
-                <div class=\"space-y-1\">${rows}</div>
-            </div>`;
-        }).join('');
-
-        return groupHtml;
-    }
-
     updateCount() {
         const countEl = document.getElementById('productCount');
         if (countEl) {
@@ -270,13 +205,6 @@ class ProductGrid {
         if (diffDays < 7) return `${diffDays} days ago`;
         if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    }
-
-    formatPrice(value) {
-        const n = Number(value);
-        if (!isFinite(n)) return '0.00';
-        const needsThree = Math.abs(n * 100 - Math.round(n * 100)) > 1e-8 || n < 0.1;
-        return needsThree ? n.toFixed(3) : n.toFixed(2);
     }
 
     escapeHtml(text) {
@@ -356,20 +284,6 @@ const productsPage = {
             button.textContent = originalText;
             button.disabled = false;
         }
-    },
-
-
-
-    togglePopover(id) {
-        const el = document.getElementById(id);
-        if (!el) return;
-        const hidden = el.classList.contains('hidden');
-        this.closeAllPopovers();
-        if (hidden) el.classList.remove('hidden');
-    },
-
-    closeAllPopovers() {
-        document.querySelectorAll('.price-popover').forEach(el => el.classList.add('hidden'));
     }
 };
 
@@ -377,12 +291,4 @@ const productsPage = {
 document.addEventListener('DOMContentLoaded', () => {
     window.productsPage = productsPage;
     productsPage.init();
-
-    // Popover handlers
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('[data-popover-root]')) productsPage.closeAllPopovers();
-    });
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') productsPage.closeAllPopovers();
-    });
 });

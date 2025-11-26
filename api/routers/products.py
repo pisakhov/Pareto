@@ -75,6 +75,46 @@ async def get_products():
     return JSONResponse(content=result)
 
 
+def _update_time_series(crud, product_id, data, type_key):
+    """Helper to update forecasts or actuals."""
+    if data is None:
+        return
+
+    # Map type_key to CRUD operations
+    is_forecast = type_key == 'forecasts'
+    get_func = crud.get_forecasts_for_product if is_forecast else crud.get_actuals_for_product
+    delete_func = crud.delete_forecast if is_forecast else crud.delete_actual
+    create_func = crud.create_forecast if is_forecast else crud.create_actual
+    id_key = 'forecast_id' if is_forecast else 'actual_id'
+    value_key = 'forecast_units' if is_forecast else 'actual_units'
+
+    existing = get_func(product_id)
+    for item in existing:
+        delete_func(item[id_key])
+    
+    for item in data:
+        create_func(
+            product_id=product_id,
+            year=item.get('year'),
+            month=item.get('month'),
+            **{value_key: item.get(value_key)}
+        )
+
+def _update_product_relations(crud, product_id: int, product_data: BaseModel):
+    """Helper to update product relations (allocations, multipliers, forecasts, actuals)."""
+    if product_data.contract_selections is not None:
+        crud.update_product_items_from_contracts(product_id, product_data.contract_selections)
+
+    if product_data.allocations is not None:
+        crud.set_allocations_for_product(product_id, product_data.allocations)
+
+    if product_data.price_multipliers is not None:
+        crud.set_price_multipliers_for_product(product_id, product_data.price_multipliers)
+
+    _update_time_series(crud, product_id, product_data.forecasts, 'forecasts')
+    _update_time_series(crud, product_id, product_data.actuals, 'actuals')
+
+
 @router.post("/api/products")
 async def create_product(product: ProductCreate):
     """Create a new product."""
@@ -85,33 +125,8 @@ async def create_product(product: ProductCreate):
         status=product.status,
     )
 
-    if product.contract_selections:
-        crud.update_product_items_from_contracts(new_product['product_id'], product.contract_selections)
-
-    if product.allocations:
-        crud.set_allocations_for_product(new_product['product_id'], product.allocations)
-
-    if product.price_multipliers:
-        crud.set_price_multipliers_for_product(new_product['product_id'], product.price_multipliers)
-
-    if product.forecasts:
-        for forecast in product.forecasts:
-            crud.create_forecast(
-                product_id=new_product['product_id'],
-                year=forecast.get('year'),
-                month=forecast.get('month'),
-                forecast_units=forecast.get('forecast_units')
-            )
-
-    if product.actuals:
-        for actual in product.actuals:
-            crud.create_actual(
-                product_id=new_product['product_id'],
-                year=actual.get('year'),
-                month=actual.get('month'),
-                actual_units=actual.get('actual_units')
-            )
-
+    _update_product_relations(crud, new_product['product_id'], product)
+    
     item_ids = crud.get_item_ids_for_product(new_product['product_id'])
 
     return JSONResponse(
@@ -127,150 +142,85 @@ async def create_product(product: ProductCreate):
     )
 
 
+def _calculate_item_price(crud, provider_id, item_id, process_id, price_multipliers, allocations_data):
+    """Calculate price for a specific item and provider."""
+    # Calculate total files for provider to determine tier
+    total_files = 0
+    if str(provider_id) in allocations_data:
+        for item_data in allocations_data[str(provider_id)].values():
+            total_files += item_data.get('total', 0)
+    
+    # Determine Tier
+    tier_data = crud.get_provider_tier_thresholds(provider_id)
+    thresholds = tier_data.get('thresholds', {})
+    current_tier = 1
+    
+    if total_files > 0 and thresholds:
+        tier_keys = sorted([int(k) for k in thresholds.keys()])
+        for tier in tier_keys:
+            if total_files < thresholds[str(tier)]:
+                current_tier = tier
+                break
+            current_tier = tier
+
+    # Get Base Price
+    base_price = crud.get_price_for_item_at_tier(provider_id, item_id, current_tier, process_id)
+    if base_price is None:
+        return None
+
+    # Apply Multiplier
+    multiplier = 1.0
+    if price_multipliers:
+        m = price_multipliers.get(item_id) or price_multipliers.get(str(item_id))
+        if m is not None:
+            if isinstance(m, dict) and 'multiplier' in m:
+                multiplier = float(m['multiplier'])
+            else:
+                multiplier = float(m)
+    
+    return {
+        'provider_id': provider_id,
+        'provider_name': crud.get_provider(provider_id)['company_name'],
+        'tier': current_tier,
+        'base_price': base_price,
+        'multiplier': multiplier,
+        'final_price': base_price * multiplier
+    }
+
+
 @router.get("/api/products/pricing-details")
 async def get_products_pricing_details(process_id: int = 1):
     """Get pricing details for all products including per-item rates."""
     crud = get_crud()
-
     products = crud.get_all_products()
+    allocations_data = crud.get_all_allocations() # Load once for efficiency
     result = {}
 
     for product in products:
-        allocations = crud.get_allocations_for_product(product[0])
-        price_multipliers = crud.get_price_multipliers_for_product(product[0])
-
+        product_id = product[0]
+        allocations = crud.get_allocations_for_product(product_id)
+        price_multipliers = crud.get_price_multipliers_for_product(product_id)
         product_pricing = {}
+        
+        # Collective format: Same providers for all items (standard UAT format)
+        providers_list = allocations.get('providers', [])
+        all_item_ids = crud.get_item_ids_for_product(product_id)
+        
+        # Calculate prices
+        for item_id in all_item_ids:
+            item_prices = []
+            for provider_alloc in providers_list:
+                provider_id = provider_alloc.get('provider_id')
+                price_info = _calculate_item_price(
+                    crud, provider_id, item_id, process_id, price_multipliers, allocations_data
+                )
+                if price_info:
+                    item_prices.append(price_info)
+            
+            if item_prices:
+                product_pricing[str(item_id)] = item_prices[0] if len(item_prices) == 1 else item_prices
 
-        # Check if allocations is in collective format (new) or per-item format (legacy)
-        # Collective format: single object with mode, locked, providers
-        # Per-item format: dict with item_id keys
-        allocation_keys = list(allocations.keys()) if allocations else []
-        # Check if the first key is a positive integer (item ID)
-        is_collective_format = False
-        if len(allocation_keys) == 0:
-            is_collective_format = True
-        elif len(allocation_keys) > 0:
-            try:
-                first_key = allocation_keys[0]
-                # Try to parse as integer
-                parsed = int(str(first_key))
-                # If it's a positive integer, it's an item ID (legacy per-item format)
-                is_collective_format = parsed <= 0
-            except (ValueError, TypeError):
-                # If we can't parse it as integer, it's likely a field name (collective format)
-                is_collective_format = True
-
-        if is_collective_format:
-            # Collective allocation format - apply to all items
-
-            # For collective allocations, we need to get all items for this product
-            item_ids = crud.get_item_ids_for_product(product[0])
-
-            # Get providers from the collective allocation
-            providers_list = allocations.get('providers', [])
-
-            for item_id in item_ids:
-                item_prices = []
-
-                for provider_alloc in providers_list:
-                    provider_id = provider_alloc.get('provider_id')
-                    provider = crud.get_provider(provider_id)
-
-                    allocations_data = crud.get_all_allocations()
-                    provider_items = allocations_data
-                    total_files = 0
-                    if str(provider_id) in provider_items:
-                        for item_data in provider_items[str(provider_id)].values():
-                            total_files += item_data.get('total', 0)
-
-                    tier_data = crud.get_provider_tier_thresholds(provider_id)
-                    thresholds = tier_data.get('thresholds', {})
-
-                    current_tier = 1
-                    if total_files > 0 and thresholds:
-                        tier_keys = sorted([int(k) for k in thresholds.keys()])
-                        for tier in tier_keys:
-                            if total_files < thresholds[str(tier)]:
-                                current_tier = tier
-                                break
-                            current_tier = tier
-
-                    base_price = crud.get_price_for_item_at_tier(provider_id, item_id, current_tier, process_id)
-                    if base_price:
-                        multiplier = 1.0
-                        if price_multipliers:
-                            m = price_multipliers.get(item_id) or price_multipliers.get(str(item_id))
-                            if m is not None:
-                                if isinstance(m, dict) and 'multiplier' in m:
-                                    multiplier = float(m['multiplier'])
-                                else:
-                                    multiplier = float(m)
-                        final_price = base_price * multiplier
-                        item_prices.append({
-                            'provider_id': provider_id,
-                            'provider_name': provider['company_name'],
-                            'tier': current_tier,
-                            'base_price': base_price,
-                            'multiplier': multiplier,
-                            'final_price': final_price
-                        })
-
-                if item_prices:
-                    product_pricing[str(item_id)] = item_prices[0] if len(item_prices) == 1 else item_prices
-        else:
-            # Legacy per-item format
-            providers_list = allocations.get('providers', [])
-
-            for item_id, item_data in allocations.items():
-                item_prices = []
-
-                for provider_alloc in providers_list:
-                    provider_id = provider_alloc.get('provider_id')
-                    provider = crud.get_provider(provider_id)
-
-                    tier_data = crud.get_provider_tier_thresholds(provider_id)
-                    thresholds = tier_data.get('thresholds', {})
-
-                    allocations_data = crud.get_all_allocations()
-                    provider_items = allocations_data
-                    total_files = 0
-                    if str(provider_id) in provider_items:
-                        for item_data_inner in provider_items[str(provider_id)].values():
-                            total_files += item_data_inner.get('total', 0)
-
-                    current_tier = 1
-                    if total_files > 0 and thresholds:
-                        tier_keys = sorted([int(k) for k in thresholds.keys()])
-                        for tier in tier_keys:
-                            if total_files < thresholds[str(tier)]:
-                                current_tier = tier
-                                break
-                            current_tier = tier
-
-                    base_price = crud.get_price_for_item_at_tier(provider_id, item_id, current_tier, process_id)
-                    if base_price:
-                        multiplier = 1.0
-                        if price_multipliers:
-                            m = price_multipliers.get(item_id) or price_multipliers.get(str(item_id))
-                            if m is not None:
-                                if isinstance(m, dict) and 'multiplier' in m:
-                                    multiplier = float(m['multiplier'])
-                                else:
-                                    multiplier = float(m)
-                        final_price = base_price * multiplier
-                        item_prices.append({
-                            'provider_id': provider_id,
-                            'provider_name': provider['company_name'],
-                            'tier': current_tier,
-                            'base_price': base_price,
-                            'multiplier': multiplier,
-                            'final_price': final_price
-                        })
-
-                if item_prices:
-                    product_pricing[str(item_id)] = item_prices[0] if len(item_prices) == 1 else item_prices
-
-        result[str(product[0])] = product_pricing
+        result[str(product_id)] = product_pricing
 
     return JSONResponse(content=result)
 
@@ -279,58 +229,52 @@ async def get_products_pricing_details(process_id: int = 1):
 async def get_product(product_id: int):
     """Get a specific product."""
     crud = get_crud()
+    product = crud.get_product(product_id)
 
-    try:
-        product = crud.get_product(product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
 
-        if not product:
-            raise HTTPException(status_code=404, detail="Product not found")
+    item_ids = crud.get_item_ids_for_product(product['product_id'])
+    contracts = crud.get_product_contracts_with_selected_items(product['product_id'])
+    allocations = crud.get_allocations_for_product(product['product_id'])
+    price_multipliers = crud.get_price_multipliers_for_product(product['product_id'])
 
-        item_ids = crud.get_item_ids_for_product(product['product_id'])
-        contracts = crud.get_product_contracts_with_selected_items(product['product_id'])
-        allocations = crud.get_allocations_for_product(product['product_id'])
-        price_multipliers = crud.get_price_multipliers_for_product(product['product_id'])
+    forecasts = crud.get_forecasts_for_product(product_id)
+    forecasts_data = [{
+        "forecast_id": f['forecast_id'],
+        "year": f['year'],
+        "month": f['month'],
+        "forecast_units": f['forecast_units'],
+        "date_creation": f['date_creation'],
+        "date_last_update": f['date_last_update']
+    } for f in forecasts]
 
-        forecasts = crud.get_forecasts_for_product(product_id)
-        forecasts_data = [{
-            "forecast_id": f['forecast_id'],
-            "year": f['year'],
-            "month": f['month'],
-            "forecast_units": f['forecast_units'],
-            "date_creation": f['date_creation'],
-            "date_last_update": f['date_last_update']
-        } for f in forecasts]
+    actuals = crud.get_actuals_for_product(product_id)
+    actuals_data = [{
+        "actual_id": a['actual_id'],
+        "year": a['year'],
+        "month": a['month'],
+        "actual_units": a['actual_units'],
+        "date_creation": a['date_creation'],
+        "date_last_update": a['date_last_update']
+    } for a in actuals]
 
-        actuals = crud.get_actuals_for_product(product_id)
-        actuals_data = [{
-            "actual_id": a['actual_id'],
-            "year": a['year'],
-            "month": a['month'],
-            "actual_units": a['actual_units'],
-            "date_creation": a['date_creation'],
-            "date_last_update": a['date_last_update']
-        } for a in actuals]
-
-        return JSONResponse(
-            content={
-                "product_id": product['product_id'],
-                "name": product['name'],
-                "description": product['description'],
-                "status": product['status'],
-                "date_creation": product['date_creation'],
-                "date_last_update": product['date_last_update'],
-                "item_ids": item_ids,
-                "contracts": contracts,
-                "allocations": allocations,
-                "price_multipliers": price_multipliers,
-                "forecasts": forecasts_data,
-                "actuals": actuals_data,
-            }
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+    return JSONResponse(
+        content={
+            "product_id": product['product_id'],
+            "name": product['name'],
+            "description": product['description'],
+            "status": product['status'],
+            "date_creation": product['date_creation'],
+            "date_last_update": product['date_last_update'],
+            "item_ids": item_ids,
+            "contracts": contracts,
+            "allocations": allocations,
+            "price_multipliers": price_multipliers,
+            "forecasts": forecasts_data,
+            "actuals": actuals_data,
+        }
+    )
 
 
 @router.put("/api/products/{product_id}")
@@ -346,44 +290,7 @@ async def update_product(product_id: int, product: ProductUpdate):
     if not success:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    if product.contract_selections is not None:
-        crud.update_product_items_from_contracts(product_id, product.contract_selections)
-
-    if product.allocations is not None:
-        crud.set_allocations_for_product(product_id, product.allocations)
-
-    if product.price_multipliers is not None:
-        crud.set_price_multipliers_for_product(product_id, product.price_multipliers)
-
-    if product.forecasts is not None:
-        existing_forecasts = crud.get_forecasts_for_product(product_id)
-        for forecast in existing_forecasts:
-            crud.delete_forecast(forecast['forecast_id'])
-
-        # Only create new forecasts if the array is not empty
-        if product.forecasts:
-            for forecast_data in product.forecasts:
-                crud.create_forecast(
-                    product_id=product_id,
-                    year=forecast_data.get('year'),
-                    month=forecast_data.get('month'),
-                    forecast_units=forecast_data.get('forecast_units')
-                )
-
-    if product.actuals is not None:
-        existing_actuals = crud.get_actuals_for_product(product_id)
-        for actual in existing_actuals:
-            crud.delete_actual(actual['actual_id'])
-
-        # Only create new actuals if the array is not empty
-        if product.actuals:
-            for actual_data in product.actuals:
-                crud.create_actual(
-                    product_id=product_id,
-                    year=actual_data.get('year'),
-                    month=actual_data.get('month'),
-                    actual_units=actual_data.get('actual_units')
-                )
+    _update_product_relations(crud, product_id, product)
 
     return JSONResponse(content={"message": "Product updated successfully"})
 
