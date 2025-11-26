@@ -325,14 +325,85 @@
 
 
 
+<!-- Product View Modal -->
+<div id="productViewModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4" role="dialog" aria-modal="true">
+    <div class="bg-card rounded-lg w-full max-w-2xl flex flex-col max-h-[90vh] shadow-xl animate-in fade-in zoom-in-95 duration-200">
+        <!-- Header -->
+        <div class="p-6 border-b border-border flex justify-between items-center bg-gradient-to-r from-[#fb923c]/5 to-[#fb923c]/10">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-white rounded-lg border border-slate-200 shadow-sm">
+                    <svg class="w-5 h-5 text-[#fb923c]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                </div>
+                <h3 class="text-lg font-semibold text-slate-900">Product Details</h3>
+            </div>
+            <button onclick="productView.close()" class="text-slate-500 hover:text-slate-700 transition-colors p-1 hover:bg-slate-100 rounded-md">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <!-- Content -->
+        <div class="p-6 overflow-y-auto space-y-6">
+            <!-- Main Info -->
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <h2 id="viewProductName" class="text-2xl font-bold text-slate-900"></h2>
+                    <span id="viewProductStatus"></span>
+                </div>
+                <div class="flex items-center text-sm text-slate-500 gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <span>Last updated: <span id="viewProductUpdated" class="font-medium text-slate-700"></span></span>
+                </div>
+            </div>
+
+            <!-- Description -->
+            <div class="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                <h4 class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Description</h4>
+                <p id="viewProductDescription" class="text-slate-700 text-sm leading-relaxed whitespace-pre-wrap"></p>
+            </div>
+
+            <!-- Metrics -->
+            <div class="grid grid-cols-2 gap-4">
+                <div class="p-4 border border-slate-200 rounded-lg bg-white">
+                    <div class="flex items-center gap-2 text-sm text-slate-500 mb-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                        Total Items
+                    </div>
+                    <div id="viewProductItemCount" class="text-2xl font-bold text-slate-900"></div>
+                </div>
+                <div class="p-4 border border-slate-200 rounded-lg bg-white">
+                    <div class="flex items-center gap-2 text-sm text-slate-500 mb-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        Created On
+                    </div>
+                    <div id="viewProductCreated" class="text-lg font-medium text-slate-900"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="p-4 border-t border-border bg-slate-50 flex justify-end rounded-b-lg">
+            <button onclick="productView.close()" class="px-4 py-2 bg-white border border-slate-300 rounded-md text-slate-700 text-sm font-medium hover:bg-slate-50 hover:text-slate-900 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#fb923c]">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+
+
+
 <!-- Chart.js Library -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
 
 <!-- Toast Manager -->
 <script src="/static/util/toast.js"></script>
 
-<!-- Refactored Scripts (3 files instead of 10) -->
+<!-- Refactored Scripts (4 files) -->
 <script src="/static/products/js/dataService.js"></script>
 <script src="/static/products/js/ProductModal.js"></script>
+<script src="/static/products/js/ProductView.js"></script>
 <script src="/static/products/js/ProductsPage.js"></script>
 {% endblock %}

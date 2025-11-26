@@ -118,6 +118,15 @@ class ProductGrid {
                 </div>
 
                 <div class="flex items-center gap-2 pt-2">
+                    <button onclick="productsPage.viewProduct(${product.product_id})"
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 hover:border-blue-300 rounded-lg transition-all"
+                            title="View Details">
+                        <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <span>View</span>
+                    </button>
                     <button onclick="productsPage.editProduct(${product.product_id})"
                             class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#fb923c] bg-[#fb923c]/10 hover:bg-[#fb923c]/20 border border-[#fb923c]/30 hover:border-[#fb923c]/50 rounded-lg transition-all"
                             title="Edit Product">
@@ -239,6 +248,12 @@ const productsPage = {
             const searchTerm = document.getElementById('searchInput')?.value || '';
             this.grid.filter(searchTerm, e.target.value);
         });
+    },
+
+    viewProduct(productId) {
+        if (window.productView) {
+            window.productView.show(productId);
+        }
     },
 
     async editProduct(productId) {
