@@ -176,20 +176,20 @@ class CRUDOperations(DatabaseSchema):
         return result.rowcount > 0
 
     # Product CRUD operations
-    def create_product(self, name: str, description: str = "", proxy_quantity: int = 0, status: str = "active") -> Any:
+    def create_product(self, name: str, description: str = "", status: str = "active") -> Any:
         conn = self._get_connection()
         now = datetime.now().isoformat()
         product_id = conn.execute("SELECT nextval('product_seq')").fetchone()[0]
         conn.execute(
-            "INSERT INTO products (product_id, name, description, proxy_quantity, status, date_creation, date_last_update) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            [product_id, name, description, proxy_quantity, status, now, now]
+            "INSERT INTO products (product_id, name, description, status, date_creation, date_last_update) VALUES (?, ?, ?, ?, ?, ?)",
+            [product_id, name, description, status, now, now]
         )
         return self.get_product(product_id)
 
     def get_product(self, product_id: int) -> Optional[Dict[str, Any]]:
         conn = self._get_connection()
         result = conn.execute(
-            "SELECT product_id, name, description, proxy_quantity, status, date_creation, date_last_update FROM products WHERE product_id = ?",
+            "SELECT product_id, name, description, status, date_creation, date_last_update FROM products WHERE product_id = ?",
             [product_id]
         ).fetchone()
         if result:
@@ -197,21 +197,20 @@ class CRUDOperations(DatabaseSchema):
                 "product_id": result[0],
                 "name": result[1],
                 "description": result[2],
-                "proxy_quantity": result[3],
-                "status": result[4],
-                "date_creation": result[5],
-                "date_last_update": result[6]
+                "status": result[3],
+                "date_creation": result[4],
+                "date_last_update": result[5]
             }
         return None
 
     def get_all_products(self) -> List[Any]:
         conn = self._get_connection()
         results = conn.execute(
-            "SELECT product_id, name, description, proxy_quantity, status, date_creation, date_last_update FROM products ORDER BY name"
+            "SELECT product_id, name, description, status, date_creation, date_last_update FROM products ORDER BY name"
         ).fetchall()
         return [result for result in results]
 
-    def update_product(self, product_id: int, name: str = None, description: str = None, proxy_quantity: int = None, status: str = None) -> bool:
+    def update_product(self, product_id: int, name: str = None, description: str = None, status: str = None) -> bool:
         conn = self._get_connection()
         now = datetime.now().isoformat()
         current = self.get_product(product_id)
@@ -220,12 +219,11 @@ class CRUDOperations(DatabaseSchema):
 
         name = name if name is not None else current["name"]
         description = description if description is not None else current["description"]
-        proxy_quantity = proxy_quantity if proxy_quantity is not None else current["proxy_quantity"]
         status = status if status is not None else current["status"]
 
         conn.execute(
-            "UPDATE products SET name = ?, description = ?, proxy_quantity = ?, status = ?, date_last_update = ? WHERE product_id = ?",
-            [name, description, proxy_quantity, status, now, product_id]
+            "UPDATE products SET name = ?, description = ?, status = ?, date_last_update = ? WHERE product_id = ?",
+            [name, description, status, now, product_id]
         )
         return True
 

@@ -1,39 +1,41 @@
 /**
- * Card Renderer - Handles rendering products as cards in a grid layout
+ * Products Page - Handles product listing, cards, and filtering
+ * Combines: productsApp, tableRenderer, uiManager
  */
-class TableRenderer {
+
+class ProductGrid {
     constructor() {
         this.products = [];
         this.filteredProducts = [];
-        this._popoverInit = false;
+        this.data = {
+            items: [],
+            contracts: [],
+            providers: [],
+            pricing: {}
+        };
     }
 
-    setData(data) {
-        this.products = data.products || [];
-        this.filteredProducts = this.products;
+    setData(products, data) {
+        this.products = products;
+        this.filteredProducts = products;
+        this.data = data || { items: [], contracts: [], providers: [], pricing: {} };
     }
 
-    renderAll() {
-        this.renderProducts();
-    }
-
-    filterProducts(searchTerm, statusFilter) {
-        this.filteredProducts = this.products.filter(product => {
-            const matchesSearch = !searchTerm || 
-                product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                product.description.toLowerCase().includes(searchTerm.toLowerCase());
-            
-            const matchesStatus = statusFilter === 'all' || product.status === statusFilter;
-            
+    filter(searchTerm, statusFilter) {
+        this.filteredProducts = this.products.filter(p => {
+            const matchesSearch = !searchTerm ||
+                p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                p.description.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesStatus = statusFilter === 'all' || p.status === statusFilter;
             return matchesSearch && matchesStatus;
         });
-        this.renderProducts();
+        this.render();
     }
 
-    renderProducts() {
+    render() {
         const grid = document.getElementById('productsGrid');
         const emptyState = document.getElementById('emptyState');
-        
+
         if (!grid || !emptyState) return;
 
         grid.innerHTML = '';
@@ -48,25 +50,21 @@ class TableRenderer {
         emptyState.classList.add('hidden');
 
         this.filteredProducts.forEach(product => {
-            const card = this.createProductCard(product);
+            const card = this.createCard(product);
             grid.appendChild(card);
         });
-        this.ensurePopoverListeners();
+
+        this.updateCount();
     }
 
-    createProductCard(product) {
+    createCard(product) {
+        if (!product) return document.createElement('div');
+
         const isActive = product.status === 'active';
         const card = document.createElement('div');
-        card.className = `
-            bg-white border border-slate-200 rounded-xl overflow-hidden
-            hover:shadow-xl hover:border-[#fb923c]/30
-            transition-all duration-300
-            ${!isActive ? 'opacity-70' : ''}
-        `;
+        card.className = `bg-white border border-slate-200 rounded-xl overflow-hidden hover:shadow-xl hover:border-[#fb923c]/30 transition-all duration-300 ${!isActive ? 'opacity-70' : ''}`;
 
-        // Build process information
         const processInfo = this.getProcessInfo(product);
-
         card.innerHTML = `
             <div class="bg-gradient-to-r from-[#fb923c]/10 to-[#fb923c]/5 border-b border-[#fb923c]/10 p-4">
                 <div class="flex items-start justify-between">
@@ -77,7 +75,7 @@ class TableRenderer {
                             </svg>
                         </div>
                         <div class="flex-1 min-w-0">
-                            <h3 class="font-semibold text-slate-900 text-lg ${!isActive ? 'line-through text-slate-500' : ''}">${this.escapeHtml(product.name)}</h3>
+                            <h3 class="font-semibold text-slate-900 text-lg ${!isActive ? 'line-through text-slate-500' : ''}">${this.escapeHtml(product.name || 'Untitled Product')}</h3>
                             <div class="flex items-center gap-2 mt-1">
                                 <span class="w-2 h-2 rounded-full ${isActive ? 'bg-green-500' : 'bg-gray-400'}"></span>
                                 <span class="text-xs font-medium ${isActive ? 'text-green-700' : 'text-gray-600'}">${isActive ? 'Active' : 'Inactive'}</span>
@@ -91,15 +89,13 @@ class TableRenderer {
             </div>
 
             <div class="p-4 space-y-4">
-                <!-- Process Information -->
                 <div class="space-y-2">
                     <h4 class="text-xs font-semibold text-slate-700 uppercase tracking-wider">Processes & Items</h4>
                     ${processInfo}
                 </div>
 
-                <!-- Allocation Summary -->
                 <div class="pt-3 border-t border-slate-200">
-                    <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center justify-between">
                         <div class="flex items-center text-sm text-slate-600">
                             <svg class="w-4 h-4 mr-1.5 text-[#fb923c]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -111,29 +107,10 @@ class TableRenderer {
                             ${this.formatDate(product.date_last_update)}
                         </div>
                     </div>
-
-                    ${product.proxy_quantity > 0 ? `
-                        <details class="text-sm">
-                            <summary class="flex items-center cursor-pointer hover:text-[#fb923c] transition-colors list-none">
-                                <svg class="w-4 h-4 mr-1 text-[#fb923c]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                </svg>
-                                <span class="text-slate-600">Est. Files:</span>
-                                <span class="ml-1 font-semibold text-[#fb923c]">${product.proxy_quantity.toLocaleString()}</span>
-                                <svg class="w-3 h-3 ml-1 text-slate-400 transition-transform details-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                </svg>
-                            </summary>
-                            <div class="mt-2 ml-5 pl-3 border-l-2 border-[#fb923c]/20 space-y-1">
-                                ${this.getItemBreakdown(product)}
-                            </div>
-                        </details>
-                    ` : ''}
                 </div>
 
-                <!-- Action Buttons -->
                 <div class="flex items-center gap-2 pt-2">
-                    <button onclick="window.formHandler.editProduct(${product.product_id})"
+                    <button onclick="productsPage.editProduct(${product.product_id})"
                             class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#fb923c] bg-[#fb923c]/10 hover:bg-[#fb923c]/20 border border-[#fb923c]/30 hover:border-[#fb923c]/50 rounded-lg transition-all"
                             title="Edit Product">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-3.5 h-3.5">
@@ -141,7 +118,7 @@ class TableRenderer {
                         </svg>
                         <span>Edit</span>
                     </button>
-                    <button onclick="window.formHandler.deleteProduct(${product.product_id}, this)"
+                    <button onclick="productsPage.deleteProduct(${product.product_id}, this)"
                             class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 border border-red-200 hover:bg-red-100 hover:border-red-300 rounded-lg transition-all"
                             title="Delete Product">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="w-3.5 h-3.5">
@@ -157,55 +134,36 @@ class TableRenderer {
     }
 
     getProcessInfo(product) {
-        // Get items data from the global app data
-        const items = window.productsApp?.data?.items || [];
-        const contracts = window.productsApp?.data?.contracts || [];
-
-        if (!product.item_ids || product.item_ids.length === 0) {
+        if (!product.item_ids?.length) {
             return '<p class="text-xs text-slate-500 italic">No processes assigned</p>';
         }
 
-        // Build process map from contracts data
         const processMap = new Map();
-
-        // First, populate process names from contracts
-        contracts.forEach(contract => {
+        this.data.contracts.forEach(contract => {
             if (contract.process_id && contract.process_name) {
-                processMap.set(contract.process_id, {
-                    name: contract.process_name,
-                    items: []
-                });
+                processMap.set(contract.process_id, { name: contract.process_name, items: [] });
             }
         });
 
-        // Now assign items to their processes
         product.item_ids.forEach(itemId => {
-            const item = items.find(i => i.item_id === itemId);
+            const item = this.data.items.find(i => i.item_id === itemId);
             if (item) {
-                // Find the contract that contains this item
-                const contract = contracts.find(c =>
-                    c.items && c.items.some(ci => ci.item_id === itemId)
+                const contract = this.data.contracts.find(c =>
+                    c.items?.some(ci => ci.item_id === itemId)
                 );
-
-                if (contract && contract.process_id) {
-                    // Use the contract's process_id, not the item's (which may be undefined)
+                if (contract?.process_id) {
                     if (!processMap.has(contract.process_id)) {
-                        processMap.set(contract.process_id, {
-                            name: contract.process_name || `Process ${contract.process_id}`,
-                            items: []
-                        });
+                        processMap.set(contract.process_id, { name: contract.process_name || `Process ${contract.process_id}`, items: [] });
                     }
                     processMap.get(contract.process_id).items.push(item);
                 }
             }
         });
 
-        // Generate HTML for processes (only show processes with items)
         const processesHTML = Array.from(processMap.entries())
-            .filter(([processId, process]) => process.items.length > 0) // Only show processes with items
-            .map(([processId, process]) => {
+            .filter(([_, process]) => process.items.length > 0)
+            .map(([_, process]) => {
                 const itemCount = process.items.length;
-
                 return `
                 <div class="bg-slate-50 rounded-lg p-3 border border-slate-200">
                     <div class="flex items-center justify-between">
@@ -225,19 +183,19 @@ class TableRenderer {
     }
 
     getItemBreakdown(product) {
-        if (!product.item_ids || product.item_ids.length === 0) {
+        if (!product.item_ids?.length) {
             return '<div class="text-xs text-muted-foreground">No items assigned</div>';
         }
 
-        const pricing = window.productsApp?.data?.pricing || {};
-        const productPricing = pricing[product.product_id] || {};
-
+        const pricing = this.data.pricing[product.product_id] || {};
         const providers = {};
+
         product.item_ids.forEach(itemId => {
-            const itemData = (window.productsApp?.data?.items || []).find(i => i.item_id === itemId);
-            const itemName = itemData ? itemData.item_name : `Item #${itemId}`;
-            const itemPricing = productPricing[itemId];
+            const item = this.data.items.find(i => i.item_id === itemId);
+            const itemName = item?.item_name || `Item #${itemId}`;
+            const itemPricing = pricing[itemId];
             const list = Array.isArray(itemPricing) ? itemPricing : (itemPricing ? [itemPricing] : []);
+
             list.forEach(pd => {
                 const pid = String(pd.provider_id);
                 const base = Number(pd.base_price ?? pd.final_price ?? 0);
@@ -249,61 +207,68 @@ class TableRenderer {
             });
         });
 
-        let perFileTotal = 0;
         const groupHtml = Object.values(providers).map(group => {
-            perFileTotal += group.subtotal;
             const rows = group.items.map(it => {
                 const isMult = it.mult !== 1;
                 const isPremium = it.mult > 1;
                 const change = `${isPremium ? '+' : '-'}${Math.abs((it.mult - 1) * 100).toFixed(0)}%`;
                 const dotClass = isPremium ? 'bg-amber-500' : 'bg-green-500';
-                const popId = `pp-${product.product_id}-${group.name.replace(/\s+/g,'-')}-${it.id}`;
+                const popId = `pp-${product.product_id}-${group.name.replace(/\s+/g, '-')}-${it.id}`;
                 const pop = isMult ? `
                     <span class=\"relative inline-flex items-center ml-1\" data-popover-root>
-                        <button type=\"button\" class=\"inline-block w-1.5 h-1.5 rounded-full ${dotClass}\" aria-label=\"Pricing adjustment\" onclick=\"window.tableRenderer.togglePopover('${popId}')\"></button>
+                        <button type=\"button\" class=\"inline-block w-1.5 h-1.5 rounded-full ${dotClass}\" aria-label=\"Pricing adjustment\" onclick=\"productsPage.togglePopover('${popId}')\"></button>
                         <div id=\"${popId}\" class=\"price-popover hidden absolute z-50 mt-2 right-0 w-44 rounded-md border border-border bg-card shadow p-2 text-[11px]\">
                             <div class=\"flex items-center justify-between\"><span class=\"text-muted-foreground\">Base</span><span class=\"font-medium\">$${this.formatPrice(it.base)}</span></div>
                             <div class=\"flex items-center justify-between\"><span class=\"text-muted-foreground\">Multiplier</span><span class=\"font-medium ${isPremium ? 'text-amber-700' : 'text-green-700'}\">×${it.mult.toFixed(2)}</span></div>
                             <div class=\"flex items-center justify-between\"><span class=\"text-muted-foreground\">Change</span><span class=\"font-medium ${isPremium ? 'text-amber-700' : 'text-green-700'}\">${change}</span></div>
                         </div>
                     </span>` : '';
-                return `<div class=\"text-xs text-muted-foreground flex items-start\">\n                    <svg class=\"w-3 h-3 mr-1 mt-0.5 flex-shrink-0\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\">\n                        <path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M9 5l7 7-7 7\" />\n                    </svg>\n                    <span class=\"flex-1\">${this.escapeHtml(it.name)}</span>\n                    <div class=\"ml-auto text-right flex items-center\">\n                        <span class=\"font-semibold text-green-600\">$${this.formatPrice(it.final)}</span>\n                        <span class=\"text-xs text-muted-foreground ml-1\">(T${it.tier})</span>
+                return `<div class=\"text-xs text-muted-foreground flex items-start\">
+                    <svg class=\"w-3 h-3 mr-1 mt-0.5 flex-shrink-0\" xmlns=\"http://www.w3.org/2000/svg\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\">
+                        <path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M9 5l7 7-7 7\" />
+                    </svg>
+                    <span class=\"flex-1\">${this.escapeHtml(it.name)}</span>
+                    <div class=\"ml-auto text-right flex items-center\">
+                        <span class=\"font-semibold text-green-600\">$${this.formatPrice(it.final)}</span>
+                        <span class=\"text-xs text-muted-foreground ml-1\">(T${it.tier})</span>
                         ${pop}
-                    </div>\n                </div>`;
+                    </div>
+                </div>`;
             }).join('');
-            return `<div class=\"mb-2\">\n                <div class=\"flex items-center justify-between font-medium text-foreground mb-1\">\n                    <span>${this.escapeHtml(group.name)}</span>\n                    <span class=\"text-sm\">$${this.formatPrice(group.subtotal)}</span>\n                </div>\n                <div class=\"space-y-1\">${rows}</div>\n            </div>`;
+            return `<div class=\"mb-2\">
+                <div class=\"flex items-center justify-between font-medium text-foreground mb-1\">
+                    <span>${this.escapeHtml(group.name)}</span>
+                    <span class=\"text-sm\">$${this.formatPrice(group.subtotal)}</span>
+                </div>
+                <div class=\"space-y-1\">${rows}</div>
+            </div>`;
         }).join('');
 
-        const files = Number(product.proxy_quantity || 0);
-        const grandTotal = files > 0 ? perFileTotal * files : perFileTotal;
-
-        const totalRow = grandTotal > 0 
-            ? `<div class="text-xs flex items-center justify-between pt-2 mt-2 border-t border-blue-200">
-                    <span class="font-medium text-foreground">Total</span>
-                    <span class="font-semibold text-green-700">$${grandTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-               </div>`
-            : '';
-
-        return groupHtml + totalRow;
+        return groupHtml;
     }
 
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
+    updateCount() {
+        const countEl = document.getElementById('productCount');
+        if (countEl) {
+            const count = this.filteredProducts.length;
+            const total = this.products.length;
+            countEl.textContent = count === total ? total : `${count} of ${total}`;
+        }
     }
 
     formatDate(dateString) {
+        if (!dateString) return '';
         const date = new Date(dateString);
+        if (isNaN(date.getTime())) return '';
+        
         const now = new Date();
         const diffTime = Math.abs(now - date);
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
+
         if (diffDays === 0) return 'Today';
         if (diffDays === 1) return 'Yesterday';
         if (diffDays < 7) return `${diffDays} days ago`;
         if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
-        
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     }
 
@@ -314,16 +279,86 @@ class TableRenderer {
         return needsThree ? n.toFixed(3) : n.toFixed(2);
     }
 
-    ensurePopoverListeners() {
-        if (this._popoverInit) return;
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('[data-popover-root]')) this.closeAllPopovers();
-        });
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') this.closeAllPopovers();
-        });
-        this._popoverInit = true;
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
+}
+
+const productsPage = {
+    grid: new ProductGrid(),
+    data: { products: [], items: [], contracts: [], providers: [], pricing: {} },
+
+    async init() {
+        this.setupHandlers();
+        await this.refresh();
+    },
+
+    async refresh() {
+        try {
+            const [products, contracts, providers, pricing, items] = await Promise.all([
+                dataService.loadProducts(),
+                dataService.getAllContracts(),
+                dataService.loadProviders(),
+                dataService.loadProductsPricing(),
+                dataService.loadItems()
+            ]);
+
+            this.data = { products, contracts, providers, pricing, items };
+            this.grid.setData(products, this.data);
+            
+            // Re-apply active filters
+            const searchTerm = document.getElementById('searchInput')?.value || '';
+            const statusFilter = document.getElementById('statusFilter')?.value || 'all';
+            this.grid.filter(searchTerm, statusFilter);
+        } catch (error) {
+            Toast.show('Error loading data: ' + error.message, 'error');
+        }
+    },
+
+
+
+    setupHandlers() {
+        document.getElementById('addProductButton')?.addEventListener('click', () => {
+            productModal.show();
+        });
+
+        document.getElementById('searchInput')?.addEventListener('input', (e) => {
+            const statusFilter = document.getElementById('statusFilter')?.value || 'all';
+            this.grid.filter(e.target.value, statusFilter);
+        });
+
+        document.getElementById('statusFilter')?.addEventListener('change', (e) => {
+            const searchTerm = document.getElementById('searchInput')?.value || '';
+            this.grid.filter(searchTerm, e.target.value);
+        });
+    },
+
+    async editProduct(productId) {
+        await productModal.editProduct(productId);
+    },
+
+    async deleteProduct(productId, button) {
+        if (!confirm('Are you sure you want to delete this product?')) return;
+
+        const originalText = button.textContent;
+        button.textContent = 'Deleting...';
+        button.disabled = true;
+
+        try {
+            await dataService.deleteProduct(productId);
+            await this.refresh();
+            Toast.show('Product deleted successfully', 'success');
+        } catch (error) {
+            Toast.show(error.message, 'error');
+        } finally {
+            button.textContent = originalText;
+            button.disabled = false;
+        }
+    },
+
+
 
     togglePopover(id) {
         const el = document.getElementById(id);
@@ -331,9 +366,23 @@ class TableRenderer {
         const hidden = el.classList.contains('hidden');
         this.closeAllPopovers();
         if (hidden) el.classList.remove('hidden');
-    }
+    },
 
     closeAllPopovers() {
         document.querySelectorAll('.price-popover').forEach(el => el.classList.add('hidden'));
     }
-}
+};
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+    window.productsPage = productsPage;
+    productsPage.init();
+
+    // Popover handlers
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('[data-popover-root]')) productsPage.closeAllPopovers();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') productsPage.closeAllPopovers();
+    });
+});

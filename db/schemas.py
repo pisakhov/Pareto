@@ -143,7 +143,6 @@ class Product:
     product_id: int
     name: str
     description: str
-    proxy_quantity: int
     status: str
     date_creation: str
     date_last_update: str
@@ -343,17 +342,11 @@ class DatabaseSchema:
                 product_id INTEGER PRIMARY KEY,
                 name VARCHAR NOT NULL UNIQUE,
                 description TEXT,
-                proxy_quantity INTEGER DEFAULT 0,
                 status VARCHAR DEFAULT 'active',
                 date_creation VARCHAR NOT NULL,
                 date_last_update VARCHAR NOT NULL
             )
         """)
-
-        columns = conn.execute("PRAGMA table_info(products)").fetchall()
-        column_names = [col[1] for col in columns]
-        if 'proxy_quantity' not in column_names:
-            conn.execute("ALTER TABLE products ADD COLUMN proxy_quantity INTEGER DEFAULT 0")
 
     def _create_product_items_table(self):
         """Create product_items junction table if it doesn't exist"""

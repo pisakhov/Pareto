@@ -87,7 +87,7 @@
         <h3 class="mt-2 text-sm font-semibold text-foreground">No products found</h3>
         <p class="mt-1 text-sm text-muted-foreground">Get started by creating a new product.</p>
         <div class="mt-6">
-            <button onclick="window.modalManager.showProductModal()" class="inline-flex items-center gap-2 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-orange-600 text-white hover:bg-orange-700 shadow-md hover:shadow-lg rounded-lg">
+            <button onclick="window.productModal.show()" class="inline-flex items-center gap-2 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-10 px-4 py-2 bg-orange-600 text-white hover:bg-orange-700 shadow-md hover:shadow-lg rounded-lg">
                 <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
                 Add Product
             </button>
@@ -145,7 +145,7 @@
                     </div>
 
                     <!-- Process Selection -->
-                    <div class="bg-gradient-to-r from-[#fb923c]/5 to-[#fb923c]/10 border border-[#fb923c]/20 rounded-lg p-4 mb-4">
+                    <div id="processSelectionCard" class="bg-gradient-to-r from-[#fb923c]/5 to-[#fb923c]/10 border border-[#fb923c]/20 rounded-lg p-4 mb-4">
                         <label class="block text-sm font-medium mb-2">
                             <div class="flex items-center gap-2">
                                 <svg class="w-4 h-4 text-[#fb923c]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -179,7 +179,7 @@
                             <h4 class="text-sm font-semibold text-slate-700">Available Items</h4>
                             <span class="text-xs text-muted-foreground">Configure item allocations</span>
                         </div>
-                        <div class="flex items-center gap-2 mb-4">
+                        <div id="addProcessButtonContainer" class="flex items-center gap-2 mb-4">
                             <button type="button" id="addContractBtn" class="px-4 py-2 bg-[#fb923c] text-white rounded-md hover:bg-[#fb923c]/90 whitespace-nowrap inline-flex items-center gap-2">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -320,7 +320,7 @@
                 </div>
             </div>
             <div class="flex justify-end space-x-3 p-6 border-t border-border bg-card">
-                <button type="button" onclick="window.modalManager.closeProductModal()"
+                <button type="button" onclick="window.productModal.close()"
                         class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
                     Cancel
                 </button>
@@ -346,15 +346,8 @@ details[open] .details-chevron {
 <!-- Toast Manager -->
 <script src="/static/util/toast.js"></script>
 
-<!-- Component Scripts (in dependency order) -->
+<!-- Refactored Scripts (3 files instead of 10) -->
 <script src="/static/products/js/dataService.js"></script>
-<script src="/static/products/js/itemManager.js"></script>
-<script src="/static/products/js/contractAdjustments.js"></script>
-<script src="/static/products/js/uiManager.js"></script>
-<script src="/static/products/js/modalManager.js"></script>
-<script src="/static/products/js/forecastManager.js"></script>
-<script src="/static/products/js/chartManager.js"></script>
-<script src="/static/products/js/tableRenderer.js"></script>
-<script src="/static/products/js/formHandler.js"></script>
-<script src="/static/products/js/productsApp.js"></script>
+<script src="/static/products/js/ProductModal.js"></script>
+<script src="/static/products/js/ProductsPage.js"></script>
 {% endblock %}

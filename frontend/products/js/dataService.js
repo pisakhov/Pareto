@@ -1,53 +1,34 @@
 /**
- * Data Service - Handles all API requests for products and items
+ * Data Service - Pure API communication layer
  */
 const dataService = {
     async loadProducts() {
-        try {
-            const response = await fetch('/api/products');
-
-            if (!response.ok) {
-                let errorMessage = 'Failed to load products';
-                let errorDetail = null;
-
-                try {
-                    const contentType = response.headers.get('content-type');
-                    const responseText = await response.text();
-
-                    if (contentType && contentType.includes('application/json')) {
-                        errorDetail = JSON.parse(responseText);
-                        errorMessage = errorDetail.detail || errorDetail.message || errorMessage;
-                    } else {
-                        errorMessage = `Server error (${response.status}): ${responseText.substring(0, 200)}`;
-                    }
-                } catch (parseError) {
-                    errorMessage = `Server returned ${response.status} but response was not valid JSON`;
-                }
-
-                throw new Error(errorMessage);
-            }
-
-            return await response.json();
-        } catch (error) {
-            throw error;
-        }
+        const response = await fetch('/api/products');
+        if (!response.ok) throw new Error(`Failed to load products: ${response.status}`);
+        return await response.json();
     },
 
     async loadItems() {
         const response = await fetch('/api/items');
-        if (!response.ok) throw new Error('Failed to load items');
+        if (!response.ok) throw new Error(`Failed to load items: ${response.status}`);
         return await response.json();
     },
 
     async loadProviders() {
         const response = await fetch('/api/providers');
-        if (!response.ok) throw new Error('Failed to load providers');
+        if (!response.ok) throw new Error(`Failed to load providers: ${response.status}`);
         return await response.json();
     },
 
     async getAllContracts() {
         const response = await fetch('/api/contracts');
-        if (!response.ok) throw new Error('Failed to load contracts');
+        if (!response.ok) throw new Error(`Failed to load contracts: ${response.status}`);
+        return await response.json();
+    },
+
+    async loadProductsPricing() {
+        const response = await fetch('/api/products/pricing-details');
+        if (!response.ok) throw new Error(`Failed to load pricing: ${response.status}`);
         return await response.json();
     },
 
@@ -56,106 +37,28 @@ const dataService = {
         const method = productId ? 'PUT' : 'POST';
 
         const response = await fetch(url, {
-            method: method,
+            method,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(productData),
         });
 
         if (!response.ok) {
-            let errorMessage = 'Failed to save product';
-            let errorDetail = null;
-
-            try {
-                const contentType = response.headers.get('content-type');
-                const responseText = await response.text();
-
-                if (contentType && contentType.includes('application/json')) {
-                    errorDetail = JSON.parse(responseText);
-                    errorMessage = errorDetail.detail || errorDetail.message || errorMessage;
-                } else {
-                    errorMessage = `Server error (${response.status}): ${responseText.substring(0, 200)}`;
-                }
-            } catch (parseError) {
-                errorMessage = `Server returned ${response.status} but response was not valid JSON`;
-            }
-
-            throw new Error(errorMessage);
+            const error = await response.json();
+            throw new Error(error.detail || error.message || `Failed to save product: ${response.status}`);
         }
 
         return await response.json();
     },
 
     async deleteProduct(productId) {
-        const response = await fetch(`/api/products/${productId}`, {
-            method: 'DELETE',
-        });
-
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Failed to delete product');
-        }
+        const response = await fetch(`/api/products/${productId}`, { method: 'DELETE' });
+        if (!response.ok) throw new Error(`Failed to delete product: ${response.status}`);
         return await response.json();
     },
 
     async getProduct(productId) {
-        try {
-            const response = await fetch(`/api/products/${productId}`);
-
-            if (!response.ok) {
-                let errorMessage = 'Failed to load product';
-                let errorDetail = null;
-
-                try {
-                    const contentType = response.headers.get('content-type');
-                    const responseText = await response.text();
-
-                    if (contentType && contentType.includes('application/json')) {
-                        errorDetail = JSON.parse(responseText);
-                        errorMessage = errorDetail.detail || errorDetail.message || errorMessage;
-                    } else {
-                        errorMessage = `Server error (${response.status}): ${responseText.substring(0, 200)}`;
-                    }
-                } catch (parseError) {
-                    errorMessage = `Server returned ${response.status} but response was not valid JSON`;
-                }
-
-                throw new Error(errorMessage);
-            }
-
-            return await response.json();
-        } catch (error) {
-            throw error;
-        }
-    },
-
-    async loadProductsPricing() {
-        try {
-            const response = await fetch('/api/products/pricing-details');
-
-            if (!response.ok) {
-                let errorMessage = 'Failed to load products pricing';
-                let errorDetail = null;
-
-                try {
-                    const contentType = response.headers.get('content-type');
-                    const responseText = await response.text();
-
-                    if (contentType && contentType.includes('application/json')) {
-                        errorDetail = JSON.parse(responseText);
-                        errorMessage = errorDetail.detail || errorDetail.message || errorMessage;
-                    } else {
-                        errorMessage = `Server error (${response.status}): ${responseText.substring(0, 200)}`;
-                    }
-                } catch (parseError) {
-                    errorMessage = `Server returned ${response.status} but response was not valid JSON`;
-                }
-
-                throw new Error(errorMessage);
-            }
-
-            return await response.json();
-        } catch (error) {
-            throw error;
-        }
-    },
+        const response = await fetch(`/api/products/${productId}`);
+        if (!response.ok) throw new Error(`Failed to get product: ${response.status}`);
+        return await response.json();
+    }
 };

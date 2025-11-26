@@ -66,10 +66,9 @@ async def get_products():
                 "product_id": p[0],
                 "name": p[1],
                 "description": p[2],
-                "proxy_quantity": p[3],
-                "status": p[4],
-                "date_creation": p[5],
-                "date_last_update": p[6],
+                "status": p[3],
+                "date_creation": p[4],
+                "date_last_update": p[5],
                 "item_ids": item_ids,
             }
         )
@@ -155,8 +154,8 @@ async def get_products_pricing_details(process_id: int = 1):
                 first_key = allocation_keys[0]
                 # Try to parse as integer
                 parsed = int(str(first_key))
-                # If it's a positive integer, it's likely an item ID (legacy format)
-                is_collective_format = not (parsed > 0)
+                # If it's a positive integer, it's an item ID (legacy per-item format)
+                is_collective_format = parsed <= 0
             except (ValueError, TypeError):
                 # If we can't parse it as integer, it's likely a field name (collective format)
                 is_collective_format = True
@@ -361,26 +360,42 @@ async def update_product(product_id: int, product: ProductUpdate):
         for forecast in existing_forecasts:
             crud.delete_forecast(forecast['forecast_id'])
 
-        for forecast_data in product.forecasts:
-            crud.create_forecast(
-                product_id=product_id,
-                year=forecast_data.get('year'),
-                month=forecast_data.get('month'),
-                forecast_units=forecast_data.get('forecast_units')
-            )
+        # Ensure deletes are committed before inserts
+        if hasattr(crud, '_get_connection'):
+            conn = crud._get_connection()
+            if conn:
+                conn.commit()
+
+        # Only create new forecasts if the array is not empty
+        if product.forecasts:
+            for forecast_data in product.forecasts:
+                crud.create_forecast(
+                    product_id=product_id,
+                    year=forecast_data.get('year'),
+                    month=forecast_data.get('month'),
+                    forecast_units=forecast_data.get('forecast_units')
+                )
 
     if product.actuals is not None:
         existing_actuals = crud.get_actuals_for_product(product_id)
         for actual in existing_actuals:
             crud.delete_actual(actual['actual_id'])
 
-        for actual_data in product.actuals:
-            crud.create_actual(
-                product_id=product_id,
-                year=actual_data.get('year'),
-                month=actual_data.get('month'),
-                actual_units=actual_data.get('actual_units')
-            )
+        # Ensure deletes are committed before inserts
+        if hasattr(crud, '_get_connection'):
+            conn = crud._get_connection()
+            if conn:
+                conn.commit()
+
+        # Only create new actuals if the array is not empty
+        if product.actuals:
+            for actual_data in product.actuals:
+                crud.create_actual(
+                    product_id=product_id,
+                    year=actual_data.get('year'),
+                    month=actual_data.get('month'),
+                    actual_units=actual_data.get('actual_units')
+                )
 
     return JSONResponse(content={"message": "Product updated successfully"})
 
