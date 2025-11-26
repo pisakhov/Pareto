@@ -496,7 +496,7 @@ class ItemManager {
                                 </svg>
                             </div>
                             <div>
-                                <h3 class="text-lg font-semibold text-slate-900">${this.escapeHtml(contract.data.process_name)}</h3>
+                                <h3 class="text-lg font-semibold text-slate-900">${dataService.escapeHtml(contract.data.process_name)}</h3>
                                 <p class="text-sm text-slate-600 mt-0.5">Configure items and allocations</p>
                             </div>
                         </div>
@@ -523,7 +523,7 @@ class ItemManager {
 
         contract.data.items.forEach(item => {
             const isSelected = contract.selectedItems.find(i => i.item_id === item.item_id);
-            const providers = item.providers.map(p => this.escapeHtml(p.provider_name)).join(' · ');
+            const providers = item.providers.map(p => dataService.escapeHtml(p.provider_name)).join(' · ');
 
             let pricingHtml = '';
             if (isSelected && pricingManager) {
@@ -548,7 +548,7 @@ class ItemManager {
                             </div>
                             <span class="text-xs font-semibold ${color} px-2 py-1 rounded-md bg-white/50 border border-transparent">${label}</span>
                         </div>
-                        <input type="text" placeholder="Add notes..." value="${this.escapeHtml(pricing.notes || '')}"
+                        <input type="text" placeholder="Add notes..." value="${dataService.escapeHtml(pricing.notes || '')}"
                                onchange="productModal.pricing.handleNotesChange(${item.item_id}, this.value)"
                                class="w-full text-xs border border-[#fb923c]/30 rounded px-2 py-1.5 focus:ring-2 focus:ring-[#fb923c] focus:border-[#fb923c] bg-white/80">
                     </div>
@@ -562,7 +562,7 @@ class ItemManager {
                                onchange="productModal.toggleProcessItem(${processId}, ${item.item_id}, this.checked)"
                                class="mt-1 w-5 h-5 text-[#fb923c] focus:ring-2 focus:ring-[#fb923c] rounded border-2 border-slate-300 flex-shrink-0">
                         <div class="flex-1 min-w-0">
-                            <div class="text-sm font-semibold text-slate-900 mb-1">${this.escapeHtml(item.item_name)}</div>
+                            <div class="text-sm font-semibold text-slate-900 mb-1">${dataService.escapeHtml(item.item_name)}</div>
                             <div class="text-xs text-slate-600 flex items-center gap-1">
                                 <svg class="w-3.5 h-3.5 text-slate-400" fill="currentColor" viewBox="0 0 20 20">
                                     <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
@@ -618,7 +618,7 @@ class ItemManager {
             const value = allocation.providerValues.get(provider.provider_id) || 0;
             html += `
                 <div class="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-[#fb923c]/20">
-                    <span class="font-medium text-slate-900">${this.escapeHtml(provider.company_name || 'Unknown Provider')}</span>
+                    <span class="font-medium text-slate-900">${dataService.escapeHtml(provider.company_name || 'Unknown Provider')}</span>
                     <div class="flex items-center gap-2">
                         <input type="number" value="${value}" min="0"
                                onchange="productModal.updateProviderValue(${processId}, ${provider.provider_id}, this.value)"
@@ -645,12 +645,6 @@ class ItemManager {
         `;
 
         return html;
-    }
-
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
     }
 }
 

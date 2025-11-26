@@ -88,7 +88,7 @@ class ProductGrid {
                             </svg>
                         </div>
                         <div class="flex-1 min-w-0">
-                            <h3 class="font-semibold text-slate-900 text-lg ${!isActive ? 'line-through text-slate-500' : ''}">${this.escapeHtml(product.name || 'Untitled Product')}</h3>
+                            <h3 class="font-semibold text-slate-900 text-lg ${!isActive ? 'line-through text-slate-500' : ''}">${dataService.escapeHtml(product.name || 'Untitled Product')}</h3>
                             <div class="flex items-center gap-2 mt-1">
                                 <span class="w-2 h-2 rounded-full ${isActive ? 'bg-green-500' : 'bg-gray-400'}"></span>
                                 <span class="text-xs font-medium ${isActive ? 'text-green-700' : 'text-gray-600'}">${isActive ? 'Active' : 'Inactive'}</span>
@@ -97,7 +97,7 @@ class ProductGrid {
                     </div>
                 </div>
                 ${product.description ? `
-                    <p class="text-sm text-slate-600 mt-3 line-clamp-2">${this.escapeHtml(product.description)}</p>
+                    <p class="text-sm text-slate-600 mt-3 line-clamp-2">${dataService.escapeHtml(product.description)}</p>
                 ` : ''}
             </div>
 
@@ -169,7 +169,7 @@ class ProductGrid {
                     <div class="flex items-center justify-between">
                         <div class="flex items-center">
                             <div class="w-2 h-2 rounded-full bg-[#fb923c] mr-2"></div>
-                            <span class="text-sm font-semibold text-slate-800">${this.escapeHtml(process.name)}</span>
+                            <span class="text-sm font-semibold text-slate-800">${dataService.escapeHtml(process.name)}</span>
                         </div>
                         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#fb923c]/10 text-[#fb923c] border border-[#fb923c]/20">
                             ${process.count} ${process.count === 1 ? 'item' : 'items'}
@@ -203,12 +203,6 @@ class ProductGrid {
         if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     }
-
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
 }
 
 const productsPage = {
@@ -222,15 +216,14 @@ const productsPage = {
 
     async refresh() {
         try {
-            const [products, contracts, providers, pricing, items] = await Promise.all([
+            const [products, contracts, providers, pricing] = await Promise.all([
                 dataService.loadProducts(),
                 dataService.getAllContracts(),
                 dataService.loadProviders(),
-                dataService.loadProductsPricing(),
-                dataService.loadItems()
+                dataService.loadProductsPricing()
             ]);
 
-            this.data = { products, contracts, providers, pricing, items };
+            this.data = { products, contracts, providers, pricing };
             this.grid.setData(products, this.data);
             
             // Re-apply active filters

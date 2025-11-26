@@ -234,6 +234,8 @@ class CRUDOperations(DatabaseSchema):
         conn.execute("DELETE FROM product_item_pricing WHERE product_id = ?", [product_id])
         conn.execute("DELETE FROM product_item_allocations WHERE product_id = ?", [product_id])
         conn.execute("DELETE FROM product_items WHERE product_id = ?", [product_id])
+        conn.execute("DELETE FROM forecasts WHERE product_id = ?", [product_id])
+        conn.execute("DELETE FROM actuals WHERE product_id = ?", [product_id])
         result = conn.execute("DELETE FROM products WHERE product_id = ?", [product_id])
         conn.commit()
         return result.rowcount > 0

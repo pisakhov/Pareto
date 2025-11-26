@@ -49,17 +49,6 @@ async def products_page(request: Request):
 
 def _format_product_summary(product, item_ids):
     """Helper to format product summary response."""
-    # Handle both tuple (from get_all_products) and dict (from create_product/get_product)
-    if isinstance(product, (list, tuple)):
-        return {
-            "product_id": product[0],
-            "name": product[1],
-            "description": product[2],
-            "status": product[3],
-            "date_creation": product[4],
-            "date_last_update": product[5],
-            "item_ids": item_ids,
-        }
     return {
         "product_id": product['product_id'],
         "name": product['name'],
@@ -80,8 +69,17 @@ async def get_products():
 
     result = []
     for p in products:
-        item_ids = crud.get_item_ids_for_product(p[0])
-        result.append(_format_product_summary(p, item_ids))
+        # Convert tuple to dict (UAT normalization)
+        p_dict = {
+            "product_id": p[0],
+            "name": p[1],
+            "description": p[2],
+            "status": p[3],
+            "date_creation": p[4],
+            "date_last_update": p[5]
+        }
+        item_ids = crud.get_item_ids_for_product(p_dict["product_id"])
+        result.append(_format_product_summary(p_dict, item_ids))
     return JSONResponse(content=result)
 
 
@@ -242,15 +240,5 @@ async def update_product(product_id: int, product: ProductUpdate):
 async def delete_product(product_id: int):
     """Delete a product."""
     crud = get_crud()
-
-    # Delete forecasts and actuals for this product
-    forecasts = crud.get_forecasts_for_product(product_id)
-    for forecast in forecasts:
-        crud.delete_forecast(forecast['forecast_id'])
-
-    actuals = crud.get_actuals_for_product(product_id)
-    for actual in actuals:
-        crud.delete_actual(actual['actual_id'])
-
     crud.delete_product(product_id)
     return JSONResponse(content={"message": "Product deleted successfully"})

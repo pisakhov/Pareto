@@ -8,16 +8,16 @@ const dataService = {
         return await response.json();
     },
 
-    async loadItems() {
-        const response = await fetch('/api/items');
-        if (!response.ok) throw new Error(`Failed to load items: ${response.status}`);
-        return await response.json();
-    },
-
     async loadProviders() {
         const response = await fetch('/api/providers');
         if (!response.ok) throw new Error(`Failed to load providers: ${response.status}`);
         return await response.json();
+    },
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     },
 
     async getAllContracts() {
