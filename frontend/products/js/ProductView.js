@@ -77,7 +77,6 @@ class ProductView {
                                 <tr>
                                     <th class="px-4 py-3 font-medium border-r border-slate-100">Provider</th>
                                     <th class="px-4 py-3 font-medium">Item</th>
-                                    <th class="px-4 py-3 font-medium text-center">Tier</th>
                                     <th class="px-4 py-3 font-medium text-right">Price</th>
                                     <th class="px-4 py-3 font-medium text-right">Multiplier</th>
                                     <th class="px-4 py-3 font-medium text-right">Allocation</th>
@@ -112,15 +111,15 @@ class ProductView {
                         <tr class="hover:bg-slate-50/50 transition-colors">
                             ${isFirst ? `
                                 <td class="px-4 py-3 font-medium text-slate-900 border-r border-slate-100 bg-white align-top" rowspan="${group.rows.length}">
-                                    ${this.escapeHtml(row.provider_name)}
+                                    <div>${this.escapeHtml(row.provider_name)}</div>
+                                    <div class="mt-1">
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                                            Tier ${row.tier}
+                                        </span>
+                                    </div>
                                 </td>
                             ` : ''}
                             <td class="px-4 py-3 text-slate-600 font-medium">${this.escapeHtml(row.item_name)}</td>
-                            <td class="px-4 py-3 text-center">
-                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">
-                                    Tier ${row.tier}
-                                </span>
-                            </td>
                             <td class="px-4 py-3 text-right text-slate-600">$${row.price_per_unit.toFixed(2)}</td>
                             <td class="px-4 py-3 text-right text-slate-500 text-xs">${row.multiplier_display}</td>
                             <td class="px-4 py-3 text-right font-medium text-slate-700">
