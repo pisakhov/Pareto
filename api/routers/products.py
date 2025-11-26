@@ -199,3 +199,15 @@ async def delete_product(product_id: int):
     crud = get_crud()
     crud.delete_product(product_id)
     return JSONResponse(content={"message": "Product deleted successfully"})
+
+
+@router.get("/api/products/{product_id}/pricing_view")
+async def get_product_pricing_view(product_id: int):
+    """Get detailed pricing table for product view."""
+    crud = get_crud()
+    try:
+        data = crud.get_product_pricing_table_data(product_id)
+        return JSONResponse(content=data)
+    except Exception as e:
+        print(f"Error calculating pricing view: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

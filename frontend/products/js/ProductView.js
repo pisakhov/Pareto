@@ -12,6 +12,9 @@ class ProductView {
             const product = await dataService.getProduct(productId);
             this.render(product);
             this.openModal();
+            
+            // Load Pricing Data
+            this.loadPricingData(productId);
         } catch (error) {
             console.error('Failed to load product details:', error);
             if (window.Toast) {
@@ -20,6 +23,106 @@ class ProductView {
                 alert('Failed to load product details');
             }
         }
+    }
+
+    async loadPricingData(productId) {
+        const container = document.getElementById('pricingTablesContainer');
+        const headerMonthYear = document.getElementById('pricingMonthYear');
+        const headerActuals = document.getElementById('pricingActuals');
+        
+        if (!container) return;
+        
+        container.innerHTML = '<div class="flex items-center justify-center py-8 text-slate-400"><span class="text-sm">Loading pricing data...</span></div>';
+        
+        try {
+            const response = await fetch(`/api/products/${productId}/pricing_view`);
+            if (!response.ok) throw new Error('Failed to load pricing data');
+            
+            const data = await response.json();
+            
+            // Update Header
+            const monthName = new Date(data.year, data.month - 1).toLocaleString('default', { month: 'long' });
+            if (headerMonthYear) headerMonthYear.textContent = `${monthName} ${data.year}`;
+            if (headerActuals) headerActuals.textContent = data.actual_units.toLocaleString();
+            
+            this.renderPricingTables(data, container);
+            
+        } catch (error) {
+            console.error('Error loading pricing data:', error);
+            container.innerHTML = '<div class="text-center py-4 text-red-500 text-sm">Failed to load pricing breakdown</div>';
+        }
+    }
+
+    renderPricingTables(data, container) {
+        if (!data.processes || data.processes.length === 0) {
+            container.innerHTML = '<div class="text-center py-4 text-slate-500 text-sm">No pricing data available</div>';
+            return;
+        }
+
+        let html = '';
+        
+        data.processes.forEach(process => {
+            html += `
+                <div class="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-sm">
+                    <div class="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                        <h4 class="font-semibold text-slate-800 flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full bg-[#fb923c]"></div>
+                            ${this.escapeHtml(process.process_name)}
+                        </h4>
+                        <span class="text-xs text-slate-500 font-medium uppercase tracking-wider">${process.rows.length} items</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-white border-b border-slate-100 text-xs text-slate-500 uppercase bg-slate-50/50">
+                                <tr>
+                                    <th class="px-4 py-3 font-medium">Item</th>
+                                    <th class="px-4 py-3 font-medium">Provider</th>
+                                    <th class="px-4 py-3 font-medium text-center">Tier</th>
+                                    <th class="px-4 py-3 font-medium text-right">Price</th>
+                                    <th class="px-4 py-3 font-medium text-right">Multiplier</th>
+                                    <th class="px-4 py-3 font-medium text-right">Allocation</th>
+                                    <th class="px-4 py-3 font-medium text-right">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+            `;
+            
+            process.rows.forEach(row => {
+                html += `
+                    <tr class="hover:bg-slate-50/50 transition-colors">
+                        <td class="px-4 py-3 font-medium text-slate-900">${this.escapeHtml(row.item_name)}</td>
+                        <td class="px-4 py-3 text-slate-600">${this.escapeHtml(row.provider_name)}</td>
+                        <td class="px-4 py-3 text-center">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">
+                                Tier ${row.tier}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-right text-slate-600">$${row.price_per_unit.toFixed(2)}</td>
+                        <td class="px-4 py-3 text-right text-slate-500 text-xs">${row.multiplier_display}</td>
+                        <td class="px-4 py-3 text-right font-medium text-slate-700">
+                            ${row.allocation}
+                            <div class="text-[10px] text-slate-400 font-normal">(${row.allocated_units.toLocaleString()} units)</div>
+                        </td>
+                        <td class="px-4 py-3 text-right font-bold text-[#fb923c]">$${row.total_cost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     render(product) {

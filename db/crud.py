@@ -1579,6 +1579,145 @@ class CRUDOperations(DatabaseSchema):
 
         return float(result[0]) if result else None
 
+    def get_product_pricing_table_data(self, product_id: int) -> Dict[str, Any]:
+        """
+        Calculate detailed pricing table for a product based on current month's actuals.
+        Returns structure suitable for frontend rendering.
+        """
+        conn = self._get_connection()
+        now = datetime.now()
+        current_year = now.year
+        current_month = now.month
+        
+        # 1. Get Actuals
+        actual = self.get_actual_by_product_month(product_id, current_year, current_month)
+        # actual tuple: (id, prod_id, year, month, units, ...)
+        actual_units = actual[4] if actual else 0
+        
+        # 2. Get Allocations
+        allocations = self.get_allocations_for_product(product_id)
+        
+        # 3. Get Multipliers
+        multipliers = self.get_price_multipliers_for_product(product_id)
+        
+        # 4. Get Product Structure (Contracts -> Items)
+        structure = self.get_product_contracts_with_selected_items(product_id)
+        
+        processes_data = []
+        
+        for process in structure:
+            process_rows = []
+            for item in process['items']:
+                item_id = item['item_id']
+                
+                # Determine allocation for this item
+                item_alloc_providers = []
+                mode = 'percentage'
+                
+                if allocations:
+                    # Check if collective (has 'mode' key) or per-item (keys are item_ids)
+                    if 'mode' in allocations and 'providers' in allocations:
+                         # Collective
+                         item_alloc_providers = allocations['providers']
+                         mode = allocations['mode']
+                    elif item_id in allocations:
+                         # Per item
+                         item_alloc_providers = allocations[item_id]['providers']
+                         mode = allocations[item_id]['mode']
+                
+                # Multiplier
+                multiplier_data = multipliers.get(item_id, {'multiplier': 1.0})
+                multiplier = multiplier_data['multiplier']
+                
+                for provider in item['providers']:
+                    provider_id = provider['provider_id']
+                    contract_id = provider['contract_id']
+                    
+                    # Calculate Allocated Units
+                    alloc_val = 0
+                    alloc_display = "0%"
+                    
+                    # Find allocation value for this provider
+                    # allocations returns dicts with 'provider_id' key
+                    p_alloc = next((p for p in item_alloc_providers if p['provider_id'] == provider_id), None)
+                    
+                    if p_alloc:
+                        val = p_alloc['value']
+                        if mode == 'percentage':
+                            alloc_val = int(actual_units * (val / 100.0))
+                            alloc_display = f"{val}%"
+                        else: # units
+                            alloc_val = int(val)
+                            alloc_display = f"{val}"
+                    
+                    # Find Tier
+                    tiers = self.get_contract_tiers_for_contract(contract_id)
+                    # Sort by threshold ascending (e.g. 0, 1000, 5000)
+                    tiers.sort(key=lambda x: x['threshold_units'])
+                    
+                    active_tier_num = 1
+                    if tiers:
+                        # Find the highest tier where threshold <= allocated_units
+                        # Assuming threshold is the lower bound (inclusive)
+                        found_tier = None
+                        for t in tiers:
+                            if t['threshold_units'] <= alloc_val:
+                                found_tier = t
+                            else:
+                                # As soon as threshold > alloc_val, we stop. 
+                                # The previous one was the correct tier.
+                                break
+                        
+                        if found_tier:
+                            active_tier_num = found_tier['tier_number']
+                        else:
+                            # Volume is less than lowest threshold? 
+                            # Usually lowest threshold is 0. If not, maybe fallback to first tier?
+                            active_tier_num = tiers[0]['tier_number']
+
+                    # Get Price
+                    price = self.get_price_for_item_at_tier(provider_id, item_id, active_tier_num, process['process_id'])
+                    
+                    if price is None:
+                        price = 0.0
+                        
+                    # Calculate final
+                    final_price = price * multiplier
+                    total_cost = final_price * alloc_val
+                    
+                    # Multiplier display
+                    pct = (multiplier - 1.0) * 100
+                    if abs(pct) < 0.1:
+                        mult_display = "-"
+                    else:
+                        sign = "+" if pct > 0 else ""
+                        mult_display = f"{multiplier} ({sign}{pct:.1f}%)"
+                    
+                    process_rows.append({
+                        "item_name": item['item_name'],
+                        "provider_name": provider['provider_name'],
+                        "tier": active_tier_num,
+                        "price_per_unit": price,
+                        "multiplier_display": mult_display,
+                        "allocation": alloc_display,
+                        "total_cost": total_cost,
+                        "allocated_units": alloc_val
+                    })
+            
+            if process_rows:
+                processes_data.append({
+                    "process_name": process['process_name'],
+                    "rows": process_rows
+                })
+                
+        return {
+            "year": current_year,
+            "month": current_month,
+            "actual_units": actual_units,
+            "processes": processes_data
+        }
+
+
     # =====================================
 
 
