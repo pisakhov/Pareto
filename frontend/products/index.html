@@ -384,19 +384,31 @@
 
             <!-- Table Pricing Section -->
             <div class="space-y-6">
-                <div class="flex items-center justify-between">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <h3 class="text-lg font-semibold text-slate-900">Pricing Breakdown</h3>
-                    <div id="pricingMonthYear" class="min-w-[200px]"></div>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <!-- Mode Toggle -->
+                        <div class="bg-slate-100 p-1 rounded-lg inline-flex border border-slate-200">
+                            <button type="button" id="modeActuals" class="px-3 py-1.5 text-sm font-medium rounded-md transition-all shadow-sm bg-white text-slate-900">
+                                Actuals
+                            </button>
+                            <button type="button" id="modeForecasts" class="px-3 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 transition-all">
+                                Forecasts
+                            </button>
+                        </div>
+                        <!-- Date Selector -->
+                        <div id="pricingMonthYear" class="min-w-[180px]"></div>
+                    </div>
                 </div>
 
                 <!-- Metrics Cards -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between transition-all hover:shadow-md">
                         <div>
-                            <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Actual Units</p>
+                            <p id="unitsLabel" class="text-xs font-medium text-slate-500 uppercase tracking-wider">Actual Units</p>
                             <p id="pricingActuals" class="text-2xl font-bold text-slate-900 mt-1">--</p>
                         </div>
-                        <div class="p-3 bg-slate-50 rounded-full text-slate-400">
+                        <div id="unitsIconContainer" class="p-3 bg-slate-50 rounded-full text-slate-400 transition-colors">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
                         </div>
                     </div>

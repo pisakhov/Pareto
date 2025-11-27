@@ -4,6 +4,7 @@
 class ProductView {
     constructor() {
         this.modalId = 'productViewModal';
+        this.viewMode = 'actuals'; // 'actuals' or 'forecasts'
     }
 
     async show(productId) {
@@ -12,11 +13,14 @@ class ProductView {
             const product = await dataService.getProduct(productId);
             this.currentProduct = product; // Store for reference
             this.render(product);
-            this.renderDateSelector(product);
-            this.openModal();
             
-            // Load Pricing Data (default to current date)
-            this.loadPricingData(productId);
+            // Setup Toggle
+            this.setupModeToggle();
+            
+            // Initial Date Selector & Data Load
+            this.renderDateSelector(product);
+            this.loadPricingData(productId); // defaults to current date & actuals
+            this.openModal();
         } catch (error) {
             console.error('Failed to load product details:', error);
             if (window.Toast) {
@@ -27,12 +31,56 @@ class ProductView {
         }
     }
 
+    setupModeToggle() {
+        const btnActuals = document.getElementById('modeActuals');
+        const btnForecasts = document.getElementById('modeForecasts');
+        const unitsLabel = document.getElementById('unitsLabel');
+        const iconContainer = document.getElementById('unitsIconContainer');
+
+        if (!btnActuals || !btnForecasts) return;
+
+        // Helper to update UI state
+        const updateUI = (mode) => {
+            this.viewMode = mode;
+            
+            if (mode === 'actuals') {
+                btnActuals.className = 'px-3 py-1.5 text-sm font-medium rounded-md transition-all shadow-sm bg-white text-slate-900';
+                btnForecasts.className = 'px-3 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 transition-all';
+                unitsLabel.textContent = 'Actual Units';
+                iconContainer.className = 'p-3 bg-slate-50 rounded-full text-slate-400 transition-colors';
+            } else {
+                btnForecasts.className = 'px-3 py-1.5 text-sm font-medium rounded-md transition-all shadow-sm bg-white text-[#fb923c]';
+                btnActuals.className = 'px-3 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 transition-all';
+                unitsLabel.textContent = 'Forecast Units';
+                iconContainer.className = 'p-3 bg-orange-50 rounded-full text-[#fb923c] transition-colors';
+            }
+
+            // Refresh Date Selector (dates available might differ) and Data
+            if (this.currentProduct) {
+                this.renderDateSelector(this.currentProduct);
+                // Default to current date when switching modes or keep selected if possible?
+                // Simpler to reset to default (current) to avoid invalid dates
+                this.loadPricingData(this.currentProduct.product_id); 
+            }
+        };
+
+        // Set initial state
+        updateUI(this.viewMode);
+
+        // Add listeners
+        btnActuals.onclick = () => updateUI('actuals');
+        btnForecasts.onclick = () => updateUI('forecasts');
+    }
+
     renderDateSelector(product) {
         const container = document.getElementById('pricingMonthYear');
         if (!container) return;
 
-        // Get actuals and sort descending
-        const actuals = (product.actuals || []).sort((a, b) => {
+        // Select data source based on mode
+        const sourceData = this.viewMode === 'forecasts' ? product.forecasts : product.actuals;
+        
+        // Get dates and sort descending
+        const dates = (sourceData || []).sort((a, b) => {
             if (a.year !== b.year) return b.year - a.year;
             return b.month - a.month;
         });
@@ -45,25 +93,25 @@ class ProductView {
         const currentYear = now.getFullYear();
         const currentMonth = now.getMonth() + 1;
 
-        // Add "Current (Nov 2025)" option
+        // Add "Current" option
         const currentMonthName = now.toLocaleString('default', { month: 'long' });
         const currentOption = document.createElement('option');
         currentOption.value = `${currentYear}-${currentMonth}`;
         currentOption.textContent = `${currentMonthName} ${currentYear} (Current)`;
         select.appendChild(currentOption);
 
-        // Add Actuals options
+        // Add available dates
         const uniqueDates = new Set();
         uniqueDates.add(`${currentYear}-${currentMonth}`);
 
-        actuals.forEach(a => {
-            const dateKey = `${a.year}-${a.month}`;
+        dates.forEach(d => {
+            const dateKey = `${d.year}-${d.month}`;
             if (!uniqueDates.has(dateKey)) {
                 uniqueDates.add(dateKey);
                 const option = document.createElement('option');
                 option.value = dateKey;
-                const mName = new Date(a.year, a.month - 1).toLocaleString('default', { month: 'long' });
-                option.textContent = `${mName} ${a.year}`;
+                const mName = new Date(d.year, d.month - 1).toLocaleString('default', { month: 'long' });
+                option.textContent = `${mName} ${d.year}`;
                 select.appendChild(option);
             }
         });
@@ -84,11 +132,15 @@ class ProductView {
         container.innerHTML = '<div class="flex items-center justify-center py-8 text-slate-400"><span class="text-sm">Loading pricing data...</span></div>';
         
         try {
-            let url = `/api/products/${productId}/pricing_view`;
+            let url = `/api/products/${productId}/pricing_view?`;
             if (year && month) {
-                url += `?year=${year}&month=${month}`;
+                url += `year=${year}&month=${month}&`;
             }
             
+            if (this.viewMode === 'forecasts') {
+                url += `use_forecasts=true`;
+            }
+
             const response = await fetch(url);
             const data = await response.json();
             
@@ -100,12 +152,10 @@ class ProductView {
                 });
             });
 
-            // Update Header - Don't overwrite the selector, just the other fields
-            // The selector updates itself via user interaction.
-            // If we loaded via default (no params), ensure selector matches returned date?
-            // For now, we trust the selector's state or the default load.
-            
-            document.getElementById('pricingActuals').textContent = data.actual_units.toLocaleString();
+            // Update Header Stats
+            // Note: `data.units` is returned from backend now instead of `actual_units`
+            const units = data.units !== undefined ? data.units : data.actual_units; 
+            document.getElementById('pricingActuals').textContent = units.toLocaleString();
             document.getElementById('pricingTotalCost').textContent = `$${grandTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             
             this.renderPricingTables(data, container);

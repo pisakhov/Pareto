@@ -202,11 +202,11 @@ async def delete_product(product_id: int):
 
 
 @router.get("/api/products/{product_id}/pricing_view")
-async def get_product_pricing_view(product_id: int, year: Optional[int] = None, month: Optional[int] = None):
+async def get_product_pricing_view(product_id: int, year: Optional[int] = None, month: Optional[int] = None, use_forecasts: bool = False):
     """Get detailed pricing table for product view."""
     crud = get_crud()
     try:
-        data = crud.get_product_pricing_table_data(product_id, year, month)
+        data = crud.get_product_pricing_table_data(product_id, year, month, use_forecasts)
         return JSONResponse(content=data)
     except Exception as e:
         print(f"Error calculating pricing view: {e}")

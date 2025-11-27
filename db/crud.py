@@ -1579,9 +1579,9 @@ class CRUDOperations(DatabaseSchema):
 
         return float(result[0]) if result else None
 
-    def get_product_pricing_table_data(self, product_id: int, year: int = None, month: int = None) -> Dict[str, Any]:
+    def get_product_pricing_table_data(self, product_id: int, year: int = None, month: int = None, use_forecasts: bool = False) -> Dict[str, Any]:
         """
-        Calculate detailed pricing table for a product based on actuals.
+        Calculate detailed pricing table for a product based on actuals or forecasts.
         Returns structure suitable for frontend rendering.
         """
         conn = self._get_connection()
@@ -1591,10 +1591,14 @@ class CRUDOperations(DatabaseSchema):
         current_year = year if year is not None else now.year
         current_month = month if month is not None else now.month
         
-        # 1. Get Actuals
-        actual = self.get_actual_by_product_month(product_id, current_year, current_month)
-        # actual tuple: (id, prod_id, year, month, units, ...)
-        actual_units = actual[4] if actual else 0
+        units = 0
+        
+        if use_forecasts:
+            forecast = self.get_forecast_by_product_month(product_id, current_year, current_month)
+            units = forecast[4] if forecast else 0
+        else:
+            actual = self.get_actual_by_product_month(product_id, current_year, current_month)
+            units = actual[4] if actual else 0
         
         # 2. Get Allocations
         allocations = self.get_allocations_for_product(product_id)
@@ -1637,7 +1641,7 @@ class CRUDOperations(DatabaseSchema):
                     total_alloc_weight = sum(p['value'] for p in item_alloc_providers)
                 
                 # --- Largest Remainder Method (Hamilton Method) ---
-                # Pre-calculate allocations to ensure sum(allocated) == actuals
+                # Pre-calculate allocations to ensure sum(allocated) == units
                 
                 alloc_precalc = []
                 
@@ -1652,11 +1656,11 @@ class CRUDOperations(DatabaseSchema):
                     if p_alloc:
                         val = p_alloc['value']
                         if mode == 'percentage':
-                            raw_val = actual_units * (val / 100.0)
+                            raw_val = units * (val / 100.0)
                         else: # units/weight
                             if total_alloc_weight > 0:
                                 share = val / total_alloc_weight
-                                raw_val = actual_units * share
+                                raw_val = units * share
                     
                     floored = int(raw_val)
                     fraction = raw_val - floored
@@ -1669,7 +1673,7 @@ class CRUDOperations(DatabaseSchema):
 
                 # 2. Calculate Remainder
                 # We round the sum of raw values to handle cases where percentages don't sum to 100%
-                # e.g. if 50% + 40% = 90%, we want 90% of actuals, not 100%.
+                # e.g. if 50% + 40% = 90%, we want 90% of units, not 100%.
                 total_exact = sum(x['raw'] for x in alloc_precalc)
                 target_total = int(round(total_exact))
                 current_total = sum(x['floored'] for x in alloc_precalc)
@@ -1790,7 +1794,8 @@ class CRUDOperations(DatabaseSchema):
         return {
             "year": current_year,
             "month": current_month,
-            "actual_units": actual_units,
+            "units": units,
+            "is_forecast": use_forecasts,
             "processes": processes_data
         }
 
