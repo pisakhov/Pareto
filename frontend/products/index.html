@@ -383,20 +383,35 @@
             </div>
 
             <!-- Table Pricing Section -->
-            <div class="space-y-4">
+            <div class="space-y-6">
                 <div class="flex items-center justify-between">
                     <h3 class="text-lg font-semibold text-slate-900">Pricing Breakdown</h3>
-                    <div class="flex items-center gap-2 px-3 py-1.5 bg-slate-100 rounded-lg text-sm border border-slate-200">
-                        <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                        <span id="pricingMonthYear" class="font-medium text-slate-700"></span>
-                        <span class="text-slate-300">|</span>
-                        <span class="text-slate-500">Actuals:</span>
-                        <span id="pricingActuals" class="font-bold text-slate-900"></span>
-                        <span class="text-slate-300">|</span>
-                        <span class="text-slate-500">Total:</span>
-                        <span id="pricingTotalCost" class="font-bold text-[#fb923c]"></span>
+                    <div id="pricingMonthYear" class="min-w-[200px]"></div>
+                </div>
+
+                <!-- Metrics Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between transition-all hover:shadow-md">
+                        <div>
+                            <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Actual Units</p>
+                            <p id="pricingActuals" class="text-2xl font-bold text-slate-900 mt-1">--</p>
+                        </div>
+                        <div class="p-3 bg-slate-50 rounded-full text-slate-400">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between transition-all hover:shadow-md">
+                        <div>
+                            <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Cost</p>
+                            <p id="pricingTotalCost" class="text-2xl font-bold text-[#fb923c] mt-1">--</p>
+                        </div>
+                        <div class="p-3 bg-orange-50 rounded-full text-[#fb923c]">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        </div>
                     </div>
                 </div>
+
                 <div id="pricingTablesContainer" class="space-y-6">
                     <!-- Pricing tables will be loaded here -->
                     <div class="flex items-center justify-center py-8 text-slate-400">

@@ -10,10 +10,12 @@ class ProductView {
         try {
             // Load fresh data to get details
             const product = await dataService.getProduct(productId);
+            this.currentProduct = product; // Store for reference
             this.render(product);
+            this.renderDateSelector(product);
             this.openModal();
             
-            // Load Pricing Data
+            // Load Pricing Data (default to current date)
             this.loadPricingData(productId);
         } catch (error) {
             console.error('Failed to load product details:', error);
@@ -25,39 +27,86 @@ class ProductView {
         }
     }
 
-    async loadPricingData(productId) {
-        const container = document.getElementById('pricingTablesContainer');
-        const headerMonthYear = document.getElementById('pricingMonthYear');
-        const headerActuals = document.getElementById('pricingActuals');
-        const headerTotalCost = document.getElementById('pricingTotalCost');
-        
+    renderDateSelector(product) {
+        const container = document.getElementById('pricingMonthYear');
         if (!container) return;
+
+        // Get actuals and sort descending
+        const actuals = (product.actuals || []).sort((a, b) => {
+            if (a.year !== b.year) return b.year - a.year;
+            return b.month - a.month;
+        });
+
+        // Create Select Element
+        const select = document.createElement('select');
+        select.className = 'w-full bg-white border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-[#fb923c] focus:border-[#fb923c] block p-2.5 shadow-sm';
         
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth() + 1;
+
+        // Add "Current (Nov 2025)" option
+        const currentMonthName = now.toLocaleString('default', { month: 'long' });
+        const currentOption = document.createElement('option');
+        currentOption.value = `${currentYear}-${currentMonth}`;
+        currentOption.textContent = `${currentMonthName} ${currentYear} (Current)`;
+        select.appendChild(currentOption);
+
+        // Add Actuals options
+        const uniqueDates = new Set();
+        uniqueDates.add(`${currentYear}-${currentMonth}`);
+
+        actuals.forEach(a => {
+            const dateKey = `${a.year}-${a.month}`;
+            if (!uniqueDates.has(dateKey)) {
+                uniqueDates.add(dateKey);
+                const option = document.createElement('option');
+                option.value = dateKey;
+                const mName = new Date(a.year, a.month - 1).toLocaleString('default', { month: 'long' });
+                option.textContent = `${mName} ${a.year}`;
+                select.appendChild(option);
+            }
+        });
+
+        // Handle Change
+        select.onchange = (e) => {
+            const [year, month] = e.target.value.split('-');
+            this.loadPricingData(product.product_id, parseInt(year), parseInt(month));
+        };
+
+        // Clear current content and add select
+        container.innerHTML = '';
+        container.appendChild(select);
+    }
+
+    async loadPricingData(productId, year = null, month = null) {
+        const container = document.getElementById('pricingTablesContainer');
         container.innerHTML = '<div class="flex items-center justify-center py-8 text-slate-400"><span class="text-sm">Loading pricing data...</span></div>';
         
         try {
-            const response = await fetch(`/api/products/${productId}/pricing_view`);
-            if (!response.ok) throw new Error('Failed to load pricing data');
+            let url = `/api/products/${productId}/pricing_view`;
+            if (year && month) {
+                url += `?year=${year}&month=${month}`;
+            }
             
+            const response = await fetch(url);
             const data = await response.json();
             
             // Calculate Grand Total
             let grandTotal = 0;
-            if (data.processes) {
-                data.processes.forEach(process => {
-                    if (process.rows) {
-                        process.rows.forEach(row => {
-                            grandTotal += row.total_cost || 0;
-                        });
-                    }
+            data.processes.forEach(process => {
+                process.rows.forEach(row => {
+                    grandTotal += row.total_cost;
                 });
-            }
+            });
 
-            // Update Header
-            const monthName = new Date(data.year, data.month - 1).toLocaleString('default', { month: 'long' });
-            if (headerMonthYear) headerMonthYear.textContent = `${monthName} ${data.year}`;
-            if (headerActuals) headerActuals.textContent = data.actual_units.toLocaleString();
-            if (headerTotalCost) headerTotalCost.textContent = `$${grandTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            // Update Header - Don't overwrite the selector, just the other fields
+            // The selector updates itself via user interaction.
+            // If we loaded via default (no params), ensure selector matches returned date?
+            // For now, we trust the selector's state or the default load.
+            
+            document.getElementById('pricingActuals').textContent = data.actual_units.toLocaleString();
+            document.getElementById('pricingTotalCost').textContent = `$${grandTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             
             this.renderPricingTables(data, container);
             
@@ -68,7 +117,7 @@ class ProductView {
     }
 
     renderPricingTables(data, container) {
-        if (!data.processes || data.processes.length === 0) {
+        if (data.processes.length === 0) {
             container.innerHTML = '<div class="text-center py-4 text-slate-500 text-sm">No pricing data available</div>';
             return;
         }
@@ -191,29 +240,20 @@ class ProductView {
 
     render(product) {
         // Populate fields
-        const nameEl = document.getElementById('viewProductName');
-        if (nameEl) nameEl.textContent = product.name;
-
-        const descEl = document.getElementById('viewProductDescription');
-        if (descEl) descEl.textContent = product.description || 'No description provided';
+        document.getElementById('viewProductName').textContent = product.name;
+        document.getElementById('viewProductDescription').textContent = product.description || 'No description provided';
         
         const statusEl = document.getElementById('viewProductStatus');
-        if (statusEl) {
-            const isActive = product.status === 'active';
-            statusEl.textContent = isActive ? 'Active' : 'Inactive';
-            statusEl.className = `px-2.5 py-0.5 rounded-full text-xs font-medium border ${isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-100 text-gray-700 border-gray-200'}`;
-        }
+        const isActive = product.status === 'active';
+        statusEl.textContent = isActive ? 'Active' : 'Inactive';
+        statusEl.className = `px-2.5 py-0.5 rounded-full text-xs font-medium border ${isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-100 text-gray-700 border-gray-200'}`;
 
         // Dates
-        const createdEl = document.getElementById('viewProductCreated');
-        if (createdEl) createdEl.textContent = this.formatDate(product.date_creation);
-        
-        const updatedEl = document.getElementById('viewProductUpdated');
-        if (updatedEl) updatedEl.textContent = this.formatDate(product.date_last_update);
+        document.getElementById('viewProductCreated').textContent = this.formatDate(product.date_creation);
+        document.getElementById('viewProductUpdated').textContent = this.formatDate(product.date_last_update);
         
         // Stats
-        const countEl = document.getElementById('viewProductItemCount');
-        if (countEl) countEl.textContent = product.item_ids ? product.item_ids.length : 0;
+        document.getElementById('viewProductItemCount').textContent = product.item_ids.length;
     }
 
     formatDate(dateString) {

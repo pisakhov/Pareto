@@ -1579,15 +1579,17 @@ class CRUDOperations(DatabaseSchema):
 
         return float(result[0]) if result else None
 
-    def get_product_pricing_table_data(self, product_id: int) -> Dict[str, Any]:
+    def get_product_pricing_table_data(self, product_id: int, year: int = None, month: int = None) -> Dict[str, Any]:
         """
-        Calculate detailed pricing table for a product based on current month's actuals.
+        Calculate detailed pricing table for a product based on actuals.
         Returns structure suitable for frontend rendering.
         """
         conn = self._get_connection()
         now = datetime.now()
-        current_year = now.year
-        current_month = now.month
+        
+        # Default to current date if not provided
+        current_year = year if year is not None else now.year
+        current_month = month if month is not None else now.month
         
         # 1. Get Actuals
         actual = self.get_actual_by_product_month(product_id, current_year, current_month)
