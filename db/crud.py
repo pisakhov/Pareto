@@ -1634,35 +1634,85 @@ class CRUDOperations(DatabaseSchema):
                 if mode != 'percentage' and item_alloc_providers:
                     total_alloc_weight = sum(p['value'] for p in item_alloc_providers)
                 
+                # --- Largest Remainder Method (Hamilton Method) ---
+                # Pre-calculate allocations to ensure sum(allocated) == actuals
+                
+                alloc_precalc = []
+                
+                # 1. Calculate Exact Shares and Floors
                 for provider in item['providers']:
+                    p_id = provider['provider_id']
+                    
+                    # Find allocation config
+                    p_alloc = next((p for p in item_alloc_providers if p['provider_id'] == p_id), None)
+                    
+                    raw_val = 0.0
+                    if p_alloc:
+                        val = p_alloc['value']
+                        if mode == 'percentage':
+                            raw_val = actual_units * (val / 100.0)
+                        else: # units/weight
+                            if total_alloc_weight > 0:
+                                share = val / total_alloc_weight
+                                raw_val = actual_units * share
+                    
+                    floored = int(raw_val)
+                    fraction = raw_val - floored
+                    
+                    alloc_precalc.append({
+                        'floored': floored,
+                        'fraction': fraction,
+                        'raw': raw_val
+                    })
+
+                # 2. Calculate Remainder
+                # We round the sum of raw values to handle cases where percentages don't sum to 100%
+                # e.g. if 50% + 40% = 90%, we want 90% of actuals, not 100%.
+                total_exact = sum(x['raw'] for x in alloc_precalc)
+                target_total = int(round(total_exact))
+                current_total = sum(x['floored'] for x in alloc_precalc)
+                remainder = target_total - current_total
+                
+                # 3. Distribute Remainder
+                if remainder > 0:
+                    # Sort by fractional part descending, preserve original index
+                    indexed_fractions = []
+                    for i, calc in enumerate(alloc_precalc):
+                        indexed_fractions.append((i, calc['fraction']))
+                    
+                    # Sort by fraction desc
+                    indexed_fractions.sort(key=lambda x: x[1], reverse=True)
+                    
+                    # Distribute
+                    for i in range(remainder):
+                        if i < len(indexed_fractions):
+                            idx = indexed_fractions[i][0]
+                            alloc_precalc[idx]['floored'] += 1
+
+                # --- End Allocation Calculation ---
+                
+                for idx, provider in enumerate(item['providers']):
                     provider_id = provider['provider_id']
                     contract_id = provider['contract_id']
                     
-                    # Calculate Allocated Units
-                    alloc_val = 0
-                    alloc_display = "0%"
+                    # Retrieve pre-calculated integer allocation
+                    alloc_val = alloc_precalc[idx]['floored']
                     
-                    # Find allocation value for this provider
-                    # allocations returns dicts with 'provider_id' key
+                    # Get config again just for display strings
                     p_alloc = next((p for p in item_alloc_providers if p['provider_id'] == provider_id), None)
+                    
+                    alloc_display = "0%"
                     
                     if p_alloc:
                         val = p_alloc['value']
                         if mode == 'percentage':
-                            alloc_val = int(actual_units * (val / 100.0))
                             alloc_display = f"{val}%"
-                        else: # units (treated as proportional weight)
-                            if total_alloc_weight > 0:
-                                share = val / total_alloc_weight
-                                alloc_val = int(actual_units * share)
-                            else:
-                                alloc_val = 0
-                            
+                        else: # units
                             # Format cleanly (remove .0)
                             alloc_display = f"{int(val):,}" if val == int(val) else f"{val:,}"
                     
-                    # Skip if no allocation
-                    if alloc_val <= 0:
+                    # Skip if no allocation (and no computed units)
+                    if alloc_val <= 0 and (not p_alloc or p_alloc.get('value', 0) <= 0):
                         continue
                     
                     # Find Tier
@@ -1671,30 +1721,29 @@ class CRUDOperations(DatabaseSchema):
                     tiers.sort(key=lambda x: x['threshold_units'])
                     
                     active_tier_num = 1
+                    calculated_tier_num = 1
+
+                    # 1. Calculate Volume-Based Tier (Always)
+                    if tiers:
+                        found_tier = None
+                        for t in tiers:
+                            if t['threshold_units'] > alloc_val:
+                                found_tier = t
+                                break
+                        
+                        if found_tier:
+                            calculated_tier_num = found_tier['tier_number']
+                        else:
+                            # Exceeded all thresholds, use the highest tier
+                            calculated_tier_num = tiers[-1]['tier_number']
                     
-                    # Check for explicitly selected tier first (User Preference)
+                    # 2. Determine Active Tier (for Pricing)
                     selected_tier = next((t for t in tiers if t['is_selected']), None)
                     
                     if selected_tier:
                         active_tier_num = selected_tier['tier_number']
-                    elif tiers:
-                        # Fallback: Find the highest tier where threshold <= allocated_units
-                        # Assuming threshold is the lower bound (inclusive)
-                        found_tier = None
-                        for t in tiers:
-                            if t['threshold_units'] <= alloc_val:
-                                found_tier = t
-                            else:
-                                # As soon as threshold > alloc_val, we stop. 
-                                # The previous one was the correct tier.
-                                break
-                        
-                        if found_tier:
-                            active_tier_num = found_tier['tier_number']
-                        else:
-                            # Volume is less than lowest threshold? 
-                            # Usually lowest threshold is 0. If not, maybe fallback to first tier?
-                            active_tier_num = tiers[0]['tier_number']
+                    else:
+                        active_tier_num = calculated_tier_num
 
                     # Get Price
                     price = self.get_price_for_item_at_tier(provider_id, item_id, active_tier_num, process['process_id'])
@@ -1718,6 +1767,7 @@ class CRUDOperations(DatabaseSchema):
                         "item_name": item['item_name'],
                         "provider_name": provider['provider_name'],
                         "tier": active_tier_num,
+                        "calculated_tier": calculated_tier_num,
                         "price_per_unit": price,
                         "multiplier_display": mult_display,
                         "allocation": alloc_display,

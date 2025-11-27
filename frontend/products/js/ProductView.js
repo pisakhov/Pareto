@@ -92,8 +92,6 @@ class ProductView {
                                     <th class="px-4 py-3 font-medium border-r border-slate-100">Provider</th>
                                     <th class="px-4 py-3 font-medium">Item</th>
                                     <th class="px-4 py-3 font-medium text-right">Price</th>
-                                    <th class="px-4 py-3 font-medium text-right">Multiplier</th>
-                                    <th class="px-4 py-3 font-medium text-right">Allocation</th>
                                     <th class="px-4 py-3 font-medium text-right">Total</th>
                                 </tr>
                             </thead>
@@ -130,26 +128,37 @@ class ProductView {
                         <tr class="hover:bg-slate-50/50 transition-colors">
                             ${isFirst ? `
                                 <td class="px-4 py-3 font-medium text-slate-900 border-r border-slate-100 bg-white align-top" rowspan="${group.rows.length}">
-                                    <div>${this.escapeHtml(row.provider_name)}</div>
-                                    <div class="mt-1">
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
-                                            Tier ${row.tier}
-                                        </span>
+                                    <div class="font-semibold text-slate-800 mb-3">${this.escapeHtml(row.provider_name)}</div>
+                                    
+                                    <div class="space-y-1.5 mb-3">
+                                        <div class="flex justify-between items-baseline text-xs">
+                                            <span class="text-slate-400 font-normal">Share</span>
+                                            <span class="font-medium text-slate-600">${row.allocation}</span>
+                                        </div>
+                                        <div class="flex justify-between items-baseline text-xs">
+                                            <span class="text-slate-400 font-normal">Volume</span>
+                                            <span class="text-slate-600">${row.allocated_units.toLocaleString()} <span class="text-slate-400 text-[10px]">(Tier ${row.calculated_tier})</span></span>
+                                        </div>
+                                        <div class="flex justify-between items-center text-xs pt-0.5">
+                                            <span class="text-slate-400 font-normal">Billed</span>
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[#fff7ed] text-[#c2410c] border border-[#fdba74]">
+                                                Tier ${row.tier}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <div class="mt-2 pt-2 border-t border-slate-100">
-                                        <div class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Total</div>
-                                        <div class="text-sm font-bold text-slate-700">$${group.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+
+                                    <div class="pt-2 border-t border-slate-100 flex justify-between items-baseline">
+                                        <span class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Total</span>
+                                        <span class="text-sm font-bold text-slate-700">$${group.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                                     </div>
                                 </td>
                             ` : ''}
                             <td class="px-4 py-3 text-slate-600 font-medium">${this.escapeHtml(row.item_name)}</td>
-                            <td class="px-4 py-3 text-right text-slate-600">$${parseFloat(row.price_per_unit.toFixed(4))}</td>
-                            <td class="px-4 py-3 text-right text-slate-500 text-xs">${row.multiplier_display}</td>
-                            <td class="px-4 py-3 text-right font-medium text-slate-700">
-                                ${row.allocation}
-                                <div class="text-[10px] text-slate-400 font-normal">(${row.allocated_units.toLocaleString()} units)</div>
+                            <td class="px-4 py-3 text-right text-slate-600 align-top">
+                                <div class="font-medium text-slate-700">$${parseFloat(row.price_per_unit.toFixed(4))}</div>
+                                ${row.multiplier_display !== '-' ? `<div class="text-[10px] text-slate-400 mt-0.5">x${row.multiplier_display}</div>` : ''}
                             </td>
-                            <td class="px-4 py-3 text-right font-bold text-[#fb923c]">$${row.total_cost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                            <td class="px-4 py-3 text-right font-bold text-[#fb923c]">$${row.total_cost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 4})}</td>
                         </tr>
                     `;
                 });
@@ -159,7 +168,7 @@ class ProductView {
                             </tbody>
                             <tfoot class="bg-slate-50 border-t border-slate-200">
                                 <tr>
-                                    <td colspan="5" class="px-4 py-3 text-right font-semibold text-slate-700">Process Subtotal</td>
+                                    <td colspan="3" class="px-4 py-3 text-right font-semibold text-slate-700">Process Subtotal</td>
                                     <td class="px-4 py-3 text-right font-bold text-slate-900 text-base">
                                         $${processTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                                     </td>
