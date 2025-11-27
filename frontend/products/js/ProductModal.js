@@ -193,7 +193,7 @@ class ForecastManager {
             const capType = type.charAt(0).toUpperCase() + type.slice(1);
             
             document.getElementById(`clearAll${capType}s`)?.addEventListener('click', () => {
-                this.data[type] = [];
+                this.data[type] = this.data[type].filter(d => d.year !== this.currentYear);
                 this.render();
             });
 
@@ -203,11 +203,17 @@ class ForecastManager {
                 if (!value) return;
 
                 const key = this.config[type].key;
-                this.data[type] = Array.from({ length: 12 }, (_, i) => ({
+                // Remove existing entries for this year
+                const otherYearsData = this.data[type].filter(d => d.year !== this.currentYear);
+                
+                // Create new entries for this year
+                const currentYearData = Array.from({ length: 12 }, (_, i) => ({
                     year: this.currentYear,
                     month: i + 1,
                     [key]: value
                 }));
+
+                this.data[type] = [...otherYearsData, ...currentYearData];
                 this.render();
             });
         });
@@ -279,7 +285,11 @@ class ChartManager {
             actualMap.set(`${a.year}-${a.month}`, a.actual_units);
         });
 
-        const allDates = [...new Set([...forecastMap.keys(), ...actualMap.keys()])].sort();
+        const allDates = [...new Set([...forecastMap.keys(), ...actualMap.keys()])].sort((a, b) => {
+            const [y1, m1] = a.split('-').map(Number);
+            const [y2, m2] = b.split('-').map(Number);
+            return y1 - y2 || m1 - m2;
+        });
         const labels = allDates.map(date => {
             const [year, month] = date.split('-');
             return new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
