@@ -5,6 +5,7 @@ class ProductView {
     constructor() {
         this.modalId = 'productViewModal';
         this.viewMode = 'actuals'; // 'actuals' or 'forecasts'
+        this.chart = null;
     }
 
     async show(productId) {
@@ -16,6 +17,9 @@ class ProductView {
             
             // Setup Toggle
             this.setupModeToggle();
+            
+            // Render Forecast Analysis (Chart & Table)
+            this.renderForecastAnalysis(product);
             
             // Initial Date Selector & Data Load
             this.renderDateSelector(product);
@@ -29,6 +33,318 @@ class ProductView {
                 alert('Failed to load product details');
             }
         }
+    }
+
+    renderForecastAnalysis(product) {
+        // 1. Prepare Data
+        this.forecastMap = new Map();
+        this.actualMap = new Map();
+
+        (product.forecasts || []).forEach(f => {
+            this.forecastMap.set(`${f.year}-${f.month}`, f.forecast_units);
+        });
+
+        (product.actuals || []).forEach(a => {
+            this.actualMap.set(`${a.year}-${a.month}`, a.actual_units);
+        });
+
+        // Collect all unique dates
+        const allDates = [...new Set([...this.forecastMap.keys(), ...this.actualMap.keys()])].sort((a, b) => {
+            const [y1, m1] = a.split('-').map(Number);
+            const [y2, m2] = b.split('-').map(Number);
+            return y1 - y2 || m1 - m2;
+        });
+
+        const labels = allDates.map(date => {
+            const [year, month] = date.split('-');
+            return new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        });
+
+        // 2. Render Chart
+        const ctx = document.getElementById('viewForecastActualsChart');
+        if (ctx) {
+            if (this.chart) this.chart.destroy();
+
+            this.chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Forecast',
+                            data: allDates.map(d => this.forecastMap.get(d) || null),
+                            borderColor: 'rgb(251, 146, 60)',
+                            backgroundColor: 'rgba(251, 146, 60, 0.15)',
+                            borderWidth: 3,
+                            tension: 0.4,
+                            fill: true,
+                            pointRadius: 5,
+                            pointHoverRadius: 7
+                        },
+                        {
+                            label: 'Actuals',
+                            data: allDates.map(d => this.actualMap.get(d) || null),
+                            borderColor: 'rgb(37, 91, 227)',
+                            backgroundColor: 'rgba(37, 91, 227, 0.15)',
+                            borderWidth: 3,
+                            tension: 0.4,
+                            fill: true,
+                            pointRadius: 5,
+                            pointHoverRadius: 7
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: true, position: 'top' } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: 'rgba(0, 0, 0, 0.05)' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        // 3. Render Calculator & Table
+        const tableBody = document.getElementById('viewForecastActualsTable');
+        // Ensure table body exists, which implies the structure is loaded from HTML
+        if (tableBody) {
+            const container = tableBody.closest('.bg-white'); // Find the parent card container
+            
+            if (container) {
+                // Insert Calculator HTML if not present
+                if (!document.getElementById('unitsCalculator')) {
+                    const calcHtml = `
+                        <div id="unitsCalculator" class="bg-white rounded-xl p-5 mb-6 border border-slate-200 shadow-sm relative overflow-hidden">
+                            <div class="absolute top-0 left-0 w-1.5 h-full bg-[#fb923c]"></div>
+                            
+                            <div class="mb-4 border-b border-slate-100 pb-3 flex items-center justify-between pl-2 pr-2">
+                                <div class="flex items-center gap-2">
+                                    <svg class="w-4 h-4 text-[#fb923c]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                    </svg>
+                                    <span class="text-sm font-bold text-slate-800">Simulation Lookup</span>
+                                </div>
+                                <span class="text-[10px] font-medium text-slate-400 flex items-center gap-1">
+                                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    We don't save this information
+                                </span>
+                            </div>
+
+                            <div class="flex flex-col sm:flex-row items-center justify-between gap-6 pl-2">
+                                
+                                <!-- Controls Group -->
+                                <div class="flex flex-wrap items-center justify-center sm:justify-start gap-6 flex-1">
+                                    
+                                    <!-- Source -->
+                                    <div class="flex flex-col gap-1.5">
+                                        <label class="text-[11px] uppercase tracking-wider font-bold text-slate-400">Lookup Source</label>
+                                        <div class="flex bg-slate-100/80 p-1 rounded-lg">
+                                            <button type="button" id="btnCalcSourceActual" class="px-3 py-1.5 text-xs font-bold rounded-md bg-white text-slate-900 shadow-sm transition-all min-w-[70px]">Actuals</button>
+                                            <button type="button" id="btnCalcSourceForecast" class="px-3 py-1.5 text-xs font-bold rounded-md text-slate-500 hover:text-slate-900 transition-all min-w-[70px]">Forecast</button>
+                                        </div>
+                                        <input type="hidden" id="calcSource" value="actual">
+                                    </div>
+
+                                    <!-- Method -->
+                                    <div class="flex flex-col gap-1.5">
+                                        <label class="text-[11px] uppercase tracking-wider font-bold text-slate-400">Method</label>
+                                        <div class="flex bg-slate-100/80 p-1 rounded-lg">
+                                            <button type="button" id="btnCalcMethodSum" class="px-3 py-1.5 text-xs font-bold rounded-md bg-white text-slate-900 shadow-sm transition-all min-w-[50px]">SUM</button>
+                                            <button type="button" id="btnCalcMethodAvg" class="px-3 py-1.5 text-xs font-bold rounded-md text-slate-500 hover:text-slate-900 transition-all min-w-[50px]">AVG</button>
+                                        </div>
+                                        <input type="hidden" id="calcMethod" value="SUM">
+                                    </div>
+
+                                    <!-- Lookback -->
+                                    <div class="flex flex-col gap-1.5">
+                                        <label class="text-[11px] uppercase tracking-wider font-bold text-slate-400">Range (Months)</label>
+                                        <div class="flex items-center bg-slate-50 border border-slate-200 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-[#fb923c]/20 focus-within:border-[#fb923c] transition-all h-[36px]">
+                                            <div class="pl-3 pr-2 text-sm text-slate-500 font-medium border-r border-slate-200/50 bg-slate-100/50 h-full flex items-center">Last</div>
+                                            <input type="number" id="calcLookback" class="w-16 text-center bg-transparent border-none focus:ring-0 text-sm font-semibold text-slate-900 py-1" value="3" min="1">
+                                            <div class="pr-3 pl-2 text-[10px] text-slate-400 font-medium border-l border-slate-200/50 h-full flex items-center bg-slate-100/50" title="Includes current month">inc. curr.</div>
+                                        </div>
+                                    </div>
+
+                                </div>
+
+                                <!-- Result -->
+                                <div class="flex flex-col items-end justify-center pl-6 sm:border-l sm:border-slate-100 min-w-[140px]">
+                                    <span class="text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1">Calculated Base</span>
+                                    <div class="flex items-baseline gap-1.5">
+                                        <span id="calcResult" class="text-3xl font-bold text-slate-900 tabular-nums tracking-tight">--</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Insert before the table container (find parent of table)
+                    const tableContainer = tableBody.parentElement; // table
+                    const tableWrapper = tableContainer ? tableContainer.parentElement : null; // div.overflow-x-auto
+                    
+                    if (tableWrapper) {
+                        tableWrapper.insertAdjacentHTML('beforebegin', calcHtml);
+                        
+                        // Bind Events
+                        this.setupCalculatorEvents();
+                    }
+                }
+            }
+        }
+
+        // 4. Render Table Rows
+        // Reuse tableBody from step 3
+        if (tableBody) {
+            if (allDates.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="4" class="px-4 py-3 text-center text-slate-500">No data available</td></tr>';
+            } else {
+                let tableHtml = '';
+                // Reverse chronological for the table
+                const reversedDates = [...allDates].reverse();
+                
+                reversedDates.forEach(dateStr => {
+                    const [year, month] = dateStr.split('-');
+                    const label = new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                    
+                    const fVal = this.forecastMap.get(dateStr);
+                    const aVal = this.actualMap.get(dateStr);
+                    
+                    const fDisplay = fVal !== undefined ? fVal.toLocaleString() : '-';
+                    const aDisplay = aVal !== undefined ? aVal.toLocaleString() : '-';
+                    
+                    let varianceHtml = '-';
+                    if (fVal !== undefined && aVal !== undefined) {
+                        const variance = aVal - fVal;
+                        const variancePct = fVal !== 0 ? ((variance / fVal) * 100).toFixed(1) : '0.0';
+                        const colorClass = variance > 0 ? 'text-blue-600' : (variance < 0 ? 'text-orange-600' : 'text-slate-600');
+                        const sign = variance > 0 ? '+' : '';
+                        varianceHtml = `<span class="${colorClass} font-medium">${sign}${variance.toLocaleString()} (${sign}${variancePct}%)</span>`;
+                    }
+
+                    tableHtml += `
+                        <tr data-date="${dateStr}" class="hover:bg-slate-50/50 transition-colors border-l-4 border-transparent">
+                            <td class="px-4 py-2 font-medium text-slate-700">${label}</td>
+                            <td class="px-4 py-2 text-right text-slate-600">${fDisplay}</td>
+                            <td class="px-4 py-2 text-right text-slate-600 font-medium">${aDisplay}</td>
+                            <td class="px-4 py-2 text-right text-slate-600">${varianceHtml}</td>
+                        </tr>
+                    `;
+                });
+                tableBody.innerHTML = tableHtml;
+            }
+        }
+        
+        // Trigger initial calculation
+        this.updateCalculator();
+    }
+
+    setupCalculatorEvents() {
+        // Bind Toggle Buttons
+        const bindToggle = (valId, btnId, value) => {
+            const btn = document.getElementById(btnId);
+            if (!btn) return;
+            
+            btn.addEventListener('click', () => {
+                // Update hidden input
+                const input = document.getElementById(valId);
+                if (input) input.value = value;
+
+                // Update visual state for this group
+                if (valId === 'calcSource') {
+                    this.updateToggleState('btnCalcSourceActual', value === 'actual');
+                    this.updateToggleState('btnCalcSourceForecast', value === 'forecast');
+                } else if (valId === 'calcMethod') {
+                    this.updateToggleState('btnCalcMethodSum', value === 'SUM');
+                    this.updateToggleState('btnCalcMethodAvg', value === 'AVG');
+                }
+
+                this.updateCalculator();
+            });
+        };
+
+        bindToggle('calcSource', 'btnCalcSourceActual', 'actual');
+        bindToggle('calcSource', 'btnCalcSourceForecast', 'forecast');
+        bindToggle('calcMethod', 'btnCalcMethodSum', 'SUM');
+        bindToggle('calcMethod', 'btnCalcMethodAvg', 'AVG');
+
+        // Bind Lookback Input
+        const lookbackEl = document.getElementById('calcLookback');
+        if(lookbackEl) {
+            lookbackEl.addEventListener('change', () => this.updateCalculator());
+            lookbackEl.addEventListener('input', () => this.updateCalculator());
+        }
+    }
+
+    updateToggleState(btnId, isActive) {
+        const btn = document.getElementById(btnId);
+        if (!btn) return;
+        if (isActive) {
+            btn.className = 'px-3 py-1.5 text-xs font-bold rounded-md bg-white text-slate-900 shadow-sm transition-all min-w-[70px]';
+            // Adjust min-width for Method buttons if needed, or keep generic
+            if (btnId.includes('Method')) {
+                 btn.className = 'px-3 py-1.5 text-xs font-bold rounded-md bg-white text-slate-900 shadow-sm transition-all min-w-[50px]';
+            }
+        } else {
+            btn.className = 'px-3 py-1.5 text-xs font-bold rounded-md text-slate-500 hover:text-slate-900 transition-all min-w-[70px]';
+            if (btnId.includes('Method')) {
+                 btn.className = 'px-3 py-1.5 text-xs font-bold rounded-md text-slate-500 hover:text-slate-900 transition-all min-w-[50px]';
+            }
+        }
+    }
+
+    updateCalculator() {
+        if (!this.currentPricingDate || !this.forecastMap) return;
+
+        const source = document.getElementById('calcSource').value; // 'actual' or 'forecast'
+        const method = document.getElementById('calcMethod').value; // 'SUM' or 'AVG'
+        const lookback = parseInt(document.getElementById('calcLookback').value) || 1;
+        
+        let total = 0;
+        let count = 0;
+        const highlightedDates = new Set();
+
+        // Calculate dates backwards from current
+        for (let i = 0; i < lookback; i++) {
+            const d = new Date(this.currentPricingDate.year, (this.currentPricingDate.month - 1) - i, 1);
+            const dateKey = `${d.getFullYear()}-${d.getMonth() + 1}`;
+            
+            highlightedDates.add(dateKey);
+            
+            const map = source === 'actual' ? this.actualMap : this.forecastMap;
+            const val = map.get(dateKey);
+            
+            if (val !== undefined) {
+                total += val;
+                count++;
+            }
+        }
+
+        let result = 0;
+        if (method === 'SUM') {
+            result = total;
+        } else if (method === 'AVG') {
+            result = count > 0 ? total / count : 0;
+        }
+
+        // Update Result Display
+        const resultEl = document.getElementById('calcResult');
+        if (resultEl) {
+            resultEl.textContent = result.toLocaleString(undefined, { maximumFractionDigits: 0 });
+            resultEl.className = `text-3xl font-bold tabular-nums tracking-tight transition-colors ${source === 'actual' ? 'text-[#255be3]' : 'text-orange-600'}`;
+        }
+
+        // Highlight Table Rows
+        const rows = document.querySelectorAll('#viewForecastActualsTable tr');
+        rows.forEach(row => {
+            const date = row.dataset.date;
+            if (highlightedDates.has(date)) {
+                row.className = `bg-${source === 'actual' ? 'blue' : 'orange'}-50/50 transition-colors border-l-4 border-${source === 'actual' ? 'blue' : 'orange'}-500`;
+            } else {
+                row.className = 'hover:bg-slate-50/50 transition-colors border-l-4 border-transparent';
+            }
+        });
     }
 
     setupModeToggle() {
@@ -119,8 +435,13 @@ class ProductView {
         // Handle Change
         select.onchange = (e) => {
             const [year, month] = e.target.value.split('-');
+            this.currentPricingDate = { year: parseInt(year), month: parseInt(month) };
             this.loadPricingData(product.product_id, parseInt(year), parseInt(month));
+            this.updateCalculator();
         };
+
+        // Set initial current date state
+        this.currentPricingDate = { year: currentYear, month: currentMonth };
 
         // Clear current content and add select
         container.innerHTML = '';
@@ -299,7 +620,6 @@ class ProductView {
         statusEl.className = `px-2.5 py-0.5 rounded-full text-xs font-medium border ${isActive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-gray-100 text-gray-700 border-gray-200'}`;
 
         // Dates
-        document.getElementById('viewProductCreated').textContent = this.formatDate(product.date_creation);
         document.getElementById('viewProductUpdated').textContent = this.formatDate(product.date_last_update);
         
         // Stats
@@ -332,6 +652,12 @@ class ProductView {
             modal.classList.remove('flex');
         }
         document.removeEventListener('keydown', this.handleEscape);
+
+        // Destroy chart to prevent memory leaks
+        if (this.chart) {
+            this.chart.destroy();
+            this.chart = null;
+        }
     }
 
     handleEscape = (e) => {
