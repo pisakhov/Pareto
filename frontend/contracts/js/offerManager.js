@@ -58,7 +58,6 @@ class OfferManager {
     if (!providerId) return;
 
     await this.addProviderOffer(providerId);
-    this.providerSelect.value = '';
   }
 
   async addProviderOffer(providerId) {
