@@ -1859,9 +1859,20 @@ class CRUDOperations(DatabaseSchema):
             process_rows.sort(key=lambda x: (x['provider_name'], x['item_name']))
 
             if process_rows:
+                # Fetch contract lookup defaults (using the first found contract as representative)
+                contract_lookup = None
+                if process.get('items'):
+                    for item in process['items']:
+                        if item.get('providers'):
+                            first_contract = item['providers'][0]
+                            if 'contract_id' in first_contract:
+                                contract_lookup = self.get_contract_lookup(first_contract['contract_id'])
+                                break
+                    
                 processes_data.append({
                     "process_id": process['process_id'],
                     "process_name": process['process_name'],
+                    "contract_lookup": contract_lookup,
                     "rows": process_rows
                 })
                 

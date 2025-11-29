@@ -277,16 +277,16 @@ class ProcessModal {
                             </div>
                         </div>
                         
-                        <!-- Lookback Input -->
+                        <!-- Window Size Input -->
                         <div class="space-y-1.5">
                             <div class="flex items-center justify-between">
-                                <label class="text-xs font-medium text-slate-500">Lookback Period (Months)</label>
-                                <span class="text-[10px] text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">0 = Current only</span>
+                                <label class="text-xs font-medium text-slate-500">Window Size (Months)</label>
+                                <span class="text-[10px] text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">1 = Current only</span>
                             </div>
                             <div class="relative">
-                                <input type="number" min="0" max="12" value="${lookup.lookback_months}" 
+                                <input type="number" min="1" max="12" value="${lookup.lookback_months + 1}" 
                                        class="lookup-range w-full px-3 py-1.5 text-sm bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all h-9"
-                                       oninput="if(this.value === '') return; if(this.value < 0) this.value = 0; if(this.value > 12) this.value = 12;">
+                                       oninput="if(this.value === '') return; if(this.value < 1) this.value = 1; if(this.value > 12) this.value = 12;">
                             </div>
                         </div>
                     </div>
@@ -502,7 +502,9 @@ class ProcessModal {
             const source = row.querySelector('.lookup-source').value;
             const method = row.querySelector('.lookup-method').value;
             const rangeVal = parseInt(row.querySelector('.lookup-range').value);
-            const lookbackMonths = isNaN(rangeVal) ? 0 : Math.max(0, rangeVal);
+            // UI is Window Size (1-based), DB is Lookback (0-based)
+            // Window Size 1 -> Lookback 0
+            const lookbackMonths = isNaN(rangeVal) ? 0 : Math.max(0, rangeVal - 1);
 
             await dataService.saveContractLookup({
                 contract_id: contract.contract_id,
@@ -575,7 +577,9 @@ class ProcessModal {
             const source = row.querySelector('.lookup-source').value;
             const method = row.querySelector('.lookup-method').value;
             const rangeVal = parseInt(row.querySelector('.lookup-range').value);
-            const lookbackMonths = isNaN(rangeVal) ? 0 : Math.max(0, rangeVal);
+            // UI is Window Size (1-based), DB is Lookback (0-based)
+            // Window Size 1 -> Lookback 0
+            const lookbackMonths = isNaN(rangeVal) ? 0 : Math.max(0, rangeVal - 1);
 
             await dataService.saveContractLookup({
                 contract_id: contractId,

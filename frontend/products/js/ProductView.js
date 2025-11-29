@@ -141,7 +141,7 @@ class ProductView {
         const processForecasts = (this.currentProduct.forecasts || []).filter(f => f.process_id === processId);
         const processActuals = (this.currentProduct.actuals || []).filter(a => a.process_id === processId);
         
-        this.renderProcessAnalysis(processId, processForecasts, processActuals, document.getElementById(`analysis_container_${processId}`));
+        this.renderProcessAnalysis(processId, processForecasts, processActuals, document.getElementById(`analysis_container_${processId}`), processData);
     }
 
     renderProcessPricing(processData, container) {
@@ -244,7 +244,7 @@ class ProductView {
         container.innerHTML = html;
     }
 
-    renderProcessAnalysis(processId, forecasts, actuals, container) {
+    renderProcessAnalysis(processId, forecasts, actuals, container, processData) {
         // 1. Prepare Maps
         const forecastMap = new Map();
         const actualMap = new Map();
@@ -404,17 +404,59 @@ class ProductView {
         tableBody.innerHTML = tableHtml;
 
         // 5. Setup Calculator
-        this.setupProcessCalculator(processId, calcId, tableId, forecastMap, actualMap);
+        this.setupProcessCalculator(processId, calcId, tableId, forecastMap, actualMap, processData);
     }
 
-    setupProcessCalculator(processId, calcId, tableId, forecastMap, actualMap) {
-        const state = { source: 'actual', method: 'SUM', lookback: 3 };
+    setupProcessCalculator(processId, calcId, tableId, forecastMap, actualMap, processData) {
+        // Use lookup defaults from DB or fallback
+        // Note: DB uses 'actuals'/'forecasts', calculator uses 'actual'/'forecast' internally in this view logic,
+        // but let's align to DB values for consistency.
+        const defaultSource = processData.contract_lookup?.source || 'actuals'; 
+        let defaultMethod = processData.contract_lookup?.method || 'SUM';
+        // Map Total -> SUM for calculator compatibility if needed, though calculator supports SUM
+        if (defaultMethod === 'Total') defaultMethod = 'SUM';
+        if (defaultMethod === 'Average') defaultMethod = 'AVG';
+
+        // Calculate Window Size from DB Lookback
+        // DB stores "Lookback Period" (e.g., 4 means look back 4 months).
+        // Calculator uses "Window Size" (total months to include).
+        // Window Size = Lookback Period + 1 (Current Month)
+        // Example: Lookback 4 = Current + 4 previous = 5 months total window.
+        const dbLookback = processData.contract_lookup?.lookback_months !== undefined 
+            ? processData.contract_lookup.lookback_months 
+            : 0;
+            
+        const defaultLookback = dbLookback + 1;
+
+        const state = { source: defaultSource, method: defaultMethod, lookback: defaultLookback };
         this.calculators.set(processId, state);
+
+        // Update UI buttons to match default state
+        const updateButtons = () => {
+            const groupIds = [`${calcId}_src_act`, `${calcId}_src_fc`, `${calcId}_mth_sum`, `${calcId}_mth_avg`];
+            groupIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                
+                let isActive = false;
+                if (id.includes('_src_act') && state.source === 'actuals') isActive = true;
+                if (id.includes('_src_fc') && state.source === 'forecasts') isActive = true;
+                if (id.includes('_mth_sum') && state.method === 'SUM') isActive = true;
+                if (id.includes('_mth_avg') && state.method === 'AVG') isActive = true;
+
+                el.className = isActive 
+                    ? 'px-2 py-1 rounded bg-white shadow-sm font-bold text-slate-800 transition-all' 
+                    : 'px-2 py-1 rounded text-slate-500 hover:text-slate-700 transition-all';
+            });
+            
+            const input = document.getElementById(`${calcId}_lookback`);
+            if (input) input.value = state.lookback;
+        };
 
         const update = () => {
             if (!this.currentPricingDate) return;
             
-            const map = state.source === 'actual' ? actualMap : forecastMap;
+            const map = state.source === 'actuals' ? actualMap : forecastMap;
             let total = 0;
             let count = 0;
             const highlightedDates = new Set();
@@ -435,14 +477,14 @@ class ProductView {
             const resultEl = document.getElementById(`${calcId}_result`);
             if (resultEl) {
                 resultEl.textContent = result.toLocaleString(undefined, { maximumFractionDigits: 0 });
-                resultEl.className = `text-xl font-bold transition-colors ${state.source === 'actual' ? 'text-[#255be3]' : 'text-orange-600'}`;
+                resultEl.className = `text-xl font-bold transition-colors ${state.source === 'actuals' ? 'text-[#255be3]' : 'text-orange-600'}`;
             }
 
             // Highlight rows
             const rows = document.querySelectorAll(`#${tableId} tr`);
             rows.forEach(row => {
                 if (highlightedDates.has(row.dataset.date)) {
-                    row.className = `bg-${state.source === 'actual' ? 'blue' : 'orange'}-50/50 transition-colors border-l-2 border-${state.source === 'actual' ? 'blue' : 'orange'}-500`;
+                    row.className = `bg-${state.source === 'actuals' ? 'blue' : 'orange'}-50/50 transition-colors border-l-2 border-${state.source === 'actuals' ? 'blue' : 'orange'}-500`;
                 } else {
                     row.className = 'hover:bg-slate-50 transition-colors border-l-2 border-transparent';
                 }
@@ -455,20 +497,13 @@ class ProductView {
             if (!btn) return;
             btn.onclick = () => {
                 state[key] = val;
-                // Update UI
-                const groupIds = key === 'source' ? [`${calcId}_src_act`, `${calcId}_src_fc`] : [`${calcId}_mth_sum`, `${calcId}_mth_avg`];
-                groupIds.forEach(id => {
-                    const el = document.getElementById(id);
-                    const isActive = (val === 'actual' && id.includes('act')) || (val === 'forecast' && id.includes('fc')) ||
-                                     (val === 'SUM' && id.includes('sum')) || (val === 'AVG' && id.includes('avg'));
-                    el.className = isActive ? 'px-2 py-1 rounded bg-white shadow-sm font-bold text-slate-800' : 'px-2 py-1 rounded text-slate-500 hover:text-slate-700';
-                });
+                updateButtons();
                 update();
             };
         };
 
-        bindBtn('src_act', 'source', 'actual');
-        bindBtn('src_fc', 'source', 'forecast');
+        bindBtn('src_act', 'source', 'actuals');
+        bindBtn('src_fc', 'source', 'forecasts');
         bindBtn('mth_sum', 'method', 'SUM');
         bindBtn('mth_avg', 'method', 'AVG');
 
@@ -481,7 +516,9 @@ class ProductView {
         }
 
         // Initial run
+        updateButtons();
         update();
+        
         // Expose update function so date selector can trigger it
         state.updateFunc = update;
     }
