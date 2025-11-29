@@ -166,7 +166,7 @@ class ForecastManager {
         this.currentYear = maxYear;
     }
 
-    getHtml(processId) {
+    getHtml(processId, processName) {
         const data = this.ensureProcessData(processId);
         
         const renderTimeline = (type) => {
@@ -205,7 +205,7 @@ class ForecastManager {
                 <div class="flex items-center justify-between mb-4">
                     <h4 class="text-sm font-semibold text-slate-700 flex items-center gap-2">
                         <svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                        Volume Forecasting & Actuals
+                        Volume Forecasting & Actuals - ${dataService.escapeHtml(processName)}
                     </h4>
                     <div class="flex items-center gap-3 bg-white rounded-lg border border-slate-200 p-1 shadow-sm">
                         <button type="button" class="p-1 hover:bg-slate-100 rounded text-slate-500" onclick="productModal.forecast.changeYear(-1)">
@@ -426,95 +426,6 @@ class ForecastManager {
         chart.data.datasets[0].data = displayDates.map(d => forecastMap.get(d) || null);
         chart.data.datasets[1].data = displayDates.map(d => actualMap.get(d) || null);
         chart.update('none');
-    }
-}
-
-// Chart Manager (using Chart.js)
-class ChartManager {
-    constructor() {
-        this.chart = null;
-    }
-
-    init() {
-        const ctx = document.getElementById('forecastActualsChart');
-        if (!ctx) return;
-
-        this.chart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [
-                    {
-                        label: 'Forecast',
-                        data: [],
-                        borderColor: 'rgb(251, 146, 60)',
-                        backgroundColor: 'rgba(251, 146, 60, 0.15)',
-                        borderWidth: 3,
-                        tension: 0.4,
-                        fill: true,
-                        pointRadius: 5,
-                        pointHoverRadius: 7
-                    },
-                    {
-                        label: 'Actuals',
-                        data: [],
-                        borderColor: 'rgb(37, 91, 227)',
-                        backgroundColor: 'rgba(37, 91, 227, 0.15)',
-                        borderWidth: 3,
-                        tension: 0.4,
-                        fill: true,
-                        pointRadius: 5,
-                        pointHoverRadius: 7
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: { beginAtZero: true, grid: { color: 'rgba(0, 0, 0, 0.05)' } },
-                    x: { grid: { display: false } }
-                }
-            }
-        });
-    }
-
-    refresh() {
-        if (!this.chart) return;
-
-        const forecastMap = new Map();
-        const actualMap = new Map();
-
-        productModal.forecast.data.forecast.forEach(f => {
-            forecastMap.set(`${f.year}-${f.month}`, f.forecast_units);
-        });
-
-        productModal.forecast.data.actual.forEach(a => {
-            actualMap.set(`${a.year}-${a.month}`, a.actual_units);
-        });
-
-        const allDates = [...new Set([...forecastMap.keys(), ...actualMap.keys()])].sort((a, b) => {
-            const [y1, m1] = a.split('-').map(Number);
-            const [y2, m2] = b.split('-').map(Number);
-            return y1 - y2 || m1 - m2;
-        });
-        const labels = allDates.map(date => {
-            const [year, month] = date.split('-');
-            return new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-        });
-
-        this.chart.data.labels = labels;
-        this.chart.data.datasets[0].data = allDates.map(d => forecastMap.get(d) || null);
-        this.chart.data.datasets[1].data = allDates.map(d => actualMap.get(d) || null);
-        this.chart.update('none');
-    }
-
-    destroy() {
-        if (this.chart) {
-            this.chart.destroy();
-            this.chart = null;
-        }
     }
 }
 
@@ -805,7 +716,7 @@ class ItemManager {
             
             // Insert Forecast Section for this process
             if (productModal && productModal.forecast) {
-                html += productModal.forecast.getHtml(processId);
+                html += productModal.forecast.getHtml(processId, contract.data.process_name);
             }
         }
 
@@ -878,7 +789,6 @@ const productModal = {
     itemManager: new ItemManager(),
     pricing: new PricingAdjustments(),
     forecast: new ForecastManager(),
-    chart: null,
 
     show(isEdit = false) {
         const modal = document.getElementById('productModal');
@@ -892,8 +802,6 @@ const productModal = {
             this.loadContracts();
         } else {
             // In edit mode, we don't want to reset the data because editProduct() has already loaded it.
-            // We just need to reset the chart instance to ensure a clean render.
-            // this.chart?.destroy();
         }
 
         modal.classList.remove('hidden');
@@ -901,9 +809,6 @@ const productModal = {
 
         setTimeout(() => {
             document.getElementById('productName')?.focus();
-            // Chart disabled for per-process forecasting
-            // if (!this.chart) this.chart = new ChartManager();
-            // this.chart.init();
         }, 100);
     },
 
@@ -988,7 +893,6 @@ const productModal = {
         this.itemManager.reset();
         this.pricing.multipliers = {};
         this.forecast.reset();
-        // this.chart?.destroy();
 
         // Reset UI elements
         const processSelectionCard = document.getElementById('processSelectionCard');
