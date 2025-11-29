@@ -247,94 +247,70 @@
                     </div>
                     <div class="w-px h-8 bg-slate-200"></div>
                     <div class="flex items-center gap-2">
+                        <div class="p-1.5 bg-blue-50 text-blue-600 rounded-md">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/></svg>
+                        </div>
+                        <span class="font-semibold text-slate-700"><span id="viewProductProcessCount" class="text-lg">--</span> <span class="font-normal text-slate-500">Processes</span></span>
+                    </div>
+                    <div class="w-px h-8 bg-slate-200"></div>
+                    <div class="flex items-center gap-2">
                         <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                         <span>Updated <span id="viewProductUpdated" class="font-medium text-slate-700"></span></span>
                     </div>
                 </div>
             </div>
 
-            <!-- Split Layout for Pricing & Analysis -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                
-                <!-- Left Column: Pricing Breakdown -->
-                <div class="space-y-6">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <h3 class="text-lg font-semibold text-slate-900">Pricing Breakdown</h3>
-                        <div class="flex flex-wrap items-center gap-3">
-                            <!-- Mode Toggle -->
-                            <div class="bg-slate-100 p-1 rounded-lg inline-flex border border-slate-200">
-                                <button type="button" id="modeActuals" class="px-3 py-1.5 text-sm font-medium rounded-md transition-all shadow-sm bg-white text-slate-900">
-                                    Actuals
-                                </button>
-                                <button type="button" id="modeForecasts" class="px-3 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 transition-all">
-                                    Forecasts
-                                </button>
-                            </div>
-                            <!-- Date Selector -->
-                            <div id="pricingMonthYear" class="min-w-[180px]"></div>
+            <!-- Global Controls & Metrics -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <!-- Metrics -->
+                <div class="flex items-center gap-6">
+                     <div class="flex items-center gap-3">
+                        <div id="unitsIconContainer" class="p-2 bg-slate-100 rounded-full text-slate-400 transition-colors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                        </div>
+                        <div>
+                            <p id="unitsLabel" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Actual Units</p>
+                            <p id="pricingActuals" class="text-xl font-bold text-slate-900 leading-none mt-0.5">--</p>
                         </div>
                     </div>
-
-                    <!-- Metrics Cards -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between transition-all hover:shadow-md">
-                            <div>
-                                <p id="unitsLabel" class="text-xs font-medium text-slate-500 uppercase tracking-wider">Actual Units</p>
-                                <p id="pricingActuals" class="text-2xl font-bold text-slate-900 mt-1">--</p>
-                            </div>
-                            <div id="unitsIconContainer" class="p-3 bg-slate-50 rounded-full text-slate-400 transition-colors">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
-                            </div>
+                    <div class="w-px h-8 bg-slate-200"></div>
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-orange-100 rounded-full text-[#fb923c]">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                         </div>
-                        
-                        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between transition-all hover:shadow-md">
-                            <div>
-                                <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Cost</p>
-                                <p id="pricingTotalCost" class="text-2xl font-bold text-[#fb923c] mt-1">--</p>
-                            </div>
-                            <div class="p-3 bg-orange-50 rounded-full text-[#fb923c]">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="pricingTablesContainer" class="space-y-6">
-                        <!-- Pricing tables will be loaded here -->
-                        <div class="flex items-center justify-center py-8 text-slate-400">
-                            <span class="text-sm">Loading pricing data...</span>
+                        <div>
+                            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Cost</p>
+                            <p id="pricingTotalCost" class="text-xl font-bold text-[#fb923c] leading-none mt-0.5">--</p>
                         </div>
                     </div>
                 </div>
 
-                <!-- Right Column: Forecast vs Actuals Analysis -->
-                <div class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm h-fit sticky top-6">
-                    <h3 class="text-lg font-semibold text-slate-900 mb-4">Forecast vs Actuals Analysis</h3>
-                    
-                    <!-- Chart -->
-                    <div class="mb-6">
-                        <div class="relative" style="height: 250px;">
-                            <canvas id="viewForecastActualsChart"></canvas>
-                        </div>
+                <!-- Controls -->
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="bg-white p-1 rounded-lg inline-flex border border-slate-200 shadow-sm">
+                        <button type="button" id="modeActuals" class="px-3 py-1.5 text-sm font-medium rounded-md transition-all bg-slate-100 text-slate-900">
+                            Actuals
+                        </button>
+                        <button type="button" id="modeForecasts" class="px-3 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 transition-all">
+                            Forecasts
+                        </button>
                     </div>
+                    <div id="pricingMonthYear" class="min-w-[180px]"></div>
+                </div>
+            </div>
 
-                    <!-- Table -->
-                    <div class="overflow-x-auto border border-slate-200 rounded-lg">
-                        <table class="w-full text-sm text-left">
-                            <thead class="bg-slate-50 text-xs text-slate-500 uppercase border-b border-slate-200">
-                                <tr>
-                                    <th class="px-4 py-2 font-medium">Month</th>
-                                    <th class="px-4 py-2 font-medium text-right text-orange-600">Forecast</th>
-                                    <th class="px-4 py-2 font-medium text-right text-[#255be3]">Actuals</th>
-                                    <th class="px-4 py-2 font-medium text-right">Variance</th>
-                                </tr>
-                            </thead>
-                            <tbody id="viewForecastActualsTable" class="divide-y divide-slate-100">
-                                <!-- Rows will be populated by JS -->
-                            </tbody>
-                        </table>
+            <!-- Process Sections Container -->
+            <div id="productProcessesContainer" class="space-y-12">
+                <!-- Content loaded dynamically -->
+                <div class="flex items-center justify-center py-12 text-slate-400">
+                    <div class="flex flex-col items-center gap-2">
+                         <svg class="w-8 h-8 animate-spin text-slate-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span class="text-sm">Loading data...</span>
                     </div>
                 </div>
-
             </div>
         </div>
         

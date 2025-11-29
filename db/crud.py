@@ -1798,6 +1798,7 @@ class CRUDOperations(DatabaseSchema):
 
             if process_rows:
                 processes_data.append({
+                    "process_id": process['process_id'],
                     "process_name": process['process_name'],
                     "rows": process_rows
                 })
