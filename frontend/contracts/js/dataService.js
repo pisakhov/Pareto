@@ -301,6 +301,24 @@ class DataService {
     );
   }
 
+  // Contract Lookup operations
+  async loadContractLookup(contractId) {
+    return this.fetchWithErrorHandling(
+      `${this.basePath}/contract-lookups/${contractId}`
+    );
+  }
+
+  async saveContractLookup(lookupData) {
+    if (lookupData.contract_id) {
+        return this.fetchWithErrorHandling(`${this.basePath}/contract-lookups/${lookupData.contract_id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(lookupData),
+        });
+    }
+    return this.create("contract-lookups", lookupData);
+  }
+
 }
 
 // Create singleton instance

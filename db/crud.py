@@ -1448,6 +1448,8 @@ class CRUDOperations(DatabaseSchema):
 
         # Delete tiers first
         conn.execute("DELETE FROM contract_tiers WHERE contract_id = ?", [contract_id])
+        # Delete lookups
+        conn.execute("DELETE FROM contract_lookups WHERE contract_id = ?", [contract_id])
         # Delete contract
         result = conn.execute("DELETE FROM contracts WHERE contract_id = ?", [contract_id])
         return result.rowcount > 0
@@ -1537,6 +1539,66 @@ class CRUDOperations(DatabaseSchema):
 
         # Now delete the contract tier
         result = conn.execute("DELETE FROM contract_tiers WHERE contract_tier_id = ?", [contract_tier_id])
+        return result.rowcount > 0
+
+    # Contract Lookup CRUD operations
+    def create_contract_lookup(self, contract_id: int, source: str = 'actuals', method: str = 'SUM', lookback_months: int = 0) -> Any:
+        conn = self._get_connection()
+        now = datetime.now().isoformat()
+        lookup_id = conn.execute("SELECT nextval('contract_lookup_seq')").fetchone()[0]
+        
+        # Remove existing lookup if any (one-to-one)
+        conn.execute("DELETE FROM contract_lookups WHERE contract_id = ?", [contract_id])
+        
+        conn.execute(
+            "INSERT INTO contract_lookups (lookup_id, contract_id, source, method, lookback_months, date_creation, date_last_update) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [lookup_id, contract_id, source, method, lookback_months, now, now]
+        )
+        return self.get_contract_lookup(contract_id)
+
+    def get_contract_lookup(self, contract_id: int) -> Optional[Dict[str, Any]]:
+        conn = self._get_connection()
+        result = conn.execute("SELECT * FROM contract_lookups WHERE contract_id = ?", [contract_id]).fetchone()
+        if result:
+            return {
+                "lookup_id": result[0],
+                "contract_id": result[1],
+                "source": result[2],
+                "method": result[3],
+                "lookback_months": result[4],
+                "date_creation": result[5],
+                "date_last_update": result[6]
+            }
+        return None
+
+    def update_contract_lookup(self, contract_id: int, source: str = None, method: str = None, lookback_months: int = None) -> bool:
+        conn = self._get_connection()
+        now = datetime.now().isoformat()
+        current = self.get_contract_lookup(contract_id)
+        
+        if not current:
+            # Create if not exists
+            self.create_contract_lookup(
+                contract_id=contract_id, 
+                source=source or 'actuals', 
+                method=method or 'SUM', 
+                lookback_months=lookback_months or 0
+            )
+            return True
+
+        source = source if source is not None else current["source"]
+        method = method if method is not None else current["method"]
+        lookback_months = lookback_months if lookback_months is not None else current["lookback_months"]
+
+        conn.execute(
+            "UPDATE contract_lookups SET source = ?, method = ?, lookback_months = ?, date_last_update = ? WHERE contract_id = ?",
+            [source, method, lookback_months, now, contract_id]
+        )
+        return True
+
+    def delete_contract_lookup(self, contract_id: int) -> bool:
+        conn = self._get_connection()
+        result = conn.execute("DELETE FROM contract_lookups WHERE contract_id = ?", [contract_id])
         return result.rowcount > 0
 
     def get_provider_tier_thresholds(self, provider_id: int) -> Dict[str, Any]:

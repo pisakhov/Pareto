@@ -111,6 +111,7 @@ class Actual:
 @dataclass
 class Contract:
     contract_id: int
+    process_id: int
     provider_id: int
     contract_name: str
     status: str
@@ -130,12 +131,12 @@ class ContractTier:
 
 
 @dataclass
-class Contract:
+class ContractLookup:
+    lookup_id: int
     contract_id: int
-    process_id: int
-    provider_id: int
-    contract_name: str
-    status: str
+    source: str  # 'actuals' or 'forecasts'
+    method: str  # 'SUM' or 'AVG'
+    lookback_months: int
     date_creation: str
     date_last_update: str
 
@@ -208,6 +209,7 @@ class DatabaseSchema:
         self._create_process_items_table()
         self._create_contracts_table()
         self._create_contract_tiers_table()
+        self._create_contract_lookups_table()
         self._create_forecasts_table()
         self._create_actuals_table()
 
@@ -221,6 +223,7 @@ class DatabaseSchema:
         conn.execute("CREATE SEQUENCE IF NOT EXISTS process_seq")
         conn.execute("CREATE SEQUENCE IF NOT EXISTS contract_seq")
         conn.execute("CREATE SEQUENCE IF NOT EXISTS contract_tier_seq")
+        conn.execute("CREATE SEQUENCE IF NOT EXISTS contract_lookup_seq")
         conn.execute("CREATE SEQUENCE IF NOT EXISTS forecast_seq")
         conn.execute("CREATE SEQUENCE IF NOT EXISTS actual_seq")
         self._sync_sequences()
@@ -256,6 +259,9 @@ class DatabaseSchema:
 
         max_contract_tier = get_max_id("contract_tiers", "contract_tier_id")
         conn.execute(f"DROP SEQUENCE IF EXISTS contract_tier_seq; CREATE SEQUENCE contract_tier_seq START {max_contract_tier + 1}")
+
+        max_contract_lookup = get_max_id("contract_lookups", "lookup_id")
+        conn.execute(f"DROP SEQUENCE IF EXISTS contract_lookup_seq; CREATE SEQUENCE contract_lookup_seq START {max_contract_lookup + 1}")
 
         max_forecast = get_max_id("forecasts", "forecast_id")
         conn.execute(f"DROP SEQUENCE IF EXISTS forecast_seq; CREATE SEQUENCE forecast_seq START {max_forecast + 1}")
@@ -471,6 +477,22 @@ class DatabaseSchema:
                 is_selected BOOLEAN DEFAULT FALSE,
                 date_creation VARCHAR NOT NULL,
                 date_last_update VARCHAR NOT NULL
+            )
+        """)
+
+    def _create_contract_lookups_table(self):
+        """Create contract_lookups table if it doesn't exist"""
+        conn = self._get_connection()
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS contract_lookups (
+                lookup_id INTEGER PRIMARY KEY,
+                contract_id INTEGER NOT NULL UNIQUE,
+                source VARCHAR DEFAULT 'actuals',
+                method VARCHAR DEFAULT 'SUM',
+                lookback_months INTEGER DEFAULT 0,
+                date_creation VARCHAR NOT NULL,
+                date_last_update VARCHAR NOT NULL,
+                FOREIGN KEY (contract_id) REFERENCES contracts(contract_id)
             )
         """)
 

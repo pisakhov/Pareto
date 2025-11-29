@@ -645,6 +645,19 @@ class ContractTierUpdate(BaseModel):
     is_selected: Optional[bool] = None
 
 
+class ContractLookupCreate(BaseModel):
+    contract_id: int
+    source: Optional[str] = 'actuals'
+    method: Optional[str] = 'SUM'
+    lookback_months: Optional[int] = 0
+
+
+class ContractLookupUpdate(BaseModel):
+    source: Optional[str] = None
+    method: Optional[str] = None
+    lookback_months: Optional[int] = None
+
+
 # Contract endpoints
 @router.get("/api/contracts")
 async def get_contracts():
@@ -769,4 +782,48 @@ async def delete_contract_tier(contract_tier_id: int):
     crud = get_crud()
     crud.delete_contract_tier(contract_tier_id)
     return JSONResponse(content={"message": "Contract tier deleted successfully"})
+
+
+# Contract Lookup endpoints
+@router.get("/api/contract-lookups/{contract_id}")
+async def get_contract_lookup(contract_id: int):
+    """Get lookup configuration for a specific contract."""
+    crud = get_crud()
+    lookup = crud.get_contract_lookup(contract_id)
+    # Return default if not found
+    if not lookup:
+        return JSONResponse(content={
+            "contract_id": contract_id,
+            "source": "actuals",
+            "method": "SUM",
+            "lookback_months": 0
+        })
+    return JSONResponse(content=lookup)
+
+
+@router.post("/api/contract-lookups")
+async def create_contract_lookup(lookup: ContractLookupCreate):
+    """Create or update a contract lookup configuration."""
+    crud = get_crud()
+    # Use update_contract_lookup which handles create-or-update logic
+    crud.update_contract_lookup(
+        contract_id=lookup.contract_id,
+        source=lookup.source,
+        method=lookup.method,
+        lookback_months=lookup.lookback_months
+    )
+    return JSONResponse(content={"message": "Contract lookup saved successfully"})
+
+
+@router.put("/api/contract-lookups/{contract_id}")
+async def update_contract_lookup(contract_id: int, lookup: ContractLookupUpdate):
+    """Update a contract lookup configuration."""
+    crud = get_crud()
+    crud.update_contract_lookup(
+        contract_id=contract_id,
+        source=lookup.source,
+        method=lookup.method,
+        lookback_months=lookup.lookback_months
+    )
+    return JSONResponse(content={"message": "Contract lookup updated successfully"})
 
