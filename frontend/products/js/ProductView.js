@@ -41,11 +41,15 @@ class ProductView {
         this.actualMap = new Map();
 
         (product.forecasts || []).forEach(f => {
-            this.forecastMap.set(`${f.year}-${f.month}`, f.forecast_units);
+            const key = `${f.year}-${f.month}`;
+            const current = this.forecastMap.get(key) || 0;
+            this.forecastMap.set(key, current + f.forecast_units);
         });
 
         (product.actuals || []).forEach(a => {
-            this.actualMap.set(`${a.year}-${a.month}`, a.actual_units);
+            const key = `${a.year}-${a.month}`;
+            const current = this.actualMap.get(key) || 0;
+            this.actualMap.set(key, current + a.actual_units);
         });
 
         // Collect all unique dates

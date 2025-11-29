@@ -36,9 +36,19 @@ def main():
         details="Credit bureau services"
     )
 
+    # Create process
+    print("\nCreating acquisition process...")
+    process = crud.create_process(
+        process_name="Acquisition",
+        description="New user acquisition flow",
+        provider_id=equifax["provider_id"]
+    )
+    process_id = process["process_id"]
+
     # Create a contract for acquisition process
     print("\nCreating acquisition contract...")
     acquisition_contract = crud.create_contract(
+        process_id=process_id,
         provider_id=equifax["provider_id"],
         contract_name="Acquisition Contract - Equifax"
     )
@@ -94,12 +104,14 @@ def main():
     for month in range(1, 13):
         crud.create_actual(
             product_id=retail_product["product_id"],
+            process_id=process_id,
             year=2024,
             month=month,
             actual_units=100000
         )
         crud.create_actual(
             product_id=branded_product["product_id"],
+            process_id=process_id,
             year=2024,
             month=month,
             actual_units=200000
@@ -110,12 +122,14 @@ def main():
     for month in range(1, 7):
         crud.create_forecast(
             product_id=retail_product["product_id"],
+            process_id=process_id,
             year=2025,
             month=month,
             forecast_units=110000  # Slight increase
         )
         crud.create_forecast(
             product_id=branded_product["product_id"],
+            process_id=process_id,
             year=2025,
             month=month,
             forecast_units=220000  # Slight increase

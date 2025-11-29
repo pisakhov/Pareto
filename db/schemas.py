@@ -88,6 +88,7 @@ class ProcessItem:
 class Forecast:
     forecast_id: int
     product_id: int
+    process_id: int
     year: int
     month: int
     forecast_units: int
@@ -99,6 +100,7 @@ class Forecast:
 class Actual:
     actual_id: int
     product_id: int
+    process_id: int
     year: int
     month: int
     actual_units: int
@@ -479,12 +481,13 @@ class DatabaseSchema:
             CREATE TABLE IF NOT EXISTS forecasts (
                 forecast_id INTEGER PRIMARY KEY,
                 product_id INTEGER NOT NULL,
+                process_id INTEGER NOT NULL,
                 year INTEGER NOT NULL,
                 month INTEGER NOT NULL,
                 forecast_units INTEGER NOT NULL,
                 date_creation VARCHAR NOT NULL,
                 date_last_update VARCHAR NOT NULL,
-                UNIQUE(product_id, year, month)
+                UNIQUE(product_id, process_id, year, month)
             )
         """)
 
@@ -495,12 +498,13 @@ class DatabaseSchema:
             CREATE TABLE IF NOT EXISTS actuals (
                 actual_id INTEGER PRIMARY KEY,
                 product_id INTEGER NOT NULL,
+                process_id INTEGER NOT NULL,
                 year INTEGER NOT NULL,
                 month INTEGER NOT NULL,
                 actual_units INTEGER NOT NULL,
                 date_creation VARCHAR NOT NULL,
                 date_last_update VARCHAR NOT NULL,
-                UNIQUE(product_id, year, month)
+                UNIQUE(product_id, process_id, year, month)
             )
         """)
 

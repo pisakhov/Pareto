@@ -105,6 +105,7 @@ def _update_time_series(crud, product_id, data, is_forecast):
     for item in data:
         create_item(
             product_id=product_id,
+            process_id=item.get('process_id', 0),
             year=item.get('year'),
             month=item.get('month'),
             **{val_key: item.get(val_key)}
@@ -163,11 +164,11 @@ async def get_product(product_id: int):
         "allocations": crud.get_allocations_for_product(product['product_id']),
         "price_multipliers": crud.get_price_multipliers_for_product(product['product_id']),
         "forecasts": [
-            {k: f[k] for k in ('forecast_id', 'year', 'month', 'forecast_units', 'date_creation', 'date_last_update')}
+            {k: f[k] for k in ('forecast_id', 'process_id', 'year', 'month', 'forecast_units', 'date_creation', 'date_last_update')}
             for f in crud.get_forecasts_for_product(product_id)
         ],
         "actuals": [
-            {k: a[k] for k in ('actual_id', 'year', 'month', 'actual_units', 'date_creation', 'date_last_update')}
+            {k: a[k] for k in ('actual_id', 'process_id', 'year', 'month', 'actual_units', 'date_creation', 'date_last_update')}
             for a in crud.get_actuals_for_product(product_id)
         ]
     })

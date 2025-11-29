@@ -1173,13 +1173,13 @@ class CRUDOperations(DatabaseSchema):
     # FORECASTS CRUD OPERATIONS
     # =====================================
 
-    def create_forecast(self, product_id: int, year: int, month: int, forecast_units: int) -> Any:
+    def create_forecast(self, product_id: int, process_id: int, year: int, month: int, forecast_units: int) -> Any:
         conn = self._get_connection()
         now = datetime.now().isoformat()
         forecast_id = conn.execute("SELECT nextval('forecast_seq')").fetchone()[0]
         conn.execute(
-            "INSERT INTO forecasts (forecast_id, product_id, year, month, forecast_units, date_creation, date_last_update) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            [forecast_id, product_id, year, month, forecast_units, now, now]
+            "INSERT INTO forecasts (forecast_id, product_id, process_id, year, month, forecast_units, date_creation, date_last_update) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            [forecast_id, product_id, process_id, year, month, forecast_units, now, now]
         )
         conn.commit()
         return self.get_forecast(forecast_id)
@@ -1191,19 +1191,20 @@ class CRUDOperations(DatabaseSchema):
             return {
                 "forecast_id": result[0],
                 "product_id": result[1],
-                "year": result[2],
-                "month": result[3],
-                "forecast_units": result[4],
-                "date_creation": result[5],
-                "date_last_update": result[6]
+                "process_id": result[2],
+                "year": result[3],
+                "month": result[4],
+                "forecast_units": result[5],
+                "date_creation": result[6],
+                "date_last_update": result[7]
             }
         return None
 
-    def get_forecast_by_product_month(self, product_id: int, year: int, month: int) -> Optional[Any]:
+    def get_forecast_by_product_process_month(self, product_id: int, process_id: int, year: int, month: int) -> Optional[Any]:
         conn = self._get_connection()
         result = conn.execute(
-            "SELECT * FROM forecasts WHERE product_id = ? AND year = ? AND month = ?",
-            [product_id, year, month]
+            "SELECT * FROM forecasts WHERE product_id = ? AND process_id = ? AND year = ? AND month = ?",
+            [product_id, process_id, year, month]
         ).fetchone()
         return result if result else None
 
@@ -1215,7 +1216,7 @@ class CRUDOperations(DatabaseSchema):
     def get_forecasts_for_product(self, product_id: int) -> List[Dict[str, Any]]:
         conn = self._get_connection()
         results = conn.execute(
-            "SELECT * FROM forecasts WHERE product_id = ? ORDER BY year DESC, month DESC",
+            "SELECT * FROM forecasts WHERE product_id = ? ORDER BY process_id, year DESC, month DESC",
             [product_id]
         ).fetchall()
 
@@ -1224,11 +1225,12 @@ class CRUDOperations(DatabaseSchema):
             forecasts.append({
                 "forecast_id": result[0],
                 "product_id": result[1],
-                "year": result[2],
-                "month": result[3],
-                "forecast_units": result[4],
-                "date_creation": result[5],
-                "date_last_update": result[6]
+                "process_id": result[2],
+                "year": result[3],
+                "month": result[4],
+                "forecast_units": result[5],
+                "date_creation": result[6],
+                "date_last_update": result[7]
             })
         return forecasts
 
@@ -1258,13 +1260,13 @@ class CRUDOperations(DatabaseSchema):
     # ACTUALS CRUD OPERATIONS
     # =====================================
 
-    def create_actual(self, product_id: int, year: int, month: int, actual_units: int) -> Any:
+    def create_actual(self, product_id: int, process_id: int, year: int, month: int, actual_units: int) -> Any:
         conn = self._get_connection()
         now = datetime.now().isoformat()
         actual_id = conn.execute("SELECT nextval('actual_seq')").fetchone()[0]
         conn.execute(
-            "INSERT INTO actuals (actual_id, product_id, year, month, actual_units, date_creation, date_last_update) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            [actual_id, product_id, year, month, actual_units, now, now]
+            "INSERT INTO actuals (actual_id, product_id, process_id, year, month, actual_units, date_creation, date_last_update) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            [actual_id, product_id, process_id, year, month, actual_units, now, now]
         )
         conn.commit()
         return self.get_actual(actual_id)
@@ -1276,19 +1278,20 @@ class CRUDOperations(DatabaseSchema):
             return {
                 "actual_id": result[0],
                 "product_id": result[1],
-                "year": result[2],
-                "month": result[3],
-                "actual_units": result[4],
-                "date_creation": result[5],
-                "date_last_update": result[6]
+                "process_id": result[2],
+                "year": result[3],
+                "month": result[4],
+                "actual_units": result[5],
+                "date_creation": result[6],
+                "date_last_update": result[7]
             }
         return None
 
-    def get_actual_by_product_month(self, product_id: int, year: int, month: int) -> Optional[Any]:
+    def get_actual_by_product_process_month(self, product_id: int, process_id: int, year: int, month: int) -> Optional[Any]:
         conn = self._get_connection()
         result = conn.execute(
-            "SELECT * FROM actuals WHERE product_id = ? AND year = ? AND month = ?",
-            [product_id, year, month]
+            "SELECT * FROM actuals WHERE product_id = ? AND process_id = ? AND year = ? AND month = ?",
+            [product_id, process_id, year, month]
         ).fetchone()
         return result if result else None
 
@@ -1300,7 +1303,7 @@ class CRUDOperations(DatabaseSchema):
     def get_actuals_for_product(self, product_id: int) -> List[Dict[str, Any]]:
         conn = self._get_connection()
         results = conn.execute(
-            "SELECT * FROM actuals WHERE product_id = ? ORDER BY year DESC, month DESC",
+            "SELECT * FROM actuals WHERE product_id = ? ORDER BY process_id, year DESC, month DESC",
             [product_id]
         ).fetchall()
 
@@ -1309,11 +1312,12 @@ class CRUDOperations(DatabaseSchema):
             actuals.append({
                 "actual_id": result[0],
                 "product_id": result[1],
-                "year": result[2],
-                "month": result[3],
-                "actual_units": result[4],
-                "date_creation": result[5],
-                "date_last_update": result[6]
+                "process_id": result[2],
+                "year": result[3],
+                "month": result[4],
+                "actual_units": result[5],
+                "date_creation": result[6],
+                "date_last_update": result[7]
             })
         return actuals
 
@@ -1591,15 +1595,6 @@ class CRUDOperations(DatabaseSchema):
         current_year = year if year is not None else now.year
         current_month = month if month is not None else now.month
         
-        units = 0
-        
-        if use_forecasts:
-            forecast = self.get_forecast_by_product_month(product_id, current_year, current_month)
-            units = forecast[4] if forecast else 0
-        else:
-            actual = self.get_actual_by_product_month(product_id, current_year, current_month)
-            units = actual[4] if actual else 0
-        
         # 2. Get Allocations
         allocations = self.get_allocations_for_product(product_id)
         
@@ -1610,8 +1605,24 @@ class CRUDOperations(DatabaseSchema):
         structure = self.get_product_contracts_with_selected_items(product_id)
         
         processes_data = []
+        total_units = 0
         
         for process in structure:
+            # Fetch process-specific units
+            process_id = process['process_id']
+            units = 0
+            
+            if use_forecasts:
+                forecast = self.get_forecast_by_product_process_month(product_id, process_id, current_year, current_month)
+                if forecast:
+                    units = forecast[5]
+            else:
+                actual = self.get_actual_by_product_process_month(product_id, process_id, current_year, current_month)
+                if actual:
+                    units = actual[5]
+            
+            total_units += units
+
             process_rows = []
             for item in process['items']:
                 item_id = item['item_id']
@@ -1794,7 +1805,7 @@ class CRUDOperations(DatabaseSchema):
         return {
             "year": current_year,
             "month": current_month,
-            "units": units,
+            "units": total_units,
             "is_forecast": use_forecasts,
             "processes": processes_data
         }
