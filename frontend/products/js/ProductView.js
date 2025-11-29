@@ -153,6 +153,9 @@ class ProductView {
         let processTotal = 0;
         const providerGroups = [];
         let currentGroup = null;
+        
+        // Determine color based on view mode
+        const totalColorClass = this.viewMode === 'actuals' ? 'text-[#255be3]' : 'text-[#fb923c]';
 
         processData.rows.forEach(row => {
             processTotal += row.total_cost;
@@ -218,7 +221,7 @@ class ProductView {
                             <div class="font-medium text-slate-700">$${parseFloat(row.price_per_unit.toFixed(4))}</div>
                             ${row.multiplier_display !== '-' ? `<div class="text-[10px] text-orange-500 mt-0.5">x${row.multiplier_display}</div>` : ''}
                         </td>
-                        <td class="px-4 py-3 text-right font-bold text-[#fb923c] align-middle">$${row.total_cost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 4})}</td>
+                        <td class="px-4 py-3 text-right font-bold ${totalColorClass} align-middle">$${row.total_cost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 4})}</td>
                     </tr>
                 `;
             });
@@ -549,6 +552,8 @@ class ProductView {
         const btnForecasts = document.getElementById('modeForecasts');
         const unitsLabel = document.getElementById('unitsLabel');
         const iconContainer = document.getElementById('unitsIconContainer');
+        const costIconContainer = document.getElementById('costIconContainer');
+        const costLabel = document.getElementById('pricingTotalCost');
 
         if (!btnActuals || !btnForecasts) return;
 
@@ -557,15 +562,30 @@ class ProductView {
             this.viewMode = mode;
             
             if (mode === 'actuals') {
-                btnActuals.className = 'px-3 py-1.5 text-sm font-medium rounded-md transition-all shadow-sm bg-white text-slate-900 border border-slate-200';
+                // Toggle Buttons
+                btnActuals.className = 'px-3 py-1.5 text-sm font-medium rounded-md transition-all shadow-sm bg-white text-[#255be3] border border-slate-200';
                 btnForecasts.className = 'px-3 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 transition-all';
+                
+                // Units Section (Blue)
                 unitsLabel.textContent = 'Actual Units';
-                iconContainer.className = 'p-3 bg-slate-50 rounded-full text-slate-400 transition-colors';
+                if (iconContainer) iconContainer.className = 'p-2 bg-blue-50 rounded-full text-[#255be3] transition-colors';
+                
+                // Cost Section (Blue)
+                if (costIconContainer) costIconContainer.className = 'p-2 bg-blue-50 rounded-full text-[#255be3] transition-colors';
+                if (costLabel) costLabel.className = 'text-xl font-bold text-[#255be3] leading-none mt-0.5 transition-colors';
+
             } else {
+                // Toggle Buttons
                 btnForecasts.className = 'px-3 py-1.5 text-sm font-medium rounded-md transition-all shadow-sm bg-white text-[#fb923c] border border-slate-200';
                 btnActuals.className = 'px-3 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 transition-all';
+                
+                // Units Section (Orange)
                 unitsLabel.textContent = 'Forecast Units';
-                iconContainer.className = 'p-3 bg-orange-50 rounded-full text-[#fb923c] transition-colors';
+                if (iconContainer) iconContainer.className = 'p-2 bg-orange-50 rounded-full text-[#fb923c] transition-colors';
+
+                // Cost Section (Orange)
+                if (costIconContainer) costIconContainer.className = 'p-2 bg-orange-50 rounded-full text-[#fb923c] transition-colors';
+                if (costLabel) costLabel.className = 'text-xl font-bold text-[#fb923c] leading-none mt-0.5 transition-colors';
             }
 
             // Refresh Date Selector (dates available might differ) and Data
