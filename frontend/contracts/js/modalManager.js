@@ -124,8 +124,8 @@ class ModalManager {
       // Default select current process if available
       if (window.CURRENT_PROCESS_ID) {
         processSelect.value = window.CURRENT_PROCESS_ID;
-        // Trigger change event to update offerManager
-        processSelect.dispatchEvent(new Event('change'));
+        // Trigger update directly
+        await window.offerManager.setProcess(window.CURRENT_PROCESS_ID);
 
         // Disable the dropdown and show locked label
         processSelect.disabled = true;
@@ -213,7 +213,7 @@ class ModalManager {
     if (window.offerManager) {
       window.offerManager.setProviders(allProviders);
       // Set the process in offerManager before loading existing offers
-      window.offerManager.setProcess(processId);
+      await window.offerManager.setProcess(processId);
       await window.offerManager.populateExistingOffers(itemId);
     }
 

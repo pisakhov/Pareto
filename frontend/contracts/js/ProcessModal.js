@@ -388,6 +388,15 @@ class ProcessModal {
         if (mode === 'edit') {
             const contractId = el.dataset.contractId;
             if (contractId) {
+                // Check for dependencies
+                const contract = await dataService.getContract(contractId);
+                const offers = await dataService.getOffersFiltered(null, contract.provider_id);
+                
+                if (offers && offers.some(o => o.process_id === contract.process_id && o.status === 'active')) {
+                    Toast.show('Cannot remove provider. Please remove associated items first.', 'error');
+                    return;
+                }
+
                 if (confirm('Are you sure? This will delete the contract and its history.')) {
                     await dataService.deleteContract(contractId);
                     el.remove();

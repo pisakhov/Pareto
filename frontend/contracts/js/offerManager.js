@@ -12,12 +12,20 @@ class OfferManager {
     this.validationMsg = document.getElementById('offerValidationMsg');
     this.allProviders = [];
     this.selectedProcessId = null;
+    this.validProviderIds = null;
 
     this.setupEventListeners();
   }
 
-  setProcess(processId) {
+  async setProcess(processId) {
     this.selectedProcessId = processId;
+    this.validProviderIds = null;
+
+    if (processId) {
+      const contracts = await window.dataService.loadContractsForProcessId(processId);
+      this.validProviderIds = new Set(contracts.map(c => c.provider_id));
+    }
+    this.updateProviderSelect();
   }
 
   setupEventListeners() {
@@ -33,9 +41,13 @@ class OfferManager {
     this.providerSelect.innerHTML = '';
 
     const addedProviderIds = Array.from(this.providerOffers.keys());
-    const availableProviders = this.allProviders.filter(
+    let availableProviders = this.allProviders.filter(
       p => !addedProviderIds.includes(p.provider_id) && p.status === 'active'
     );
+
+    if (this.validProviderIds) {
+      availableProviders = availableProviders.filter(p => this.validProviderIds.has(p.provider_id));
+    }
 
     if (availableProviders.length === 0) {
       this.addProviderControl.classList.add('hidden');
