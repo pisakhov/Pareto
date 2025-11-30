@@ -4,7 +4,7 @@ Calculation Services - Business logic for cost calculations and optimization
 This module provides cost calculation and allocation optimization services.
 """
 
-from typing import Dict, List, Any, Tuple
+from typing import Dict, List, Any, Optional
 from db.crud import get_crud
 
 
@@ -14,236 +14,372 @@ class CalculationService:
     def __init__(self):
         self.crud = get_crud()
 
-    def _calculate_cost_base(
-        self,
-        product_quantities: Dict[int, int],
-        get_allocations_func,
-        external_allocations: Dict = None
-    ) -> Dict[str, Any]:
-        """Base calculation method with common logic for cost calculations."""
+    def _get_contract_for_offer(self, provider_id: int, process_id: int) -> Optional[Dict[str, Any]]:
+        """Find the active contract for a provider and process."""
+        # This is a bit inefficient if called repeatedly, should be cached in the main loop
+        # But for now, let's rely on the crud method or implement a helper
+        # crud.get_contracts_for_process returns list.
+        contracts = self.crud.get_contracts_for_process(process_id)
+        for contract in contracts:
+            if contract['provider_id'] == provider_id and contract['status'] == 'active':
+                return contract
+        return None
 
-        total_credit_files = sum(product_quantities.values())
+    def calculate_current_cost(self, product_quantities: Dict[Any, int]) -> Dict[str, Any]:
+        """Calculate current cost based on product quantities using tier-based pricing."""
+        # Ensure keys are integers
+        quantities = {int(k): int(v) for k, v in product_quantities.items()}
+        
+        # Get current allocations (default)
+        allocations = self.get_current_allocations(quantities)
+        
+        return self.calculate_cost_with_allocations(quantities, allocations)
+
+    def calculate_cost_with_allocations(
+        self,
+        product_quantities: Dict[Any, int],
+        allocations: Dict[Any, Any]
+    ) -> Dict[str, Any]:
+        """
+        Calculate cost using specific item-provider allocations.
+        
+        allocations structure:
+        {
+            item_id: provider_id,  (Simple)
+            OR
+            item_id: { mode: 'percentage', providers: [{provider_id, value}, ...] } (Complex)
+        }
+        or
+        {
+            product_id: { items: { item_id: { mode: ..., allocations: [...] } } } 
+        } (From ComparisonView)
+        """
+        
+        # Normalize inputs
+        quantities = {int(k): int(v) for k, v in product_quantities.items()}
+        
+        # Normalize allocations to be accessible by item_id
+        # If it's the nested structure from SimulationAllocation (product -> items -> item -> allocations)
+        flat_allocations = {}
+        
+        # Detect structure
+        first_val = next(iter(allocations.values())) if allocations else None
+        is_nested_product_structure = first_val and isinstance(first_val, dict) and 'items' in first_val
+        
+        if is_nested_product_structure:
+            for pid, pdata in allocations.items():
+                items = pdata.get('items', {})
+                for iid, idata in items.items():
+                    flat_allocations[int(iid)] = idata # Expects {mode, allocations: []}
+        else:
+            # Assume it's item_id keys directly
+            for k, v in allocations.items():
+                flat_allocations[int(k)] = v
+
+        # Data Collection Phase
+        contract_volumes = {} # contract_id -> volume
+        item_details = []     # List of calculations to be done {item_id, provider_id, volume, product_id, ...}
+        
+        # Pre-fetch all active providers to avoid repeated queries
+        all_providers = {p['provider_id']: p for p in [
+            self._row_to_dict(row, ['provider_id', 'company_name', 'details', 'status', 'date_creation', 'date_last_update']) 
+            for row in self.crud.get_all_providers()
+        ]}
+        
+        # Pre-fetch offers cache: (item_id, provider_id) -> offer
+        # We can't easily pre-fetch all offers efficiently without a huge query, 
+        # so we'll cache as we go or fetch all active offers once.
+        all_offers = self.crud.get_all_offers()
+        offers_map = {} # (item_id, provider_id) -> offer (with process_id)
+        for offer in all_offers:
+            if offer['status'] == 'active':
+                offers_map[(offer['item_id'], offer['provider_id'])] = offer
+
+        # Pre-fetch contracts: (process_id, provider_id) -> contract
+        all_contracts = self.crud.get_all_contracts()
+        contracts_map = {} # (process_id, provider_id) -> contract
+        for contract in all_contracts:
+            if contract['status'] == 'active':
+                contracts_map[(contract['process_id'], contract['provider_id'])] = contract
+
+        # 1. Aggregate Volumes
+        for product_id, total_units in quantities.items():
+            product = self.crud.get_product(product_id)
+            if not product: continue
+            
+            # Get items for product
+            product_items = self.crud.get_items_for_product(product_id)
+            
+            # Get Multipliers
+            multipliers = self.crud.get_price_multipliers_for_product(product_id)
+            
+            for item_row in product_items:
+                # item_row is tuple from get_items_for_product or dict? 
+                # get_items_for_product returns list of rows (tuples)
+                item_id = item_row[0]
+                item_name = item_row[1]
+                
+                # Determine allocation for this item
+                alloc_def = flat_allocations.get(item_id)
+                
+                # Distribute volume to providers
+                item_provider_volumes = {}
+                
+                if not alloc_def:
+                    # No allocation defined, skip or default? 
+                    # Assuming allocations are complete for this calculation
+                    continue
+                    
+                if isinstance(alloc_def, int):
+                    # Simple provider_id
+                    item_provider_volumes[alloc_def] = total_units
+                elif isinstance(alloc_def, dict):
+                    mode = alloc_def.get('mode', 'percentage')
+                    # Handle both 'providers' (backend format) and 'allocations' (frontend format) keys
+                    providers_list = alloc_def.get('allocations') or alloc_def.get('providers') or []
+                    
+                    for entry in providers_list:
+                        p_id = int(entry.get('provider_id'))
+                        val = float(entry.get('value', 0))
+                        
+                        if mode == 'percentage':
+                            vol = total_units * (val / 100.0)
+                        else:
+                            vol = val
+                            
+                        if vol > 0:
+                            item_provider_volumes[p_id] = vol
+
+                # Process each provider for this item
+                for provider_id, volume in item_provider_volumes.items():
+                    # Find Offer to link to Contract
+                    offer = offers_map.get((item_id, provider_id))
+                    
+                    contract_id = None
+                    process_id = None
+                    
+                    if offer:
+                        process_id = offer['process_id']
+                        contract = contracts_map.get((process_id, provider_id))
+                        if contract:
+                            contract_id = contract['contract_id']
+                    
+                    if contract_id:
+                        contract_volumes[contract_id] = contract_volumes.get(contract_id, 0) + volume
+                    
+                    # Store detail for Cost Step
+                    item_details.append({
+                        'product_id': product_id,
+                        'product_name': product['name'],
+                        'item_id': item_id,
+                        'item_name': item_name,
+                        'provider_id': provider_id,
+                        'provider_name': all_providers.get(provider_id, {}).get('company_name', 'Unknown'),
+                        'volume': volume,
+                        'contract_id': contract_id,
+                        'process_id': process_id,
+                        'multiplier': multipliers.get(item_id, {}).get('multiplier', 1.0)
+                    })
+
+        # 2. Determine Tiers
+        contract_active_tiers = {} # contract_id -> tier_number
+        
+        for contract_id, total_vol in contract_volumes.items():
+            tiers = self.crud.get_contract_tiers_for_contract(contract_id)
+            # Sort by threshold
+            tiers.sort(key=lambda x: x['threshold_units'])
+            
+            active_tier = 1
+            found = False
+            
+            # Find the highest tier where volume < threshold
+            # Logic: Tiers are "Up to X". Tier 1: < 1000. Tier 2: < 5000.
+            # If Vol = 2000. > 1000, so NOT Tier 1. < 5000, so Tier 2.
+            # Standard Logic: find first tier where threshold > volume.
+            
+            for t in tiers:
+                if t['threshold_units'] > total_vol:
+                    active_tier = t['tier_number']
+                    found = True
+                    break
+            
+            if not found and tiers:
+                # Exceeds all thresholds, use highest tier
+                active_tier = tiers[-1]['tier_number']
+                
+            contract_active_tiers[contract_id] = active_tier
+
+        # 3. Calculate Costs
         total_cost = 0.0
         provider_breakdown = {}
         product_breakdown = {}
-        provider_tiers = {}
-        allocation_details = {}
+        allocation_details_out = {} # Structured for frontend
+        
+        for detail in item_details:
+            contract_id = detail['contract_id']
+            tier = contract_active_tiers.get(contract_id, 1) # Default to 1 if no contract found
+            
+            # Get Price
+            price = 0.0
+            if detail['process_id']:
+                price = self.crud.get_price_for_item_at_tier(
+                    detail['provider_id'], 
+                    detail['item_id'], 
+                    tier, 
+                    detail['process_id']
+                ) or 0.0
+            
+            cost = detail['volume'] * price * detail['multiplier']
+            total_cost += cost
+            
+            # Aggregations
+            p_name = detail['provider_name']
+            if p_name not in provider_breakdown:
+                provider_breakdown[p_name] = {
+                    'total_cost': 0,
+                    'total_units': 0,
+                    'tier_info': {'effective_tier': tier} # Simplified
+                }
+            provider_breakdown[p_name]['total_cost'] += cost
+            provider_breakdown[p_name]['total_units'] += detail['volume']
+            
+            prod_id = detail['product_id']
+            if prod_id not in product_breakdown:
+                product_breakdown[prod_id] = {
+                    'product_name': detail['product_name'],
+                    'cost': 0
+                }
+            product_breakdown[prod_id]['cost'] += cost
+            
+            # Allocation Details Structure
+            if prod_id not in allocation_details_out:
+                allocation_details_out[prod_id] = {
+                    'product_name': detail['product_name'],
+                    'items': {}
+                }
+            
+            item_id = detail['item_id']
+            if item_id not in allocation_details_out[prod_id]['items']:
+                allocation_details_out[prod_id]['items'][item_id] = {
+                    'item_name': detail['item_name'],
+                    'allocations': []
+                }
+            
+            # Check if this provider entry exists (merge if needed, though loop shouldn't duplicate)
+            allocation_details_out[prod_id]['items'][item_id]['allocations'].append({
+                'provider_id': detail['provider_id'],
+                'provider_name': p_name,
+                'value': detail['volume'], # Use volume for display? Or stick to input? 
+                # Frontend expects input values (percentage or units).
+                # We should pass back what was effective. 
+                # But for "Simulated", maybe normalized?
+                # Let's pass back the computed volume for now or simple percentage if we can calc it.
+                # Actually, frontend "Base" view uses this. 
+                # Let's calculate percentage of total for that item/product
+                'mode': 'percentage' # Normalize to % for simple display?
+            })
 
-        all_providers = self.crud.get_all_providers()
-
-        for provider in all_providers:
-            if provider[3] != 'active':
-                continue
-
-            provider_id = provider[0]
-            provider_name = provider[1]
-
-            override = self.crud.get_provider_tier_override(provider_id)
-            if override:
-                effective_tier = override[1]
-                calculated_tier = self.crud.get_tier_for_credit_files(provider_id, total_credit_files)
-            else:
-                effective_tier = self.crud.get_tier_for_credit_files(provider_id, total_credit_files)
-                calculated_tier = effective_tier
-
-            provider_tiers[provider_name] = {
-                'provider_id': provider_id,
-                'calculated_tier': calculated_tier,
-                'override_tier': override[1] if override else None,
-                'effective_tier': effective_tier,
-                'total_credit_files': total_credit_files
-            }
-
-            provider_cost = 0.0
-
-            for product_id, credit_files in product_quantities.items():
-                product = self.crud.get_product(product_id)
-                if not product:
-                    continue
-
-                if product_id not in allocation_details:
-                    allocation_details[product_id] = {
-                        'product_name': product[1],
-                        'items': {}
-                    }
-
-                item_ids = self.crud.get_item_ids_for_product(product_id)
-                multipliers = self.crud.get_price_multipliers_for_product(product_id)
-
-                product_alloc = get_allocations_func(product_id) if get_allocations_func else {}
-                items_alloc = product_alloc.get('items', {}) if isinstance(product_alloc, dict) else {}
-
-                product_cost_for_provider = 0.0
-
-                for item_id in item_ids:
-                    item = self.crud.get_item(item_id)
-                    if not item or item[3] != 'active':
-                        continue
-
-                    if item_id not in allocation_details[product_id]['items']:
-                        item_alloc_def = items_alloc.get(item_id) or items_alloc.get(str(item_id)) or {}
-                        if isinstance(item_alloc_def, dict) and 'allocations' in item_alloc_def:
-                            allocs = []
-                            for pa in item_alloc_def.get('allocations', []):
-                                prov = self.crud.get_provider(pa.get('provider_id'))
-                                allocs.append({
-                                    'provider_id': pa.get('provider_id'),
-                                    'provider_name': prov[1] if prov else '',
-                                    'mode': item_alloc_def.get('mode', 'percentage'),
-                                    'value': pa.get('value', 0)
-                                })
-                            allocation_details[product_id]['items'][item_id] = {
-                                'item_name': item[1],
-                                'allocations': allocs
-                            }
-                        else:
-                            item_alloc = item_alloc_def
-                            providers_alloc = []
-                            for pa in item_alloc.get('providers', []):
-                                prov_id = pa.get('provider_id')
-                                prov = self.crud.get_provider(prov_id)
-                                providers_alloc.append({
-                                    'provider_id': prov_id,
-                                    'provider_name': prov[1] if prov else '',
-                                    'mode': item_alloc.get('mode') or item_alloc.get('allocation_mode') or 'percentage',
-                                    'value': pa.get('value', 0)
-                                })
-                            allocation_details[product_id]['items'][item_id] = {
-                                'item_name': item[1],
-                                'allocations': providers_alloc
-                            }
-
-                    assigned_files = 0.0
-
-                    if external_allocations:
-                        item_alloc_def = items_alloc.get(item_id) or items_alloc.get(str(item_id))
-                        if isinstance(item_alloc_def, dict) and 'allocations' in item_alloc_def:
-                            mode = item_alloc_def.get('mode', 'percentage')
-                            pa = next((p for p in item_alloc_def['allocations'] if p.get('provider_id') == provider_id), None)
-                            if pa:
-                                value = float(pa.get('value', 0))
-                                if mode == 'percentage':
-                                    assigned_files = credit_files * (value / 100.0)
-                                elif mode == 'units':
-                                    assigned_files = value
-                        else:
-                            selected_provider = external_allocations.get(item_id)
-                            if selected_provider == provider_id:
-                                assigned_files = credit_files
+        # Post-process allocation_details to normalize percentages for display
+        for pid, pdata in allocation_details_out.items():
+            for iid, idata in pdata['items'].items():
+                total_vol = sum(a['value'] for a in idata['allocations'])
+                for alloc in idata['allocations']:
+                    if total_vol > 0:
+                        alloc['value'] = round((alloc['value'] / total_vol) * 100, 1)
                     else:
-                        item_alloc = items_alloc.get(item_id) or items_alloc.get(str(item_id)) or {}
-                        providers_list = item_alloc.get('providers', [])
-                        mode = item_alloc.get('mode') or item_alloc.get('allocation_mode') or 'percentage'
-                        alloc_entry = next((pa for pa in providers_list if pa.get('provider_id') == provider_id), None)
-                        if alloc_entry:
-                            value = float(alloc_entry.get('value', 0))
-                            if mode == 'percentage':
-                                assigned_files = credit_files * (value / 100.0)
-                            elif mode == 'units':
-                                assigned_files = value
-
-                    if assigned_files <= 0:
-                        continue
-
-                    price = self.crud.get_price_for_item_at_tier(provider_id, item_id, effective_tier)
-                    if price is None:
-                        continue
-
-                    multiplier_info = multipliers.get(item_id, {})
-                    multiplier = multiplier_info.get('multiplier', 1.0) if isinstance(multiplier_info, dict) else 1.0
-
-                    cost = assigned_files * price * multiplier
-                    provider_cost += cost
-
-                    if provider_name not in provider_breakdown:
-                        provider_breakdown[provider_name] = {
-                            'provider_id': provider_id,
-                            'items': {},
-                            'total_cost': 0.0,
-                            'total_units': 0,
-                            'tier_info': provider_tiers[provider_name]
-                        }
-
-                    if item[1] not in provider_breakdown[provider_name]['items']:
-                        provider_breakdown[provider_name]['items'][item[1]] = []
-
-                    provider_breakdown[provider_name]['items'][item[1]].append({
-                        'product_name': product[1],
-                        'product_id': product_id,
-                        'credit_files': assigned_files,
-                        'unit_price': price,
-                        'multiplier': multiplier,
-                        'cost': cost,
-                        'tier': effective_tier
-                    })
-
-                    if product_id not in product_breakdown:
-                        product_breakdown[product_id] = {
-                            'product_name': product[1],
-                            'credit_files': credit_files,
-                            'cost': 0.0
-                        }
-                    product_breakdown[product_id]['cost'] += cost
-
-            if provider_cost > 0:
-                provider_breakdown[provider_name]['total_cost'] = provider_cost
-                provider_breakdown[provider_name]['total_units'] = total_credit_files
-                total_cost += provider_cost
+                        alloc['value'] = 0
 
         return {
             'total_cost': round(total_cost, 2),
-            'total_credit_files': total_credit_files,
             'provider_breakdown': provider_breakdown,
             'product_breakdown': product_breakdown,
-            'provider_tiers': provider_tiers,
-            'allocation_details': allocation_details
+            'allocation_details': allocation_details_out
         }
 
-    def calculate_current_cost(self, product_quantities: Dict[int, int]) -> Dict[str, Any]:
-        """Calculate current cost based on product quantities using tier-based pricing."""
+    def get_current_allocations(self, product_quantities: Dict[int, int]) -> Dict[int, Any]:
+        """Get current item-provider allocations from product configurations."""
+        allocations = {}
 
-        def get_allocations(product_id):
-            return self.crud.get_allocations_for_product(product_id)
-
-        return self._calculate_cost_base(product_quantities, get_allocations)
-
-    def get_provider_tier_status(self, product_quantities: Dict[int, int]) -> Dict[str, Any]:
-        """Get tier status for all providers."""
-
-        total_credit_files = sum(product_quantities.values())
-        tier_status = {}
-
-        all_providers = self.crud.get_all_providers()
-
-        for provider in all_providers:
-            if provider[3] != 'active':
+        for product_id in product_quantities.keys():
+            # Get allocations from DB
+            # This returns either nested {mode, providers} (Collective) or {item_id: {mode, providers}} (Per Item)
+            db_alloc = self.crud.get_allocations_for_product(product_id)
+            
+            # We need to format this into the "Nested Product Structure" expected by calculate_cost_with_allocations
+            # { product_id: { items: { item_id: { mode, allocations: [] } } } }
+            
+            if not db_alloc:
                 continue
+                
+            # Check if collective
+            is_collective = 'mode' in db_alloc and 'providers' in db_alloc
+            
+            item_ids = self.crud.get_item_ids_for_product(product_id)
+            
+            if product_id not in allocations:
+                product = self.crud.get_product(product_id)
+                allocations[product_id] = {
+                    'product_name': product['name'] if product else f'Product {product_id}',
+                    'items': {}
+                }
+            
+            if is_collective:
+                # Apply to all items
+                for item_id in item_ids:
+                    allocations[product_id]['items'][item_id] = {
+                        'mode': db_alloc['mode'],
+                        'allocations': db_alloc['providers'] # [{provider_id, value}, ...]
+                    }
+            else:
+                # Per item
+                for item_id in item_ids:
+                    if item_id in db_alloc:
+                        allocations[product_id]['items'][item_id] = {
+                            'mode': db_alloc[item_id].get('mode', 'percentage'),
+                            'allocations': db_alloc[item_id].get('providers', [])
+                        }
+                    elif str(item_id) in db_alloc:
+                        allocations[product_id]['items'][item_id] = {
+                            'mode': db_alloc[str(item_id)].get('mode', 'percentage'),
+                            'allocations': db_alloc[str(item_id)].get('providers', [])
+                        }
 
-            provider_id = provider[0]
-            provider_name = provider[1]
+        return allocations
 
-            calculated_tier = self.crud.get_tier_for_credit_files(provider_id, total_credit_files)
-            override = self.crud.get_provider_tier_override(provider_id)
-
-            tier_status[provider_name] = {
-                'provider_id': provider_id,
-                'calculated_tier': calculated_tier,
-                'override_tier': override[1] if override else None,
-                'effective_tier': override[1] if override else calculated_tier,
-                'total_credit_files': total_credit_files,
-                'override_notes': override[2] if override else None
+    def get_provider_tier_status(self, product_quantities: Dict[Any, int]) -> Dict[str, Any]:
+        """
+        Get tier status for all providers.
+        Note: Tiers are technically per-Contract. This provides a summary aggregating across contracts.
+        """
+        # Reuse the logic from calculate_cost to get volumes per contract
+        # Then aggregate by Provider
+        
+        quantities = {int(k): int(v) for k, v in product_quantities.items()}
+        allocations = self.get_current_allocations(quantities)
+        
+        # We can run a "dry run" of calculation to get volumes
+        # But calculate_cost_with_allocations returns "provider_breakdown" which has tier_info!
+        
+        result = self.calculate_cost_with_allocations(quantities, allocations)
+        
+        status = {}
+        for p_name, data in result['provider_breakdown'].items():
+            status[p_name] = {
+                'calculated_tier': data['tier_info'].get('effective_tier'),
+                'effective_tier': data['tier_info'].get('effective_tier'),
+                'total_credit_files': data['total_units'],
+                'override_tier': None
             }
-
-        return tier_status
+            
+        return status
 
     def get_all_active_products(self) -> List[Dict[str, Any]]:
         """Get all active products for optimization input"""
-
         products = self.crud.get_all_products()
         result = []
-
         for product in products:
-            if product[4] == 'active':
+            # product is tuple/list: (id, name, desc, status, ...)
+            if product[3] == 'active':
                 item_ids = self.crud.get_item_ids_for_product(product[0])
                 result.append({
                     'product_id': product[0],
@@ -251,102 +387,13 @@ class CalculationService:
                     'description': product[2],
                     'item_count': len(item_ids)
                 })
-
         return result
 
-    def get_current_allocations(self, product_quantities: Dict[int, int]) -> Dict[int, int]:
-        """Get current item-provider allocations from product configurations."""
-
-        allocations = {}
-
-        for product_id in product_quantities.keys():
-            item_ids = self.crud.get_item_ids_for_product(product_id)
-            product_allocations = self.crud.get_allocations_for_product(product_id)
-
-            for item_id in item_ids:
-                if item_id in allocations:
-                    continue
-
-                item_alloc = product_allocations.get(item_id) or product_allocations.get(str(item_id))
-                if item_alloc and 'providers' in item_alloc:
-                    providers_list = item_alloc['providers']
-                    if providers_list:
-                        best_provider = max(providers_list, key=lambda p: p.get('value', 0))
-                        allocations[item_id] = best_provider['provider_id']
-                        continue
-
-                providers_for_item = self.crud.get_providers_for_item(item_id)
-                if providers_for_item:
-                    allocations[item_id] = providers_for_item[0]
-
-        return allocations
-
-    def calculate_cost_with_allocations(
-        self,
-        product_quantities: Dict[int, int],
-        allocations: Dict[int, int]
-    ) -> Dict[str, Any]:
-        """Calculate cost using specific item-provider allocations."""
-
-        result = self._calculate_cost_base(
-            product_quantities,
-            None,
-            external_allocations=allocations
-        )
-
-        result['allocations'] = allocations
-
-        return result
-
-    def calculate_item_price(self, provider_id, item_id, process_id, price_multipliers, allocations_data):
-        """Calculate price for a specific item and provider."""
-        # Calculate total files for provider to determine tier
-        total_files = 0
-        if str(provider_id) in allocations_data:
-            for item_data in allocations_data[str(provider_id)].values():
-                total_files += item_data.get('total', 0)
-
-        # Determine Tier
-        tier_data = self.crud.get_provider_tier_thresholds(provider_id)
-        thresholds = tier_data.get('thresholds', {})
-        current_tier = 1
-
-        if total_files > 0 and thresholds:
-            tier_keys = sorted([int(k) for k in thresholds.keys()])
-            for tier in tier_keys:
-                if total_files < thresholds[str(tier)]:
-                    current_tier = tier
-                    break
-                current_tier = tier
-
-        # Get Base Price
-        base_price = self.crud.get_price_for_item_at_tier(provider_id, item_id, current_tier, process_id)
-        if base_price is None:
-            return None
-
-        # Apply Multiplier
-        multiplier = 1.0
-        if price_multipliers:
-            m = price_multipliers.get(item_id) or price_multipliers.get(str(item_id))
-            if m is not None:
-                if isinstance(m, dict) and 'multiplier' in m:
-                    multiplier = float(m['multiplier'])
-                else:
-                    multiplier = float(m)
-
-        return {
-            'provider_id': provider_id,
-            'provider_name': self.crud.get_provider(provider_id)['company_name'],
-            'tier': current_tier,
-            'base_price': base_price,
-            'multiplier': multiplier,
-            'final_price': base_price * multiplier
-        }
-
+    def _row_to_dict(self, row, columns):
+        return dict(zip(columns, row))
 
 # Global calculation service instance
 _calculation_service = None
-
 
 def get_calculation_service():
     """Get or create the global calculation service instance"""

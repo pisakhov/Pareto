@@ -1,68 +1,65 @@
 /**
- * Optimization App - Main orchestrator for optimization dashboard
+ * Optimization App - Orchestrates the simulation dashboards
  */
 class OptimizationApp {
     constructor() {
+        this.activeTab = 'allocation'; // 'allocation' or 'forecast'
+        this.simulators = {
+            allocation: null,
+            forecast: null
+        };
         this.init();
     }
 
-    async init() {
-        await this.loadComparison();
+    init() {
+        this.setupTabs();
+        this.loadActiveSimulator();
     }
 
-    async loadComparison() {
-        const loadingState = document.getElementById('loadingState');
+    setupTabs() {
+        const tabs = document.querySelectorAll('[data-tab]');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                const target = e.currentTarget.dataset.tab;
+                this.switchTab(target);
+            });
+        });
+    }
+
+    switchTab(tabName) {
+        if (this.activeTab === tabName) return;
         
-        try {
-            await window.comparisonView.init();
-            window.comparisonView.show();
-            
-            if (loadingState) {
-                loadingState.classList.add('hidden');
+        // Update UI
+        document.querySelectorAll('[data-tab]').forEach(t => {
+            if (t.dataset.tab === tabName) {
+                t.classList.add('border-slate-800', 'text-slate-900');
+                t.classList.remove('border-transparent', 'text-slate-500', 'hover:text-slate-700', 'hover:border-slate-300');
+            } else {
+                t.classList.remove('border-slate-800', 'text-slate-900');
+                t.classList.add('border-transparent', 'text-slate-500', 'hover:text-slate-700', 'hover:border-slate-300');
             }
-        } catch (error) {
-            console.error('Error loading comparison:', error);
-            this.showNotification('Failed to load optimization data', 'error');
-            
-            if (loadingState) {
-                loadingState.innerHTML = `
-                    <div class="text-center py-12">
-                        <p class="text-red-600 mb-2">Failed to load data</p>
-                        <p class="text-sm text-muted-foreground">${error.message}</p>
-                    </div>
-                `;
-            }
-        }
+        });
+
+        document.getElementById('simulationAllocationContainer').classList.toggle('hidden', tabName !== 'allocation');
+        document.getElementById('simulationForecastContainer').classList.toggle('hidden', tabName !== 'forecast');
+
+        this.activeTab = tabName;
+        this.loadActiveSimulator();
     }
 
-
-    showNotification(message, type = 'info') {
-        const notification = document.createElement('div');
-        notification.className = `fixed top-4 right-4 p-4 rounded-md shadow-lg z-50 transition-all duration-300 transform translate-x-full`;
-
-        const colors = {
-            success: 'bg-green-500 text-white',
-            error: 'bg-red-500 text-white',
-            info: 'bg-blue-500 text-white',
-        };
-
-        notification.className += ` ${colors[type]}`;
-        notification.textContent = message;
-
-        document.body.appendChild(notification);
-
-        setTimeout(() => {
-            notification.classList.remove('translate-x-full');
-        }, 100);
-
-        setTimeout(() => {
-            notification.classList.add('translate-x-full');
-            setTimeout(() => {
-                if (document.body.contains(notification)) {
-                    document.body.removeChild(notification);
-                }
-            }, 300);
-        }, 3000);
+    async loadActiveSimulator() {
+        if (this.activeTab === 'allocation') {
+            if (!this.simulators.allocation) {
+                this.simulators.allocation = new SimulationAllocation('simulationAllocationContainer');
+            }
+            // Re-init to refresh data
+            await this.simulators.allocation.init();
+        } else if (this.activeTab === 'forecast') {
+            if (!this.simulators.forecast) {
+                this.simulators.forecast = new SimulationLookupStrategyForecast('simulationForecastContainer');
+            }
+            await this.simulators.forecast.init();
+        }
     }
 }
 

@@ -1,35 +1,43 @@
 {% extends "base.html" %}
 
-{% block title %}Pareto - Optimization Dashboard{% endblock %}
+{% block title %}Pareto - Simulation Dashboard{% endblock %}
 
 {% block content %}
 <div class="max-w-7xl mx-auto">
     <div class="text-center py-8">
-        <h1 class="text-4xl font-bold text-foreground mb-4">Pricing Optimization Dashboard</h1>
-        <p class="text-xl text-muted-foreground mb-8">Visualize and optimize provider allocations across products</p>
+        <h1 class="text-4xl font-bold text-foreground mb-4">Simulation Dashboard</h1>
+        <p class="text-xl text-muted-foreground mb-8">Analyze pricing scenarios and forecast opportunities</p>
     </div>
 
-    <!-- Loading State -->
-    <div id="loadingState" class="text-center py-12">
-        <div class="animate-pulse text-muted-foreground">Loading optimization data...</div>
+    <!-- Tabs -->
+    <div class="border-b border-slate-200 mb-8">
+        <nav class="-mb-px flex space-x-8 justify-center" aria-label="Tabs">
+            <button data-tab="allocation" class="border-slate-800 text-slate-900 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                Allocation Optimizer
+            </button>
+            <button data-tab="forecast" class="border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+                Forecast Strategy Analyzer
+            </button>
+        </nav>
     </div>
 
-    <!-- Comparison Container -->
-    <div id="comparisonContainer" class="hidden mb-8">
-        <!-- Two-column comparison will be rendered here by comparisonView.js -->
+    <!-- Allocation Simulator Container -->
+    <div id="simulationAllocationContainer" class="min-h-[400px]">
+        <!-- Content rendered by SimulationAllocation.js -->
     </div>
 
-    <!-- Empty State -->
-    <div id="emptyState" class="text-center py-12">
-        <svg class="mx-auto h-12 w-12 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-        </svg>
-        <h3 class="mt-2 text-sm font-semibold text-foreground">No Results</h3>
-        <p class="mt-1 text-sm text-muted-foreground">Set product quantities and click "Calculate Cost" to see allocations.</p>
+    <!-- Forecast Simulator Container -->
+    <div id="simulationForecastContainer" class="hidden min-h-[400px]">
+        <!-- Content rendered by SimulationLookupStrategyForecast.js -->
     </div>
+
 </div>
 
+<!-- Chart.js Library -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+
 <!-- Component Scripts -->
-<script src="/static/home/js/comparisonView.js"></script>
+<script src="/static/home/js/SimulationAllocation.js"></script>
+<script src="/static/home/js/SimulationLookupStrategyForecast.js"></script>
 <script src="/static/home/js/optimizationApp.js"></script>
 {% endblock %}
