@@ -547,10 +547,6 @@ class ItemManager {
             });
         });
 
-        this.allProviders.forEach(p => {
-            if (!unique.has(p.provider_id)) unique.set(p.provider_id, p);
-        });
-
         return Array.from(unique.values());
     }
 
