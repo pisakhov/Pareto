@@ -336,19 +336,52 @@ class SimulationLookupStrategyForecast {
     renderChart(chartData, providerData) {
         const content = document.getElementById('sim_forecast_content');
         
-        // Generate Strategy Info HTML with Revamped Card Design
+        // Generate Strategy Info HTML with Interactive Controls
         const strategyInfo = providerData.map((p, idx) => `
-            <div class="bg-white border-l-4 border-y border-r border-slate-200 rounded-r-lg shadow-sm p-3 min-w-[240px] transition-all hover:shadow-md" style="border-left-color: ${p.color}">
+            <div class="bg-white border-l-4 border-y border-r border-slate-200 rounded-r-lg shadow-sm p-3 min-w-[260px] transition-all hover:shadow-md" style="border-left-color: ${p.color}">
                 <div class="flex justify-between items-start mb-2">
                     <h4 class="font-bold text-slate-800 text-sm truncate max-w-[140px]" title="${p.providerName}">${p.providerName}</h4>
-                    <span class="text-[10px] font-mono bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">
-                        ${p.shareMode === 'percentage' ? p.share + '%' : p.share.toLocaleString()}
-                    </span>
                 </div>
                 
-                <div class="text-xs text-slate-500 mb-3 flex items-center gap-1">
-                    <span class="uppercase text-[10px] tracking-wider font-semibold text-slate-400">Strategy:</span>
-                    <span class="font-medium text-slate-700">${p.strategy.method} ${p.strategy.lookback}m</span>
+                <div class="flex flex-col gap-3 mb-3">
+                    <!-- Share Control -->
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Share</span>
+                        <div class="flex items-center relative w-20">
+                             <input type="number" 
+                                    class="w-full text-right text-xs border border-slate-200 rounded px-1.5 py-1 focus:ring-1 focus:ring-blue-500 outline-none share-input" 
+                                    data-provider-idx="${idx}"
+                                    value="${p.share}" 
+                                    step="${p.shareMode === 'percentage' ? '1' : '100'}"
+                                    min="0" 
+                                    max="${p.shareMode === 'percentage' ? '100' : ''}">
+                             <span class="absolute right-6 text-[10px] text-slate-400 pointer-events-none mr-1">${p.shareMode === 'percentage' ? '%' : ''}</span>
+                        </div>
+                    </div>
+
+                    <!-- Strategy Control -->
+                    <div class="flex items-center justify-between">
+                         <span class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Strategy</span>
+                         <div class="flex items-center gap-1 bg-slate-100 p-0.5 rounded text-[10px]">
+                              <button class="px-1.5 py-0.5 rounded font-medium transition-all strategy-btn ${p.strategy.method === 'SUM' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-600'}" 
+                                      data-provider-idx="${idx}" data-method="SUM">SUM</button>
+                              <button class="px-1.5 py-0.5 rounded font-medium transition-all strategy-btn ${p.strategy.method === 'AVG' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-600'}" 
+                                      data-provider-idx="${idx}" data-method="AVG">AVG</button>
+                         </div>
+                    </div>
+                    
+                    <!-- Range Control -->
+                    <div class="flex items-center justify-between">
+                         <span class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Range</span>
+                         <div class="flex items-center relative w-12">
+                             <input type="number" 
+                                    class="w-full text-center text-xs border border-slate-200 rounded px-1 py-1 focus:ring-1 focus:ring-blue-500 outline-none range-input" 
+                                    data-provider-idx="${idx}"
+                                    value="${p.strategy.lookback}" 
+                                    min="1">
+                             <span class="absolute right-1 text-[8px] text-slate-400 pointer-events-none">m</span>
+                         </div>
+                    </div>
                 </div>
 
                 <div class="flex flex-col gap-2 border-t border-slate-100 pt-2">
@@ -556,6 +589,107 @@ class SimulationLookupStrategyForecast {
 
         // Tier Toggles
         attachToggleListener('.tier-toggle', (ds, name) => ds.label.startsWith(name) && ds.label.includes('Tier'));
+
+        // --- Event Listeners for Interactive Controls ---
+
+        const updateSimulation = () => {
+            const timeline = chartData.timeline; 
+            
+            providerData.forEach(provider => {
+                const { strategy, share, shareMode } = provider;
+                
+                // 1. Calculate Allocated Raw Stream (Before Strategy)
+                const allocatedStream = timeline.map((point) => {
+                    const safeShare = Number(share) || 0;
+                    if (shareMode === 'percentage') {
+                        return point.raw * (safeShare / 100.0);
+                    } else {
+                        return safeShare; // Fixed units
+                    }
+                });
+                
+                provider.rawVolumes = allocatedStream;
+
+                // 2. Apply Rolling Window Strategy
+                const rollingVolumes = allocatedStream.map((_, index) => {
+                    let sum = 0;
+                    let count = 0;
+                    for (let i = 0; i < strategy.lookback; i++) {
+                        const targetIdx = index - i;
+                        if (targetIdx >= 0) {
+                            sum += allocatedStream[targetIdx];
+                            count++;
+                        }
+                    }
+                    return strategy.method === 'AVG' ? (count > 0 ? sum / count : 0) : sum;
+                });
+                
+                provider.effectiveVolumes = rollingVolumes;
+            });
+
+            // Update Chart Datasets
+            this.chart.data.datasets.forEach(ds => {
+                // Find matching provider
+                const provider = providerData.find(p => 
+                    ds.label.startsWith(p.providerName)
+                );
+                
+                if (provider) {
+                    if (ds.label.includes('(Strategy)')) {
+                        ds.data = provider.effectiveVolumes;
+                    } else if (ds.label.includes('(Raw)')) {
+                        ds.data = provider.rawVolumes;
+                    }
+                }
+            });
+            
+            this.chart.update();
+        };
+
+        // 1. Share Input
+        content.querySelectorAll('.share-input').forEach(input => {
+            input.addEventListener('input', (e) => {
+                const idx = parseInt(e.target.dataset.providerIdx);
+                const val = parseFloat(e.target.value) || 0;
+                providerData[idx].share = val;
+                updateSimulation();
+            });
+        });
+
+        // 2. Strategy Buttons
+        content.querySelectorAll('.strategy-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idx = parseInt(e.target.dataset.providerIdx);
+                const method = e.target.dataset.method;
+                
+                // Update State
+                providerData[idx].strategy.method = method;
+                
+                // Update UI (Active Class)
+                const parent = e.target.parentElement;
+                parent.querySelectorAll('.strategy-btn').forEach(b => {
+                    if (b.dataset.method === method) {
+                        b.classList.remove('text-slate-400', 'hover:text-slate-600');
+                        b.classList.add('bg-white', 'shadow-sm', 'text-slate-800');
+                    } else {
+                        b.classList.add('text-slate-400', 'hover:text-slate-600');
+                        b.classList.remove('bg-white', 'shadow-sm', 'text-slate-800');
+                    }
+                });
+
+                updateSimulation();
+            });
+        });
+
+        // 3. Range Input
+        content.querySelectorAll('.range-input').forEach(input => {
+            input.addEventListener('input', (e) => {
+                const idx = parseInt(e.target.dataset.providerIdx);
+                const val = parseInt(e.target.value) || 1;
+                providerData[idx].strategy.lookback = val;
+                updateSimulation();
+            });
+        });
     }
 
     getProviderColor(index) {
