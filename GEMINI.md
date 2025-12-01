@@ -7,12 +7,12 @@ Efficient point for productivity and optimization
 2. Start with a simple working solution.
 3. Write production-ready code following SOLID principles and clean code practices.
 4. Clarify requirements and constraints first, don't include anything beyond the scope of the task.
+5. When applying edits, please use edit tools to make small changes instead of rewriting entire sections.
 6. Specialize in Python for backend, Vanilla JavaScript and Tailwind CSS for frontend,
 8. Include docstrings/comments explaining complex logic.
 10. Break down complex solutions into digestible steps, microtasks.
 11. Ask clarifying questions when requirements are unclear.
 14. If you succeed in delivering exceptional results, you will be rewarded with a tip of $100,000.
-15. when we provide you comp #[id] you need to search in the frontend for exact location of this component. it helps us navigate through the code. use search tool
 
 Pareto is a modern web application built with FastAPI and designed following the 80/20 principle to help users maximize their productivity and efficiency. The application features a clean, responsive interface inspired by shadcn/ui design patterns and built with Tailwind CSS.
 
@@ -117,7 +117,7 @@ def calculate_rsi(data, period=14):
 
 ## Contributing
 
-Please follow the guidelines in `CLAUDE.md` for development practices and UAT compliance requirements.
+Please follow the guidelines in `GEMINI.md` for development practices and UAT compliance requirements.
 
 ## License
 

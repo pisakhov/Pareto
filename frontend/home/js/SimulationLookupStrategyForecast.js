@@ -293,7 +293,7 @@ class SimulationLookupStrategyForecast {
             label: `${new Date(f.year, f.month - 1).toLocaleDateString('en-US', { month: 'short' })} '${String(f.year).slice(2)}`,
             year: f.year,
             month: f.month,
-            raw: f.forecast_units,
+            raw: Number(f.forecast_units) || 0,
             dateKey: `${f.year}-${f.month}`
         }));
 
@@ -301,33 +301,19 @@ class SimulationLookupStrategyForecast {
         providerData.forEach(provider => {
             const { strategy, share, shareMode } = provider;
             
-            provider.effectiveVolumes = timeline.map((point, index) => {
-                // 1. Apply Allocation to Raw Forecast
-                let allocatedRaw = 0;
+            // 1. Calculate Allocated Raw Stream (Before Strategy)
+            const allocatedStream = timeline.map((point) => {
+                const safeShare = Number(share) || 0;
                 if (shareMode === 'percentage') {
-                    allocatedRaw = point.raw * (share / 100.0);
+                    return point.raw * (safeShare / 100.0);
                 } else {
-                    // 'units' mode (fixed volume) or other.
-                    // For simulation, 'units' usually implies a fixed cap or floor, but strictly speaking it's "Allocated Units".
-                    // If share is e.g. 5000, does it mean 5000 units/month? 
-                    // For now, let's assume it's a fixed unit allocation per month if mode is units.
-                    // But if raw < share? Usually it means "Up to". 
-                    // Let's implement simple fixed amount for now if mode is units, else percentage.
-                    allocatedRaw = share; // Fixed units
+                    return safeShare; // Fixed units
                 }
-
-                // Store this time-point's allocated raw for debugging/tooltips if needed
-                // But we need to apply the STRATEGY (Rolling Window) to this allocated stream.
-                
-                return allocatedRaw; 
             });
+            
+            provider.rawVolumes = allocatedStream;
 
             // 2. Apply Rolling Window Strategy to the Allocated Stream
-            // We need to re-map because we need the history of *allocated* values, not just current.
-            // Let's do a second pass or compute on fly.
-            
-            const allocatedStream = provider.effectiveVolumes; // Currently holding raw allocated
-            
             const rollingVolumes = allocatedStream.map((_, index) => {
                 let sum = 0;
                 let count = 0;
@@ -350,23 +336,42 @@ class SimulationLookupStrategyForecast {
     renderChart(chartData, providerData) {
         const content = document.getElementById('sim_forecast_content');
         
-        // Generate Strategy Info HTML with Breakdown Logic style
-        const strategyInfo = providerData.map(p => `
-            <div class="flex items-center gap-3 bg-white border border-slate-200 rounded-lg px-4 py-3 mr-3 mb-3 shadow-sm">
-                <div class="w-3 h-3 rounded-full shadow-sm" style="background-color: ${p.color}"></div>
-                <div>
-                    <div class="font-bold text-sm text-slate-800">${p.providerName}</div>
-                    <div class="flex items-center gap-3 text-xs mt-1">
-                        <div class="flex flex-col">
-                             <span class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Strategy</span>
-                             <span class="font-mono text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded mt-0.5 font-medium">${p.strategy.method} ${p.strategy.lookback}m</span>
-                        </div>
-                        <div class="w-px h-6 bg-slate-100"></div>
-                        <div class="flex flex-col">
-                             <span class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Share</span>
-                             <span class="font-medium text-slate-700 mt-0.5">${p.shareMode === 'percentage' ? p.share + '%' : p.share.toLocaleString()}</span>
-                        </div>
-                    </div>
+        // Generate Strategy Info HTML with Revamped Card Design
+        const strategyInfo = providerData.map((p, idx) => `
+            <div class="bg-white border-l-4 border-y border-r border-slate-200 rounded-r-lg shadow-sm p-3 min-w-[240px] transition-all hover:shadow-md" style="border-left-color: ${p.color}">
+                <div class="flex justify-between items-start mb-2">
+                    <h4 class="font-bold text-slate-800 text-sm truncate max-w-[140px]" title="${p.providerName}">${p.providerName}</h4>
+                    <span class="text-[10px] font-mono bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">
+                        ${p.shareMode === 'percentage' ? p.share + '%' : p.share.toLocaleString()}
+                    </span>
+                </div>
+                
+                <div class="text-xs text-slate-500 mb-3 flex items-center gap-1">
+                    <span class="uppercase text-[10px] tracking-wider font-semibold text-slate-400">Strategy:</span>
+                    <span class="font-medium text-slate-700">${p.strategy.method} ${p.strategy.lookback}m</span>
+                </div>
+
+                <div class="flex flex-col gap-2 border-t border-slate-100 pt-2">
+                    <!-- Strategy Toggle -->
+                    <label class="flex items-center gap-2 cursor-pointer group select-none">
+                        <input type="checkbox" class="strategy-toggle w-3.5 h-3.5 text-blue-600 rounded focus:ring-blue-500 border-slate-300" data-provider-idx="${idx}" checked>
+                        <span class="text-xs text-slate-600 group-hover:text-slate-900 transition-colors">Strategy Vol</span>
+                        <div class="ml-auto w-6 h-0.5" style="background-color: ${p.color}"></div>
+                    </label>
+                    
+                    <!-- Raw Toggle -->
+                    <label class="flex items-center gap-2 cursor-pointer group select-none">
+                        <input type="checkbox" class="raw-toggle w-3.5 h-3.5 text-slate-400 rounded focus:ring-slate-400 border-slate-300" data-provider-idx="${idx}">
+                        <span class="text-xs text-slate-600 group-hover:text-slate-900 transition-colors">Raw Vol</span>
+                        <div class="ml-auto w-6 h-0.5 border-t-2 border-dotted" style="border-color: ${p.color}"></div>
+                    </label>
+
+                    <!-- Tiers Toggle -->
+                    <label class="flex items-center gap-2 cursor-pointer group select-none">
+                        <input type="checkbox" class="tier-toggle w-3.5 h-3.5 text-slate-400 rounded focus:ring-slate-400 border-slate-300" data-provider-idx="${idx}" checked>
+                        <span class="text-xs text-slate-600 group-hover:text-slate-900 transition-colors">Tiers</span>
+                        <div class="ml-auto w-6 h-0.5 border-t border-dashed" style="border-color: ${p.color}"></div>
+                    </label>
                 </div>
             </div>
         `).join('');
@@ -374,8 +379,10 @@ class SimulationLookupStrategyForecast {
         content.innerHTML = `
             <div class="w-full h-full flex flex-col">
                 <div class="flex flex-col mb-2 px-4 pt-4">
-                    <h3 class="text-lg font-bold text-slate-800 mb-3">Forecast vs. Tiers</h3>
-                    <div class="flex flex-wrap">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-bold text-slate-800">Forecast vs. Tiers</h3>
+                    </div>
+                    <div class="flex flex-wrap gap-3">
                         ${strategyInfo}
                     </div>
                 </div>
@@ -390,9 +397,9 @@ class SimulationLookupStrategyForecast {
         const datasets = [];
 
         providerData.forEach((p, idx) => {
-            // Effective Volume Line
+            // 1. Effective Volume Line (Strategy)
             datasets.push({
-                label: `${p.providerName} Vol`,
+                label: `${p.providerName} (Strategy)`,
                 data: p.effectiveVolumes,
                 borderColor: p.color,
                 backgroundColor: p.color + '20', // Transparent fill
@@ -402,7 +409,20 @@ class SimulationLookupStrategyForecast {
                 yAxisID: 'y'
             });
 
-            // Tier Lines
+            // 2. Raw Volume Line (Hidden by default)
+            datasets.push({
+                label: `${p.providerName} (Raw)`,
+                data: p.rawVolumes,
+                borderColor: p.color,
+                borderWidth: 2,
+                borderDash: [2, 4], // Dotted line
+                pointRadius: 0,
+                fill: false,
+                hidden: true, // Default hidden
+                yAxisID: 'y'
+            });
+
+            // 3. Tier Lines
             p.thresholds.forEach((t) => {
                 datasets.push({
                     label: `${p.providerName} Tier ${t}`, 
@@ -432,17 +452,13 @@ class SimulationLookupStrategyForecast {
                 },
                 plugins: {
                     legend: { 
-                        position: 'bottom',
-                        labels: {
-                            filter: function(item, chart) {
-                                return !item.text.includes('Tier');
-                            }
-                        }
+                        display: false // Hide default legend as we have custom controls
                     },
                     tooltip: {
                         backgroundColor: 'rgba(255, 255, 255, 0.95)',
                         titleColor: '#1e293b',
                         bodyColor: '#475569',
+                        footerColor: '#334155',
                         borderColor: '#e2e8f0',
                         borderWidth: 1,
                         padding: 10,
@@ -461,11 +477,12 @@ class SimulationLookupStrategyForecast {
                                 let tooltipLines = [];
                                 
                                 providerData.forEach(p => {
-                                    // Find the volume item for this provider
+                                    // Find the volume items for this provider
                                     const dataIndex = items[0].dataIndex;
                                     const vol = p.effectiveVolumes[dataIndex];
+                                    const raw = p.rawVolumes[dataIndex];
                                     
-                                    // Find Current Tier & Next Tier
+                                    // Find Current Tier & Next Tier based on STRATEGY volume
                                     let currentTier = 0;
                                     let nextTier = null;
                                     
@@ -480,7 +497,8 @@ class SimulationLookupStrategyForecast {
                                     
                                     // Format lines
                                     tooltipLines.push(`• ${p.providerName.toUpperCase()}`);
-                                    tooltipLines.push(`  Volume: ${vol.toLocaleString(undefined, {maximumFractionDigits: 0})}`);
+                                    tooltipLines.push(`  Strategy Vol: ${vol.toLocaleString(undefined, {maximumFractionDigits: 0})}`);
+                                    tooltipLines.push(`  Raw Vol: ${raw.toLocaleString(undefined, {maximumFractionDigits: 0})}`);
                                     tooltipLines.push(`  Tier: ${currentTier.toLocaleString()}${currentTier === 0 ? ' (Base)' : ''}`);
                                     
                                     if (nextTier !== null) {
@@ -510,6 +528,34 @@ class SimulationLookupStrategyForecast {
                 }
             }
         });
+
+        // Event Listeners for Toggles
+        const attachToggleListener = (cls, matchFn) => {
+            const toggles = content.querySelectorAll(cls);
+            toggles.forEach(toggle => {
+                toggle.addEventListener('change', (e) => {
+                    const providerIdx = parseInt(e.target.dataset.providerIdx);
+                    const show = e.target.checked;
+                    const providerName = providerData[providerIdx].providerName;
+
+                    this.chart.data.datasets.forEach(ds => {
+                        if (matchFn(ds, providerName)) {
+                            ds.hidden = !show;
+                        }
+                    });
+                    this.chart.update();
+                });
+            });
+        };
+
+        // Strategy Toggles
+        attachToggleListener('.strategy-toggle', (ds, name) => ds.label === `${name} (Strategy)`);
+        
+        // Raw Toggles
+        attachToggleListener('.raw-toggle', (ds, name) => ds.label === `${name} (Raw)`);
+
+        // Tier Toggles
+        attachToggleListener('.tier-toggle', (ds, name) => ds.label.startsWith(name) && ds.label.includes('Tier'));
     }
 
     getProviderColor(index) {
