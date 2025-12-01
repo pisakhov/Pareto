@@ -3,7 +3,7 @@
  */
 class OptimizationApp {
     constructor() {
-        this.activeTab = 'allocation'; // 'allocation' or 'forecast'
+        this.activeTab = null;
         this.simulators = {
             allocation: null,
             forecast: null
@@ -13,7 +13,18 @@ class OptimizationApp {
 
     init() {
         this.setupTabs();
-        this.loadActiveSimulator();
+        
+        // Handle browser back/forward buttons
+        window.addEventListener('popstate', () => {
+            const params = new URLSearchParams(window.location.search);
+            const view = params.get('view') || 'allocation';
+            this.switchTab(view, false);
+        });
+
+        // Set initial tab from URL or default
+        const params = new URLSearchParams(window.location.search);
+        const initialTab = params.get('view') === 'forecast' ? 'forecast' : 'allocation';
+        this.switchTab(initialTab, false);
     }
 
     setupTabs() {
@@ -21,15 +32,23 @@ class OptimizationApp {
         tabs.forEach(tab => {
             tab.addEventListener('click', (e) => {
                 const target = e.currentTarget.dataset.tab;
-                this.switchTab(target);
+                this.switchTab(target, true);
             });
         });
     }
 
-    switchTab(tabName) {
+    switchTab(tabName, updateHistory = true) {
         if (this.activeTab === tabName) return;
+        this.activeTab = tabName;
         
-        // Update UI
+        // Update URL
+        if (updateHistory) {
+            const url = new URL(window.location);
+            url.searchParams.set('view', tabName);
+            window.history.pushState({}, '', url);
+        }
+
+        // Update UI Tabs
         document.querySelectorAll('[data-tab]').forEach(t => {
             if (t.dataset.tab === tabName) {
                 t.classList.add('border-slate-800', 'text-slate-900');
@@ -40,10 +59,13 @@ class OptimizationApp {
             }
         });
 
-        document.getElementById('simulationAllocationContainer').classList.toggle('hidden', tabName !== 'allocation');
-        document.getElementById('simulationForecastContainer').classList.toggle('hidden', tabName !== 'forecast');
+        // Toggle Content
+        const allocContainer = document.getElementById('simulationAllocationContainer');
+        const forecastContainer = document.getElementById('simulationForecastContainer');
 
-        this.activeTab = tabName;
+        if (allocContainer) allocContainer.classList.toggle('hidden', tabName !== 'allocation');
+        if (forecastContainer) forecastContainer.classList.toggle('hidden', tabName !== 'forecast');
+
         this.loadActiveSimulator();
     }
 
