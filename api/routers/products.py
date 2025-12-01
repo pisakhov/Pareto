@@ -4,6 +4,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 import os
+from datetime import datetime
 
 from db.crud import get_crud
 
@@ -212,3 +213,103 @@ async def get_product_pricing_view(product_id: int, year: Optional[int] = None, 
     except Exception as e:
         print(f"Error calculating pricing view: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/api/products/{product_id}/pricing_history")
+async def get_product_pricing_history(
+    product_id: int, 
+    year: Optional[int] = None, 
+    month: Optional[int] = None, 
+    lookback: int = 12,
+    use_forecasts: bool = False # Ignored, we fetch both
+):
+    """Get pricing history for charts (both Actuals and Forecasts)."""
+    crud = get_crud()
+    
+    # Determine end date
+    now = datetime.now()
+    current_year = year if year is not None else now.year
+    current_month = month if month is not None else now.month
+    
+    # Dynamic Lookback for "ALL" (>= 120 months)
+    if lookback >= 120:
+        # Fetch all time-series data to determine true history start
+        all_data = crud.get_actuals_for_product(product_id) + crud.get_forecasts_for_product(product_id)
+        
+        if not all_data:
+            # No data at all, default to a standard 12-month view to avoid 10 years of empty space
+            lookback = 12
+        else:
+            # Find the earliest date that is <= current date (History view)
+            current_date_val = current_year * 12 + current_month
+            min_date_val = current_date_val
+            has_relevant_history = False
+            
+            for item in all_data:
+                item_date_val = item['year'] * 12 + item['month']
+                # We only care about history (past/present), not future forecasts for the start point
+                if item_date_val <= current_date_val:
+                    if item_date_val < min_date_val:
+                        min_date_val = item_date_val
+                    has_relevant_history = True
+            
+            if has_relevant_history:
+                # Calculate exact lookback needed to reach the start
+                # +1 to include the start month itself
+                lookback = (current_date_val - min_date_val) + 1
+            else:
+                # Data exists but only in the future. Show standard 12 month empty history context.
+                lookback = 12
+
+    history = []
+    
+    # Loop backwards (default 12 months)
+    for i in range(lookback):
+        # Simple manual date math
+        total_months = (current_year * 12 + current_month - 1) - i
+        y = total_months // 12
+        m = (total_months % 12) + 1
+        
+        try:
+            # 1. Get Actuals
+            data_act = crud.get_product_pricing_table_data(product_id, y, m, use_forecasts=False)
+            
+            breakdown_act = {}
+            total_act = 0
+            for process in data_act['processes']:
+                p_total = sum(row['total_cost'] for row in process['rows'])
+                # Use None if no data exists for this period
+                val = p_total if process.get('has_data', True) else None
+                breakdown_act[str(process['process_id'])] = val
+                if val is not None:
+                    total_act += val
+
+            # 2. Get Forecasts
+            data_fcst = crud.get_product_pricing_table_data(product_id, y, m, use_forecasts=True)
+            
+            breakdown_fcst = {}
+            total_fcst = 0
+            for process in data_fcst['processes']:
+                p_total = sum(row['total_cost'] for row in process['rows'])
+                # Use None if no data exists for this period
+                val = p_total if process.get('has_data', True) else None
+                breakdown_fcst[str(process['process_id'])] = val
+                if val is not None:
+                    total_fcst += val
+            
+            history.append({
+                "year": y,
+                "month": m,
+                "total_cost_actuals": total_act,
+                "breakdown_actuals": breakdown_act,
+                "units_actuals": data_act['units'],
+                "total_cost_forecasts": total_fcst,
+                "breakdown_forecasts": breakdown_fcst,
+                "units_forecasts": data_fcst['units']
+            })
+            
+        except Exception as e:
+            print(f"Error for {y}-{m}: {e}")
+            continue
+            
+    return JSONResponse(content={"history": history[::-1]}) # Reverse to chronological

@@ -5,6 +5,7 @@ class ProductView {
     constructor() {
         this.modalId = 'productViewModal';
         this.viewMode = 'actuals'; // 'actuals' or 'forecasts'
+        this.historyLookback = 12; // Default lookback
         this.charts = new Map(); // Store chart instances by processId
         this.calculators = new Map(); // Store calculator state by processId
     }
@@ -56,9 +57,29 @@ class ProductView {
                 url += `use_forecasts=true`;
             }
 
-            const response = await fetch(url);
-            const data = await response.json();
+            // Fetch Pricing Data AND History Data in parallel
+            let historyUrl = `/api/products/${productId}/pricing_history?`;
+            if (year && month) {
+                historyUrl += `year=${year}&month=${month}&`;
+            }
+            // Add lookback
+            historyUrl += `lookback=${this.historyLookback}&`;
             
+            if (this.viewMode === 'forecasts') {
+                historyUrl += `use_forecasts=true`;
+            }
+
+            const [pricingResponse, historyResponse] = await Promise.all([
+                fetch(url),
+                fetch(historyUrl)
+            ]);
+
+            const data = await pricingResponse.json();
+            const historyData = await historyResponse.json();
+            
+            // Store history for access in render
+            this.historyData = historyData.history || [];
+
             // Update Global Stats
             let grandTotal = 0;
             data.processes.forEach(process => {
@@ -71,6 +92,10 @@ class ProductView {
             document.getElementById('pricingActuals').textContent = units.toLocaleString();
             document.getElementById('pricingTotalCost').textContent = `$${grandTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
             document.getElementById('viewProductProcessCount').textContent = data.processes.length;
+
+            // Clear existing charts before removing elements
+            this.charts.forEach(chart => chart.destroy());
+            this.charts.clear();
 
             // Render Processes
             container.innerHTML = ''; // Clear loading
@@ -107,6 +132,26 @@ class ProductView {
                 </span>
             </div>
             <div class="p-6">
+                <!-- Top: Cost History -->
+                <div class="space-y-4 mb-8">
+                    <div class="flex items-center justify-between mb-2">
+                        <h4 class="text-sm font-bold text-slate-700 uppercase tracking-wide">Actuals vs Forecast History</h4>
+                        <div class="flex items-center gap-4 text-xs">
+                             <div class="flex items-center gap-1.5">
+                                <div class="w-3 h-3 rounded-sm bg-[#255be3]"></div>
+                                <span class="text-slate-500">Actuals</span>
+                             </div>
+                             <div class="flex items-center gap-1.5">
+                                <div class="w-3 h-1 bg-[#fb923c]"></div>
+                                <span class="text-slate-500">Forecast</span>
+                             </div>
+                        </div>
+                    </div>
+                    <div class="bg-white border border-slate-200 rounded-lg p-4 h-[250px]">
+                         <canvas id="history_chart_${processId}"></canvas>
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
                     <!-- Left: Pricing Breakdown -->
                     <div class="space-y-4">
@@ -132,7 +177,7 @@ class ProductView {
         `;
         
         container.appendChild(section);
-
+        
         // 1. Render Pricing Table
         this.renderProcessPricing(processData, document.getElementById(`pricing_container_${processId}`));
 
@@ -142,6 +187,140 @@ class ProductView {
         const processActuals = (this.currentProduct.actuals || []).filter(a => a.process_id === processId);
         
         this.renderProcessAnalysis(processId, processForecasts, processActuals, document.getElementById(`analysis_container_${processId}`), processData);
+
+        // 3. Render History Chart
+        this.renderProcessHistoryChart(processId, document.getElementById(`history_chart_${processId}`));
+    }
+
+    renderProcessHistoryChart(processId, canvas) {
+        if (!canvas || !this.historyData) return;
+
+        const ctx = canvas.getContext('2d');
+
+        // Extract data for this process
+        const labels = [];
+        const dataActuals = [];
+        const dataForecasts = [];
+
+        this.historyData.forEach(h => {
+            const date = new Date(h.year, h.month - 1);
+            labels.push(date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }));
+            
+            // Breakdown keys are strings. 
+            // Use null for missing forecast to break the line (avoid dropping to 0)
+            const actVal = h.breakdown_actuals?.[String(processId)];
+            const fcstVal = h.breakdown_forecasts?.[String(processId)];
+            
+            dataActuals.push(actVal !== undefined ? actVal : 0);
+            dataForecasts.push(fcstVal !== undefined ? fcstVal : null);
+        });
+
+        // Formatter for labels
+        const formatCompact = (val) => {
+             if (val === 0) return '';
+             const abs = Math.abs(val);
+             if (abs >= 1.0e+9) return (val / 1.0e+9).toFixed(1) + "B";
+             if (abs >= 1.0e+6) return (val / 1.0e+6).toFixed(1) + "M";
+             if (abs >= 1.0e+3) return (val / 1.0e+3).toFixed(1) + "K";
+             return val.toFixed(1);
+        };
+
+        const chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        type: 'line',
+                        label: 'Forecast',
+                        data: dataForecasts,
+                        borderColor: '#fb923c',
+                        backgroundColor: '#fb923c',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        pointRadius: 2,
+                        order: 0 // Top layer
+                    },
+                    {
+                        type: 'bar',
+                        label: 'Actuals',
+                        data: dataActuals,
+                        backgroundColor: 'rgba(37, 91, 227, 0.7)',
+                        borderRadius: 4,
+                        barPercentage: 0.6,
+                        order: 1 // Bottom layer
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        top: 20 // Make room for the label
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => {
+                                let label = context.dataset.label || '';
+                                if (label) label += ': ';
+                                if (context.parsed.y !== null) {
+                                    label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                        ticks: {
+                            callback: (value) => '$' + value.toLocaleString(),
+                            font: { size: 10 }
+                        }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { size: 10 } }
+                    }
+                }
+            },
+            plugins: [{
+                id: 'latestLabel',
+                afterDatasetsDraw: (chart) => {
+                    const ctx = chart.ctx;
+                    // Actuals is dataset index 1
+                    const meta = chart.getDatasetMeta(1); 
+                    if (meta.hidden) return;
+                    
+                    const len = meta.data.length;
+                    if (len === 0) return;
+                    
+                    // Get the last data point
+                    const lastIdx = len - 1;
+                    const element = meta.data[lastIdx];
+                    const value = chart.data.datasets[1].data[lastIdx];
+                    
+                    if (value > 0) {
+                        ctx.save();
+                        ctx.font = 'bold 11px sans-serif';
+                        ctx.fillStyle = '#1e40af'; // Darker blue
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'bottom';
+                        ctx.fillText(formatCompact(value), element.x, element.y - 6);
+                        ctx.restore();
+                    }
+                }
+            }]
+        });
+        
+        // Store chart to destroy later
+        this.charts.set(`${processId}_history`, chart);
     }
 
     renderProcessPricing(processData, container) {
@@ -252,11 +431,25 @@ class ProductView {
         forecasts.forEach(f => forecastMap.set(`${f.year}-${f.month}`, f.forecast_units));
         actuals.forEach(a => actualMap.set(`${a.year}-${a.month}`, a.actual_units));
 
-        const allDates = [...new Set([...forecastMap.keys(), ...actualMap.keys()])].sort((a, b) => {
+        let allDates = [...new Set([...forecastMap.keys(), ...actualMap.keys()])].sort((a, b) => {
             const [y1, m1] = a.split('-').map(Number);
             const [y2, m2] = b.split('-').map(Number);
             return y1 - y2 || m1 - m2;
         });
+
+        // Filter dates based on lookback if set (skip if ALL/120)
+        if (this.currentPricingDate && this.historyLookback && this.historyLookback !== 120) {
+            const currentDate = new Date(this.currentPricingDate.year, this.currentPricingDate.month - 1);
+            // Calculate start date (exclusive)
+            const startDate = new Date(currentDate);
+            startDate.setMonth(startDate.getMonth() - this.historyLookback);
+            
+            allDates = allDates.filter(dateStr => {
+                const [y, m] = dateStr.split('-').map(Number);
+                const d = new Date(y, m - 1);
+                return d > startDate && d <= currentDate;
+            });
+        }
 
         // 2. Build HTML Structure
         const chartId = `chart_${processId}`;
@@ -546,6 +739,49 @@ class ProductView {
         
         // Stats
         document.getElementById('viewProductItemCount').textContent = product.item_ids.length;
+
+        // Render Global Lookback Control
+        this.renderLookbackControl();
+    }
+
+    renderLookbackControl() {
+        const container = document.getElementById('historyLookbackControl');
+        if (!container) return;
+        
+        // Match parent style of the toggle next to it
+        container.className = 'bg-white p-1 rounded-lg inline-flex border border-slate-200 shadow-sm';
+        
+        const lookbackOptions = [
+            { val: 6, label: '6M' },
+            { val: 12, label: '1Y' },
+            { val: 24, label: '2Y' },
+            { val: 120, label: 'ALL' }
+        ];
+
+        container.innerHTML = '';
+        
+        lookbackOptions.forEach(opt => {
+            const isActive = this.historyLookback === opt.val;
+            // Match button styles exactly
+            const classes = isActive 
+                ? 'bg-slate-100 text-slate-900 shadow-sm' 
+                : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50';
+            
+            const btn = document.createElement('button');
+            btn.className = `px-3 py-1.5 text-sm font-medium rounded-md transition-all ${classes}`;
+            btn.textContent = opt.label;
+            btn.onclick = () => {
+                if (this.historyLookback !== opt.val) {
+                    this.historyLookback = opt.val;
+                    this.renderLookbackControl(); // Re-render to update active state
+                    
+                    if (this.currentPricingDate && this.currentProduct) {
+                        this.loadPricingData(this.currentProduct.product_id, this.currentPricingDate.year, this.currentPricingDate.month);
+                    }
+                }
+            };
+            container.appendChild(btn);
+        });
     }
 
     formatDate(dateString) {
@@ -578,6 +814,8 @@ class ProductView {
         // Destroy chart to prevent memory leaks
         this.charts.forEach(chart => chart.destroy());
         this.charts.clear();
+        
+        this.historyData = null;
     }
 
     handleEscape = (e) => {

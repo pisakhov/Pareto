@@ -1873,7 +1873,8 @@ class CRUDOperations(DatabaseSchema):
                     "process_id": process['process_id'],
                     "process_name": process['process_name'],
                     "contract_lookup": contract_lookup,
-                    "rows": process_rows
+                    "rows": process_rows,
+                    "has_data": bool(forecast) if use_forecasts else bool(actual)
                 })
                 
         return {
