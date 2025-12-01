@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
-from typing import Dict
+from typing import Dict, Optional
 import os
 import sys
 
@@ -86,6 +86,8 @@ async def calculate_optimization(
 # Pydantic models for multi-product optimization
 class OptimizationRequest(BaseModel):
     product_quantities: Dict[int, int]
+    use_manual_tiers: bool = False
+    tier_volume_overrides: Optional[Dict[int, float]] = None
 
 
 @router.get("/api/optimization/products")
@@ -100,7 +102,10 @@ async def get_optimization_products():
 async def calculate_current_cost(request: OptimizationRequest):
     """Calculate current cost based on product quantities and allocations."""
     calc = get_calculation_service()
-    result = calc.calculate_current_cost(request.product_quantities)
+    result = calc.calculate_current_cost(
+        request.product_quantities, 
+        use_manual_tiers=request.use_manual_tiers
+    )
     return JSONResponse(content=result)
 
 
@@ -115,6 +120,8 @@ async def get_tier_status(request: OptimizationRequest):
 class CompareRequest(BaseModel):
     product_quantities: Dict[int, int]
     optimized_allocations: Dict
+    use_manual_tiers: bool = False
+    tier_volume_overrides: Optional[Dict[int, float]] = None
 
 
 @router.post("/api/optimization/compare")
@@ -125,12 +132,15 @@ async def compare_allocations(request: CompareRequest):
     current_allocations = calc.get_current_allocations(request.product_quantities)
     current_result = calc.calculate_cost_with_allocations(
         request.product_quantities,
-        current_allocations
+        current_allocations,
+        use_manual_tiers=request.use_manual_tiers
     )
 
     optimized_result = calc.calculate_cost_with_allocations(
         request.product_quantities,
-        request.optimized_allocations
+        request.optimized_allocations,
+        use_manual_tiers=request.use_manual_tiers,
+        tier_volume_overrides=request.tier_volume_overrides
     )
 
     delta_amount = optimized_result['total_cost'] - current_result['total_cost']

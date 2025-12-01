@@ -25,7 +25,7 @@ class CalculationService:
                 return contract
         return None
 
-    def calculate_current_cost(self, product_quantities: Dict[Any, int]) -> Dict[str, Any]:
+    def calculate_current_cost(self, product_quantities: Dict[Any, int], use_manual_tiers: bool = False) -> Dict[str, Any]:
         """Calculate current cost based on product quantities using tier-based pricing."""
         # Ensure keys are integers
         quantities = {int(k): int(v) for k, v in product_quantities.items()}
@@ -33,30 +33,28 @@ class CalculationService:
         # Get current allocations (default)
         allocations = self.get_current_allocations(quantities)
         
-        return self.calculate_cost_with_allocations(quantities, allocations)
+        return self.calculate_cost_with_allocations(quantities, allocations, use_manual_tiers=use_manual_tiers)
 
     def calculate_cost_with_allocations(
         self,
         product_quantities: Dict[Any, int],
-        allocations: Dict[Any, Any]
+        allocations: Dict[Any, Any],
+        use_manual_tiers: bool = False,
+        tier_volume_overrides: Optional[Dict[int, float]] = None
     ) -> Dict[str, Any]:
         """
         Calculate cost using specific item-provider allocations.
         
-        allocations structure:
-        {
-            item_id: provider_id,  (Simple)
-            OR
-            item_id: { mode: 'percentage', providers: [{provider_id, value}, ...] } (Complex)
-        }
-        or
-        {
-            product_id: { items: { item_id: { mode: ..., allocations: [...] } } } 
-        } (From ComparisonView)
+        Args:
+            product_quantities: Dict of product_id -> quantity
+            allocations: Dict of allocation definitions
+            use_manual_tiers: If True, use manually selected tiers instead of calculated ones
+            tier_volume_overrides: Optional Dict of provider_id -> volume to use for Tier Lookup
         """
         
         # Normalize inputs
         quantities = {int(k): int(v) for k, v in product_quantities.items()}
+        tier_volume_overrides = tier_volume_overrides or {}
         
         # Normalize allocations to be accessible by item_id
         # If it's the nested structure from SimulationAllocation (product -> items -> item -> allocations)
@@ -184,7 +182,19 @@ class CalculationService:
         # 2. Determine Tiers
         contract_active_tiers = {} # contract_id -> tier_number
         
+        # Helper to find contract provider
+        contract_providers = {} # contract_id -> provider_id
+        for (pid, prov_id), c in contracts_map.items():
+            contract_providers[c['contract_id']] = prov_id
+
         for contract_id, total_vol in contract_volumes.items():
+            # Determine lookup volume
+            lookup_vol = total_vol
+            provider_id = contract_providers.get(contract_id)
+            
+            if provider_id and provider_id in tier_volume_overrides:
+                lookup_vol = tier_volume_overrides[provider_id]
+            
             tiers = self.crud.get_contract_tiers_for_contract(contract_id)
             # Sort by threshold
             tiers.sort(key=lambda x: x['threshold_units'])
@@ -193,12 +203,8 @@ class CalculationService:
             found = False
             
             # Find the highest tier where volume < threshold
-            # Logic: Tiers are "Up to X". Tier 1: < 1000. Tier 2: < 5000.
-            # If Vol = 2000. > 1000, so NOT Tier 1. < 5000, so Tier 2.
-            # Standard Logic: find first tier where threshold > volume.
-            
             for t in tiers:
-                if t['threshold_units'] > total_vol:
+                if t['threshold_units'] > lookup_vol:
                     active_tier = t['tier_number']
                     found = True
                     break
@@ -206,8 +212,16 @@ class CalculationService:
             if not found and tiers:
                 # Exceeds all thresholds, use highest tier
                 active_tier = tiers[-1]['tier_number']
+            
+            tier_source = 'calculated'
+            if use_manual_tiers:
+                # Check for manual selection
+                selected = next((t for t in tiers if t['is_selected']), None)
+                if selected:
+                    active_tier = selected['tier_number']
+                    tier_source = 'manual'
                 
-            contract_active_tiers[contract_id] = active_tier
+            contract_active_tiers[contract_id] = {'tier': active_tier, 'source': tier_source, 'lookup_volume': lookup_vol}
 
         # 3. Calculate Costs
         total_cost = 0.0
@@ -217,7 +231,8 @@ class CalculationService:
         
         for detail in item_details:
             contract_id = detail['contract_id']
-            tier = contract_active_tiers.get(contract_id, 1) # Default to 1 if no contract found
+            tier_info = contract_active_tiers.get(contract_id, {'tier': 1, 'source': 'default', 'lookup_volume': 0})
+            tier = tier_info['tier']
             
             # Get Price
             price = 0.0
@@ -238,10 +253,22 @@ class CalculationService:
                 provider_breakdown[p_name] = {
                     'total_cost': 0,
                     'total_units': 0,
-                    'tier_info': {'effective_tier': tier} # Simplified
+                    'tier_info': {'effective_tier': tier, 'source': tier_info['source'], 'lookup_volume': tier_info.get('lookup_volume', 0)},
+                    'rows': []
                 }
+            
             provider_breakdown[p_name]['total_cost'] += cost
             provider_breakdown[p_name]['total_units'] += detail['volume']
+            
+            # Detailed Item Row
+            provider_breakdown[p_name]['rows'].append({
+                'item_name': detail['item_name'],
+                'allocated_units': detail['volume'],
+                'price_per_unit': price,
+                'multiplier_display': detail['multiplier'] if detail['multiplier'] != 1.0 else '-',
+                'total_cost': cost,
+                'calculated_tier': tier
+            })
             
             prod_id = detail['product_id']
             if prod_id not in product_breakdown:
