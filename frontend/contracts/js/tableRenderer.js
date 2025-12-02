@@ -723,7 +723,7 @@ class TableRenderer {
             <thead>
               <tr class="bg-secondary/50">
                 <th class="border border-border px-2 py-3 bg-secondary font-medium text-left w-[80px]">Provider</th>
-                <th class="border border-border px-4 py-3 bg-secondary font-medium text-left min-w-[300px]">Contract Tiers</th>
+                <th class="border border-border px-4 py-3 bg-secondary font-medium text-left min-w-[190px]">Contract Tiers</th>
     `;
 
     // Add item columns
