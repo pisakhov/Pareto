@@ -1208,10 +1208,23 @@ class CRUDOperations(DatabaseSchema):
         ).fetchone()
         return result if result else None
 
-    def get_all_forecasts(self) -> List[Any]:
+    def get_all_forecasts(self) -> List[Dict[str, Any]]:
         conn = self._get_connection()
         results = conn.execute("SELECT * FROM forecasts ORDER BY year DESC, month DESC").fetchall()
-        return [result for result in results]
+        
+        forecasts = []
+        for result in results:
+            forecasts.append({
+                "forecast_id": result[0],
+                "product_id": result[1],
+                "process_id": result[2],
+                "year": result[3],
+                "month": result[4],
+                "forecast_units": result[5],
+                "date_creation": result[6],
+                "date_last_update": result[7]
+            })
+        return forecasts
 
     def get_forecasts_for_product(self, product_id: int) -> List[Dict[str, Any]]:
         conn = self._get_connection()
@@ -1295,10 +1308,23 @@ class CRUDOperations(DatabaseSchema):
         ).fetchone()
         return result if result else None
 
-    def get_all_actuals(self) -> List[Any]:
+    def get_all_actuals(self) -> List[Dict[str, Any]]:
         conn = self._get_connection()
         results = conn.execute("SELECT * FROM actuals ORDER BY year DESC, month DESC").fetchall()
-        return [result for result in results]
+        
+        actuals = []
+        for result in results:
+            actuals.append({
+                "actual_id": result[0],
+                "product_id": result[1],
+                "process_id": result[2],
+                "year": result[3],
+                "month": result[4],
+                "actual_units": result[5],
+                "date_creation": result[6],
+                "date_last_update": result[7]
+            })
+        return actuals
 
     def get_actuals_for_product(self, product_id: int) -> List[Dict[str, Any]]:
         conn = self._get_connection()
