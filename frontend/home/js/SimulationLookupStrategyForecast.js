@@ -953,7 +953,7 @@ class SimulationLookupStrategyForecast {
                             data-prov-id="${prov.id}"
                             min="0" 
                             max="${prod.allocMode === 'percentage' ? 100 : 100000}" 
-                            step="${prod.allocMode === 'percentage' ? 5 : 100}"
+                            step="${prod.allocMode === 'percentage' ? 1 : 100}"
                             value="${prod.allocations[prov.id]}">
                     </div>
                 </div>
@@ -1282,18 +1282,36 @@ class SimulationLookupStrategyForecast {
             const statusContainer = document.getElementById(`tiers-status-${p.id}`);
             if (statusContainer) {
                 const currentVol = p.totalEffectiveVolume[p.totalEffectiveVolume.length - 1] || 0;
-                // Find active tier
-                const activeTier = p.thresholds.filter(t => currentVol >= t).pop() || 0;
-                const nextTier = p.thresholds.find(t => t > currentVol);
                 
+                // Use tierData for rich labels (T1, T2...)
+                const activeTierObj = [...p.tierData].reverse().find(t => currentVol >= t.units);
+                const nextTierObj = p.tierData.find(t => t.units > currentVol);
+                
+                let currentText = '';
+                if (activeTierObj) {
+                    currentText = `Current: ${activeTierObj.label} > ${activeTierObj.units.toLocaleString()}`;
+                    if (!nextTierObj) {
+                        currentText += ' (Max Tier Reached)';
+                    }
+                } else {
+                    const firstTier = p.tierData[0];
+                    currentText = firstTier ? `Current: < ${firstTier.units.toLocaleString()}` : 'Current: 0';
+                }
+
+                let nextHtml = '';
+                if (nextTierObj) {
+                    const gap = nextTierObj.units - currentVol;
+                    nextHtml = `
+                    <span class="px-2 py-1 rounded bg-amber-50 text-amber-700 border border-amber-100 font-medium">
+                        Next: ${nextTierObj.label} < ${nextTierObj.units.toLocaleString()} (Gap: ${gap.toLocaleString(undefined, {maximumFractionDigits:0})})
+                    </span>`;
+                }
+
                 statusContainer.innerHTML = `
                     <span class="px-2 py-1 rounded bg-green-50 text-green-700 border border-green-100 font-medium">
-                        Current: ${activeTier.toLocaleString()}
+                        ${currentText}
                     </span>
-                    ${nextTier ? `
-                    <span class="px-2 py-1 rounded bg-amber-50 text-amber-700 border border-amber-100 font-medium">
-                        Next: ${nextTier.toLocaleString()} (Gap: ${(nextTier - currentVol).toLocaleString(undefined, {maximumFractionDigits:0})})
-                    </span>` : '<span class="text-slate-400">Max Tier Reached</span>'}
+                    ${nextHtml}
                 `;
             }
         });
