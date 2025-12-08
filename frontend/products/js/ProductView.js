@@ -20,12 +20,12 @@ class ProductView {
             // Load fresh data to get details
             const product = await dataService.getProduct(productId);
             this.currentProduct = product; // Store for reference
-            
+
             this.render(product);
-            
+
             // Setup Toggle
             this.setupModeToggle();
-            
+
             // Initial Date Selector & Data Load
             this.renderDateSelector(product);
             this.loadPricingData(productId); // defaults to current date & actuals
@@ -44,15 +44,15 @@ class ProductView {
         const container = document.getElementById('productProcessesContainer');
         // Only show loading if it's empty (initial load) to avoid flickering on calc updates
         if (!container.hasChildNodes()) {
-             container.innerHTML = '<div class="flex items-center justify-center py-12 text-slate-400"><span class="text-sm">Loading data...</span></div>';
+            container.innerHTML = '<div class="flex items-center justify-center py-12 text-slate-400"><span class="text-sm">Loading data...</span></div>';
         }
-        
+
         try {
             let url = `/api/products/${productId}/pricing_view?`;
             if (year && month) {
                 url += `year=${year}&month=${month}&`;
             }
-            
+
             if (this.viewMode === 'forecasts') {
                 url += `use_forecasts=true`;
             }
@@ -64,7 +64,7 @@ class ProductView {
             }
             // Add lookback
             historyUrl += `lookback=${this.historyLookback}&`;
-            
+
             if (this.viewMode === 'forecasts') {
                 historyUrl += `use_forecasts=true`;
             }
@@ -76,7 +76,7 @@ class ProductView {
 
             const data = await pricingResponse.json();
             const historyData = await historyResponse.json();
-            
+
             // Store history for access in render
             this.historyData = historyData.history || [];
 
@@ -88,9 +88,9 @@ class ProductView {
                 });
             });
 
-            const units = data.units !== undefined ? data.units : data.actual_units; 
+            const units = data.units !== undefined ? data.units : data.actual_units;
             document.getElementById('pricingActuals').textContent = units.toLocaleString();
-            document.getElementById('pricingTotalCost').textContent = `$${grandTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('pricingTotalCost').textContent = `$${grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
             document.getElementById('viewProductProcessCount').textContent = data.processes.length;
 
             // Clear existing charts before removing elements
@@ -99,7 +99,7 @@ class ProductView {
 
             // Render Processes
             container.innerHTML = ''; // Clear loading
-            
+
             if (data.processes.length === 0) {
                 container.innerHTML = '<div class="text-center py-8 text-slate-500">No process data available for this period.</div>';
                 return;
@@ -108,7 +108,7 @@ class ProductView {
             data.processes.forEach(processData => {
                 this.renderProcessSection(processData, container);
             });
-            
+
         } catch (error) {
             console.error('Error loading pricing data:', error);
             container.innerHTML = '<div class="text-center py-4 text-red-500 text-sm">Failed to load data</div>';
@@ -119,7 +119,7 @@ class ProductView {
         const processId = processData.process_id;
         const section = document.createElement('div');
         section.className = 'bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm';
-        
+
         // Section Header
         section.innerHTML = `
             <div class="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
@@ -175,9 +175,9 @@ class ProductView {
                 </div>
             </div>
         `;
-        
+
         container.appendChild(section);
-        
+
         // 1. Render Pricing Table
         this.renderProcessPricing(processData, document.getElementById(`pricing_container_${processId}`));
 
@@ -185,7 +185,7 @@ class ProductView {
         // We need to filter global forecasts/actuals for this process
         const processForecasts = (this.currentProduct.forecasts || []).filter(f => f.process_id === processId);
         const processActuals = (this.currentProduct.actuals || []).filter(a => a.process_id === processId);
-        
+
         this.renderProcessAnalysis(processId, processForecasts, processActuals, document.getElementById(`analysis_container_${processId}`), processData);
 
         // 3. Render History Chart
@@ -205,24 +205,24 @@ class ProductView {
         this.historyData.forEach(h => {
             const date = new Date(h.year, h.month - 1);
             labels.push(date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }));
-            
+
             // Breakdown keys are strings. 
             // Use null for missing forecast to break the line (avoid dropping to 0)
             const actVal = h.breakdown_actuals?.[String(processId)];
             const fcstVal = h.breakdown_forecasts?.[String(processId)];
-            
+
             dataActuals.push(actVal !== undefined ? actVal : 0);
             dataForecasts.push(fcstVal !== undefined ? fcstVal : null);
         });
 
         // Formatter for labels
         const formatCompact = (val) => {
-             if (val === 0) return '';
-             const abs = Math.abs(val);
-             if (abs >= 1.0e+9) return (val / 1.0e+9).toFixed(1) + "B";
-             if (abs >= 1.0e+6) return (val / 1.0e+6).toFixed(1) + "M";
-             if (abs >= 1.0e+3) return (val / 1.0e+3).toFixed(1) + "K";
-             return val.toFixed(1);
+            if (val === 0) return '';
+            const abs = Math.abs(val);
+            if (abs >= 1.0e+9) return (val / 1.0e+9).toFixed(1) + "B";
+            if (abs >= 1.0e+6) return (val / 1.0e+6).toFixed(1) + "M";
+            if (abs >= 1.0e+3) return (val / 1.0e+3).toFixed(1) + "K";
+            return val.toFixed(1);
         };
 
         const chart = new Chart(ctx, {
@@ -295,17 +295,17 @@ class ProductView {
                 afterDatasetsDraw: (chart) => {
                     const ctx = chart.ctx;
                     // Actuals is dataset index 1
-                    const meta = chart.getDatasetMeta(1); 
+                    const meta = chart.getDatasetMeta(1);
                     if (meta.hidden) return;
-                    
+
                     const len = meta.data.length;
                     if (len === 0) return;
-                    
+
                     // Get the last data point
                     const lastIdx = len - 1;
                     const element = meta.data[lastIdx];
                     const value = chart.data.datasets[1].data[lastIdx];
-                    
+
                     if (value > 0) {
                         ctx.save();
                         ctx.font = 'bold 11px sans-serif';
@@ -318,7 +318,7 @@ class ProductView {
                 }
             }]
         });
-        
+
         // Store chart to destroy later
         this.charts.set(`${processId}_history`, chart);
     }
@@ -332,7 +332,7 @@ class ProductView {
         let processTotal = 0;
         const providerGroups = [];
         let currentGroup = null;
-        
+
         // Determine color based on view mode
         const totalColorClass = this.viewMode === 'actuals' ? 'text-[#255be3]' : 'text-[#fb923c]';
 
@@ -375,8 +375,12 @@ class ProductView {
                                         <span class="font-medium text-slate-600">${row.allocation}</span>
                                     </div>
                                     <div class="flex justify-between items-baseline text-xs">
-                                        <span class="text-slate-400 font-normal">Volume</span>
-                                        <span class="text-slate-600">${row.allocated_units.toLocaleString()} <span class="text-slate-400 text-[10px]">(Tier ${row.calculated_tier})</span></span>
+                                        <span class="text-slate-400 font-normal">Raw Vol</span>
+                                        <span class="text-slate-600">${row.allocated_units.toLocaleString()} <span class="text-slate-400 text-[10px]">→ T${row.calculated_tier}</span></span>
+                                    </div>
+                                    <div class="flex justify-between items-baseline text-xs">
+                                        <span class="text-slate-400 font-normal">Eff. Vol</span>
+                                        <span class="text-slate-600">${row.effective_volume.toLocaleString()} <span class="text-[9px] text-slate-400">(${row.strategy_label} → T${row.effective_tier})</span></span>
                                     </div>
                                     <div class="flex justify-between items-center text-xs pt-0.5">
                                         <span class="text-slate-400 font-normal">Billed</span>
@@ -388,19 +392,18 @@ class ProductView {
 
                                 <div class="pt-2 border-t border-slate-100 flex justify-between items-baseline">
                                     <span class="text-[10px] text-slate-400 uppercase tracking-wider font-bold">Total</span>
-                                    <span class="text-sm font-bold text-slate-700">$${group.total.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                                    <span class="text-sm font-bold text-slate-700">$${group.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                 </div>
                             </td>
                         ` : ''}
                         <td class="px-4 py-3 text-slate-600">
                             <div class="font-medium">${this.escapeHtml(row.item_name)}</div>
-                            <div class="text-xs text-slate-400 mt-1">Vol: ${row.allocated_units.toLocaleString()} <span class="text-[10px] bg-slate-100 px-1 rounded text-slate-500 ml-1">Tier ${row.calculated_tier}</span></div>
                         </td>
                         <td class="px-4 py-3 text-right text-slate-600 align-middle">
                             <div class="font-medium text-slate-700">$${parseFloat(row.price_per_unit.toFixed(4))}</div>
                             ${row.multiplier_display !== '-' ? `<div class="text-[10px] text-orange-500 mt-0.5">x${row.multiplier_display}</div>` : ''}
                         </td>
-                        <td class="px-4 py-3 text-right font-bold ${totalColorClass} align-middle">$${row.total_cost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 4})}</td>
+                        <td class="px-4 py-3 text-right font-bold ${totalColorClass} align-middle">$${row.total_cost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</td>
                     </tr>
                 `;
             });
@@ -412,7 +415,7 @@ class ProductView {
                         <tr>
                             <td colspan="3" class="px-4 py-3 text-right font-semibold text-slate-700">Subtotal</td>
                             <td class="px-4 py-3 text-right font-bold text-slate-900">
-                                $${processTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                $${processTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
                         </tr>
                     </tfoot>
@@ -443,7 +446,7 @@ class ProductView {
             // Calculate start date (exclusive)
             const startDate = new Date(currentDate);
             startDate.setMonth(startDate.getMonth() - this.historyLookback);
-            
+
             allDates = allDates.filter(dateStr => {
                 const [y, m] = dateStr.split('-').map(Number);
                 const d = new Date(y, m - 1);
@@ -561,7 +564,7 @@ class ProductView {
         // 4. Render Table Rows
         const tableBody = document.getElementById(tableId);
         const reversedDates = [...allDates].reverse();
-        
+
         let tableHtml = '';
         if (reversedDates.length === 0) {
             tableHtml = '<tr><td colspan="4" class="px-4 py-3 text-center text-slate-500">No data</td></tr>';
@@ -569,13 +572,13 @@ class ProductView {
             reversedDates.forEach(dateStr => {
                 const [year, month] = dateStr.split('-');
                 const label = new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-                
+
                 const fVal = forecastMap.get(dateStr);
                 const aVal = actualMap.get(dateStr);
-                
+
                 const fDisplay = fVal !== undefined ? fVal.toLocaleString() : '-';
                 const aDisplay = aVal !== undefined ? aVal.toLocaleString() : '-';
-                
+
                 let varianceHtml = '-';
                 if (fVal !== undefined && aVal !== undefined) {
                     const variance = aVal - fVal;
@@ -604,7 +607,7 @@ class ProductView {
         // Use lookup defaults from DB or fallback
         // Note: DB uses 'actuals'/'forecasts', calculator uses 'actual'/'forecast' internally in this view logic,
         // but let's align to DB values for consistency.
-        const defaultSource = processData.contract_lookup?.source || 'actuals'; 
+        const defaultSource = processData.contract_lookup?.source || 'actuals';
         let defaultMethod = processData.contract_lookup?.method || 'SUM';
         // Map Total -> SUM for calculator compatibility if needed, though calculator supports SUM
         if (defaultMethod === 'Total') defaultMethod = 'SUM';
@@ -615,10 +618,10 @@ class ProductView {
         // Calculator uses "Window Size" (total months to include).
         // Window Size = Lookback Period + 1 (Current Month)
         // Example: Lookback 4 = Current + 4 previous = 5 months total window.
-        const dbLookback = processData.contract_lookup?.lookback_months !== undefined 
-            ? processData.contract_lookup.lookback_months 
+        const dbLookback = processData.contract_lookup?.lookback_months !== undefined
+            ? processData.contract_lookup.lookback_months
             : 0;
-            
+
         const defaultLookback = dbLookback + 1;
 
         const state = { source: defaultSource, method: defaultMethod, lookback: defaultLookback };
@@ -630,25 +633,25 @@ class ProductView {
             groupIds.forEach(id => {
                 const el = document.getElementById(id);
                 if (!el) return;
-                
+
                 let isActive = false;
                 if (id.includes('_src_act') && state.source === 'actuals') isActive = true;
                 if (id.includes('_src_fc') && state.source === 'forecasts') isActive = true;
                 if (id.includes('_mth_sum') && state.method === 'SUM') isActive = true;
                 if (id.includes('_mth_avg') && state.method === 'AVG') isActive = true;
 
-                el.className = isActive 
-                    ? 'px-2 py-1 rounded bg-white shadow-sm font-bold text-slate-800 transition-all' 
+                el.className = isActive
+                    ? 'px-2 py-1 rounded bg-white shadow-sm font-bold text-slate-800 transition-all'
                     : 'px-2 py-1 rounded text-slate-500 hover:text-slate-700 transition-all';
             });
-            
+
             const input = document.getElementById(`${calcId}_lookback`);
             if (input) input.value = state.lookback;
         };
 
         const update = () => {
             if (!this.currentPricingDate) return;
-            
+
             const map = state.source === 'actuals' ? actualMap : forecastMap;
             let total = 0;
             let count = 0;
@@ -658,7 +661,7 @@ class ProductView {
                 const d = new Date(this.currentPricingDate.year, (this.currentPricingDate.month - 1) - i, 1);
                 const dateKey = `${d.getFullYear()}-${d.getMonth() + 1}`;
                 highlightedDates.add(dateKey);
-                
+
                 const val = map.get(dateKey);
                 if (val !== undefined) {
                     total += val;
@@ -711,13 +714,13 @@ class ProductView {
         // Initial run
         updateButtons();
         update();
-        
+
         // Expose update function so date selector can trigger it
         state.updateFunc = update;
     }
 
     // ... keep existing escapeHtml, render, formatDate, openModal, close, handleEscape ...
-    
+
     escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
@@ -728,7 +731,7 @@ class ProductView {
         // Populate fields
         document.getElementById('viewProductName').textContent = product.name;
         document.getElementById('viewProductDescription').textContent = product.description || 'No description provided';
-        
+
         const statusEl = document.getElementById('viewProductStatus');
         const isActive = product.status === 'active';
         statusEl.textContent = isActive ? 'Active' : 'Inactive';
@@ -736,7 +739,7 @@ class ProductView {
 
         // Dates
         document.getElementById('viewProductUpdated').textContent = this.formatDate(product.date_last_update);
-        
+
         // Stats
         document.getElementById('viewProductItemCount').textContent = product.item_ids.length;
 
@@ -747,10 +750,10 @@ class ProductView {
     renderLookbackControl() {
         const container = document.getElementById('historyLookbackControl');
         if (!container) return;
-        
+
         // Match parent style of the toggle next to it
         container.className = 'bg-white p-1 rounded-lg inline-flex border border-slate-200 shadow-sm';
-        
+
         const lookbackOptions = [
             { val: 6, label: '6M' },
             { val: 12, label: '1Y' },
@@ -759,14 +762,14 @@ class ProductView {
         ];
 
         container.innerHTML = '';
-        
+
         lookbackOptions.forEach(opt => {
             const isActive = this.historyLookback === opt.val;
             // Match button styles exactly
-            const classes = isActive 
-                ? 'bg-slate-100 text-slate-900 shadow-sm' 
+            const classes = isActive
+                ? 'bg-slate-100 text-slate-900 shadow-sm'
                 : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50';
-            
+
             const btn = document.createElement('button');
             btn.className = `px-3 py-1.5 text-sm font-medium rounded-md transition-all ${classes}`;
             btn.textContent = opt.label;
@@ -774,7 +777,7 @@ class ProductView {
                 if (this.historyLookback !== opt.val) {
                     this.historyLookback = opt.val;
                     this.renderLookbackControl(); // Re-render to update active state
-                    
+
                     if (this.currentPricingDate && this.currentProduct) {
                         this.loadPricingData(this.currentProduct.product_id, this.currentPricingDate.year, this.currentPricingDate.month);
                     }
@@ -798,7 +801,7 @@ class ProductView {
             modal.classList.remove('hidden');
             modal.classList.add('flex');
         }
-        
+
         // Close on Escape
         document.addEventListener('keydown', this.handleEscape);
     }
@@ -814,7 +817,7 @@ class ProductView {
         // Destroy chart to prevent memory leaks
         this.charts.forEach(chart => chart.destroy());
         this.charts.clear();
-        
+
         this.historyData = null;
     }
 
@@ -835,16 +838,16 @@ class ProductView {
         // Helper to update UI state
         const updateUI = (mode) => {
             this.viewMode = mode;
-            
+
             if (mode === 'actuals') {
                 // Toggle Buttons
                 btnActuals.className = 'px-3 py-1.5 text-sm font-medium rounded-md transition-all shadow-sm bg-white text-[#255be3] border border-slate-200';
                 btnForecasts.className = 'px-3 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 transition-all';
-                
+
                 // Units Section (Blue)
                 unitsLabel.textContent = 'Actual Units';
                 if (iconContainer) iconContainer.className = 'p-2 bg-blue-50 rounded-full text-[#255be3] transition-colors';
-                
+
                 // Cost Section (Blue)
                 if (costIconContainer) costIconContainer.className = 'p-2 bg-blue-50 rounded-full text-[#255be3] transition-colors';
                 if (costLabel) costLabel.className = 'text-xl font-bold text-[#255be3] leading-none mt-0.5 transition-colors';
@@ -853,7 +856,7 @@ class ProductView {
                 // Toggle Buttons
                 btnForecasts.className = 'px-3 py-1.5 text-sm font-medium rounded-md transition-all shadow-sm bg-white text-[#fb923c] border border-slate-200';
                 btnActuals.className = 'px-3 py-1.5 text-sm font-medium rounded-md text-slate-500 hover:text-slate-900 transition-all';
-                
+
                 // Units Section (Orange)
                 unitsLabel.textContent = 'Forecast Units';
                 if (iconContainer) iconContainer.className = 'p-2 bg-orange-50 rounded-full text-[#fb923c] transition-colors';
@@ -866,7 +869,7 @@ class ProductView {
             // Refresh Date Selector (dates available might differ) and Data
             if (this.currentProduct) {
                 this.renderDateSelector(this.currentProduct);
-                this.loadPricingData(this.currentProduct.product_id); 
+                this.loadPricingData(this.currentProduct.product_id);
             }
         };
 
@@ -884,7 +887,7 @@ class ProductView {
 
         // Select data source based on mode
         const sourceData = this.viewMode === 'forecasts' ? product.forecasts : product.actuals;
-        
+
         // Get dates and sort descending
         const dates = (sourceData || []).sort((a, b) => {
             if (a.year !== b.year) return b.year - a.year;
@@ -894,7 +897,7 @@ class ProductView {
         // Create Select Element
         const select = document.createElement('select');
         select.className = 'w-full bg-white border border-slate-300 text-slate-700 text-sm rounded-lg focus:ring-[#fb923c] focus:border-[#fb923c] block p-2.5 shadow-sm';
-        
+
         const now = new Date();
         const currentYear = now.getFullYear();
         const currentMonth = now.getMonth() + 1;
@@ -926,12 +929,12 @@ class ProductView {
         select.onchange = (e) => {
             const [year, month] = e.target.value.split('-');
             this.currentPricingDate = { year: parseInt(year), month: parseInt(month) };
-            
+
             // Update all calculators
             this.calculators.forEach(calcState => {
                 if (calcState.updateFunc) calcState.updateFunc();
             });
-            
+
             this.loadPricingData(product.product_id, parseInt(year), parseInt(month));
         };
 

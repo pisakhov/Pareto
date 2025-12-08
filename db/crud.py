@@ -1827,8 +1827,50 @@ class CRUDOperations(DatabaseSchema):
                     
                     active_tier_num = 1
                     calculated_tier_num = 1
+                    effective_tier_num = 1
+                    effective_vol = alloc_val  # Default to raw volume
+                    strategy_label = "SUM 1mo"  # Default
+                    
+                    # Get contract lookup strategy
+                    lookup = self.get_contract_lookup(contract_id)
+                    method = lookup['method'] if lookup else 'SUM'
+                    lookback = (lookup['lookback_months'] if lookup else 0) + 1
+                    source = lookup['source'] if lookup else 'actuals'
+                    strategy_label = f"{method} {lookback}mo"
+                    
+                    # Calculate effective volume using historical data
+                    alloc_pct = p_alloc['value'] if p_alloc and mode == 'percentage' else None
+                    if lookback > 1 and alloc_pct is not None:
+                        historical_vols = []
+                        for offset in range(lookback):
+                            hist_month = current_month - offset
+                            hist_year = current_year
+                            while hist_month <= 0:
+                                hist_month += 12
+                                hist_year -= 1
+                            
+                            # Fetch historical data based on source
+                            if source == 'forecasts':
+                                hist_data = self.get_forecast_by_product_process_month(
+                                    product_id, process_id, hist_year, hist_month
+                                )
+                            else:
+                                hist_data = self.get_actual_by_product_process_month(
+                                    product_id, process_id, hist_year, hist_month
+                                )
+                            
+                            if hist_data:
+                                hist_units = hist_data[5]
+                                hist_alloc = int(hist_units * (alloc_pct / 100.0))
+                                historical_vols.append(hist_alloc)
+                        
+                        if historical_vols:
+                            if method == 'AVG':
+                                effective_vol = int(sum(historical_vols) / len(historical_vols))
+                            else:  # SUM
+                                effective_vol = sum(historical_vols)
 
-                    # 1. Calculate Volume-Based Tier (Always)
+                    # 1. Calculate Volume-Based Tier (from raw volume)
                     if tiers:
                         found_tier = None
                         for t in tiers:
@@ -1841,14 +1883,26 @@ class CRUDOperations(DatabaseSchema):
                         else:
                             # Exceeded all thresholds, use the highest tier
                             calculated_tier_num = tiers[-1]['tier_number']
+                        
+                        # Calculate effective tier (from effective volume)
+                        found_eff_tier = None
+                        for t in tiers:
+                            if t['threshold_units'] > effective_vol:
+                                found_eff_tier = t
+                                break
+                        
+                        if found_eff_tier:
+                            effective_tier_num = found_eff_tier['tier_number']
+                        else:
+                            effective_tier_num = tiers[-1]['tier_number']
                     
-                    # 2. Determine Active Tier (for Pricing)
+                    # 2. Determine Active Tier (for Pricing) - prefer manual, else effective
                     selected_tier = next((t for t in tiers if t['is_selected']), None)
                     
                     if selected_tier:
                         active_tier_num = selected_tier['tier_number']
                     else:
-                        active_tier_num = calculated_tier_num
+                        active_tier_num = effective_tier_num
 
                     # Get Price
                     price = self.get_price_for_item_at_tier(provider_id, item_id, active_tier_num, process['process_id'])
@@ -1873,6 +1927,9 @@ class CRUDOperations(DatabaseSchema):
                         "provider_name": provider['provider_name'],
                         "tier": active_tier_num,
                         "calculated_tier": calculated_tier_num,
+                        "effective_tier": effective_tier_num,
+                        "effective_volume": effective_vol,
+                        "strategy_label": strategy_label,
                         "price_per_unit": price,
                         "multiplier_display": mult_display,
                         "allocation": alloc_display,
