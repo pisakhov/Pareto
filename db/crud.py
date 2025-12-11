@@ -405,14 +405,11 @@ class CRUDOperations(DatabaseSchema):
     def add_provider_item_relationship(self, provider_id: int, item_id: int) -> bool:
         conn = self._get_connection()
         now = datetime.now().isoformat()
-        try:
-            conn.execute(
-                "INSERT OR IGNORE INTO provider_items (provider_id, item_id, date_creation) VALUES (?, ?, ?)",
-                [provider_id, item_id, now]
-            )
-            return True
-        except:
-            return False
+        conn.execute(
+            "INSERT OR IGNORE INTO provider_items (provider_id, item_id, date_creation) VALUES (?, ?, ?)",
+            [provider_id, item_id, now]
+        )
+        return True
 
     def get_providers_for_item(self, item_id: int) -> List[int]:
         conn = self._get_connection()
@@ -1093,16 +1090,12 @@ class CRUDOperations(DatabaseSchema):
 
     def add_process_graph_edge(self, from_process_id: int, to_process_id: int) -> bool:
         conn = self._get_connection()
-        try:
-            conn.execute(
-                "INSERT INTO process_graph (from_process_id, to_process_id) VALUES (?, ?)",
-                [from_process_id, to_process_id]
-            )
-            conn.commit()
-            return True
-        except:
-            conn.rollback()
-            return False
+        conn.execute(
+            "INSERT INTO process_graph (from_process_id, to_process_id) VALUES (?, ?)",
+            [from_process_id, to_process_id]
+        )
+        conn.commit()
+        return True
 
     def remove_process_graph_edge(self, from_process_id: int, to_process_id: int) -> bool:
         conn = self._get_connection()
@@ -1124,14 +1117,11 @@ class CRUDOperations(DatabaseSchema):
     def add_provider_to_process(self, process_id: int, provider_id: int) -> bool:
         conn = self._get_connection()
         now = datetime.now().isoformat()
-        try:
-            conn.execute(
-                "INSERT INTO process_providers (process_id, provider_id, date_creation) VALUES (?, ?, ?)",
-                [process_id, provider_id, now]
-            )
-            return True
-        except:
-            return False
+        conn.execute(
+            "INSERT INTO process_providers (process_id, provider_id, date_creation) VALUES (?, ?, ?)",
+            [process_id, provider_id, now]
+        )
+        return True
 
     def get_providers_for_process(self, process_id: int) -> List[int]:
         conn = self._get_connection()
@@ -1153,14 +1143,11 @@ class CRUDOperations(DatabaseSchema):
     def add_item_to_process(self, process_id: int, item_id: int) -> bool:
         conn = self._get_connection()
         now = datetime.now().isoformat()
-        try:
-            conn.execute(
-                "INSERT INTO process_items (process_id, item_id, date_creation) VALUES (?, ?, ?)",
-                [process_id, item_id, now]
-            )
-            return True
-        except:
-            return False
+        conn.execute(
+            "INSERT INTO process_items (process_id, item_id, date_creation) VALUES (?, ?, ?)",
+            [process_id, item_id, now]
+        )
+        return True
 
     def get_items_for_process(self, process_id: int) -> List[int]:
         conn = self._get_connection()

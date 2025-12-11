@@ -6,7 +6,8 @@ class OptimizationApp {
         this.activeTab = null;
         this.simulators = {
             allocation: null,
-            forecast: null
+            forecast: null,
+            pareto_agent: null
         };
         this.init();
     }
@@ -23,7 +24,7 @@ class OptimizationApp {
 
         // Set initial tab from URL or default
         const params = new URLSearchParams(window.location.search);
-        const initialTab = params.get('view') === 'forecast' ? 'forecast' : 'allocation';
+        const initialTab = params.get('view') === 'forecast' ? 'forecast' : (params.get('view') === 'pareto_agent' ? 'pareto_agent' : 'allocation');
         this.switchTab(initialTab, false);
     }
 
@@ -45,26 +46,49 @@ class OptimizationApp {
         if (updateHistory) {
             const url = new URL(window.location);
             url.searchParams.set('view', tabName);
+            
+            // Clean URL: Remove processId when in Pareto Agent view
+            if (tabName === 'pareto_agent') {
+                url.searchParams.delete('processId');
+            }
+            
             window.history.pushState({}, '', url);
         }
 
         // Update UI Tabs
         document.querySelectorAll('[data-tab]').forEach(t => {
-            if (t.dataset.tab === tabName) {
-                t.classList.add('border-slate-800', 'text-slate-900');
-                t.classList.remove('border-transparent', 'text-slate-500', 'hover:text-slate-700', 'hover:border-slate-300');
+            const isActive = t.dataset.tab === tabName;
+            const icon = t.querySelector('svg');
+
+            if (isActive) {
+                // Active State: White bg, shadow, black text
+                t.classList.add('bg-white', 'text-zinc-900', 'shadow-sm');
+                t.classList.remove('text-zinc-500', 'hover:text-zinc-900');
+                
+                if (icon) {
+                    icon.classList.remove('text-zinc-400', 'group-hover:text-zinc-900');
+                    icon.classList.add('text-zinc-900');
+                }
             } else {
-                t.classList.remove('border-slate-800', 'text-slate-900');
-                t.classList.add('border-transparent', 'text-slate-500', 'hover:text-slate-700', 'hover:border-slate-300');
+                // Inactive State: Transparent bg, gray text
+                t.classList.remove('bg-white', 'text-zinc-900', 'shadow-sm');
+                t.classList.add('text-zinc-500', 'hover:text-zinc-900');
+                
+                if (icon) {
+                    icon.classList.remove('text-zinc-900');
+                    icon.classList.add('text-zinc-400', 'group-hover:text-zinc-900');
+                }
             }
         });
 
         // Toggle Content
         const allocContainer = document.getElementById('simulationAllocationContainer');
         const forecastContainer = document.getElementById('simulationForecastContainer');
+        const paretoAgentContainer = document.getElementById('paretoAgentContainer');
 
         if (allocContainer) allocContainer.classList.toggle('hidden', tabName !== 'allocation');
         if (forecastContainer) forecastContainer.classList.toggle('hidden', tabName !== 'forecast');
+        if (paretoAgentContainer) paretoAgentContainer.classList.toggle('hidden', tabName !== 'pareto_agent');
 
         this.loadActiveSimulator();
     }
@@ -81,6 +105,11 @@ class OptimizationApp {
                 this.simulators.forecast = new SimulationLookupStrategyForecast('simulationForecastContainer');
             }
             await this.simulators.forecast.init();
+        } else if (this.activeTab === 'pareto_agent') {
+            if (!this.simulators.pareto_agent) {
+                this.simulators.pareto_agent = new ParetoAgent('paretoAgentContainer');
+            }
+            await this.simulators.pareto_agent.init();
         }
     }
 }

@@ -2,12 +2,18 @@ from fastapi import APIRouter, Request, HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
-from typing import Dict, Optional
+from typing import Dict, Optional, List, Any
 import os
 import sys
 
 from db.crud import get_crud
 from db.calculation import get_calculation_service
+
+# Agent imports
+from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
+# We import invoke_agent lazily or inside the route if possible to avoid circular dep issues during startup if any
+# But here it should be fine as ai depends on db, and api depends on db and ai.
+from ai.pareto_agent import invoke_agent
 
 router = APIRouter()
 
@@ -38,7 +44,7 @@ async def calculate_optimization(
         return JSONResponse(
             content={
                 "item_id": item_id,
-                "item_name": item.item_name,
+                "item_name": item['item_name'],
                 "quantity": quantity,
                 "offers": [],
                 "summary": {
@@ -75,7 +81,7 @@ async def calculate_optimization(
     return JSONResponse(
         content={
             "item_id": item_id,
-            "item_name": item.item_name,
+            "item_name": item['item_name'],
             "quantity": quantity,
             "offers": offers,
             "summary": summary
@@ -154,3 +160,77 @@ async def compare_allocations(request: CompareRequest):
             'percent': round(delta_percent, 2)
         }
     })
+
+# Agent API
+class AgentMessage(BaseModel):
+    role: str
+    content: Any
+    tool_calls: Optional[List[Dict[str, Any]]] = None
+    tool_call_id: Optional[str] = None
+    name: Optional[str] = None
+
+class AgentChatRequest(BaseModel):
+    messages: List[AgentMessage]
+
+@router.post("/api/agent/chat")
+async def chat_agent(request: AgentChatRequest):
+    """Interact with the Pareto Agent."""
+    # Convert input messages to LangChain format
+    lc_messages = []
+    for msg in request.messages:
+        if msg.role == "user":
+            lc_messages.append(HumanMessage(content=msg.content))
+        elif msg.role == "assistant":
+            # If it has tool_calls, we must include them
+            tool_calls = []
+            if msg.tool_calls:
+                # We need to ensure tool_calls are in the format LangChain expects
+                # specifically including 'id' which matches the subsequent ToolMessage's tool_call_id
+                tool_calls = msg.tool_calls
+            
+            lc_messages.append(AIMessage(content=msg.content, tool_calls=tool_calls))
+        elif msg.role == "tool":
+            lc_messages.append(ToolMessage(
+                content=msg.content,
+                tool_call_id=msg.tool_call_id,
+                name=msg.name
+            ))
+
+    # Invoke agent
+    try:
+        final_messages = invoke_agent(lc_messages)
+    except Exception as e:
+        print(f"Error invoking agent: {e}")
+        # In case of error, we can return a fallback message or just raise
+        # For better UX, we return the error as a message
+        return JSONResponse(content={"messages": [{"role": "assistant", "content": f"Sorry, I encountered an error: {str(e)}"}]})
+
+    # Convert back to JSON-friendly format
+    response_messages = []
+    for msg in final_messages:
+        role = "unknown"
+        content = msg.content
+        tool_calls = None
+        tool_call_id = None
+        name = None
+        
+        if isinstance(msg, HumanMessage):
+            role = "user"
+        elif isinstance(msg, AIMessage):
+            role = "assistant"
+            if msg.tool_calls:
+                tool_calls = msg.tool_calls
+        elif isinstance(msg, ToolMessage):
+             role = "tool"
+             tool_call_id = msg.tool_call_id
+             name = msg.name
+        
+        response_messages.append({
+            "role": role,
+            "content": content,
+            "tool_calls": tool_calls,
+            "tool_call_id": tool_call_id,
+            "name": name
+        })
+    
+    return JSONResponse(content={"messages": response_messages})

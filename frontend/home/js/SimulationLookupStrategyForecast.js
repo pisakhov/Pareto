@@ -1415,8 +1415,4 @@ class SimulationLookupStrategyForecast {
     }
 }
 
-// Initialize instance globally so onclick handlers work
-window.addEventListener('DOMContentLoaded', () => {
-    window.simulationForecastInstance = new SimulationLookupStrategyForecast('simulationForecastContainer');
-    // Note: init is called by optimizationApp.js when tab is clicked
-});
+

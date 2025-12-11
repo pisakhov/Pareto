@@ -1174,8 +1174,3 @@ class SimulationAllocation {
         return colors[index % colors.length];
     }
 }
-
-// Initialize instance
-window.addEventListener('DOMContentLoaded', () => {
-    window.simulationAllocationInstance = new SimulationAllocation('simulationAllocationContainer');
-});

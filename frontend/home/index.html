@@ -4,19 +4,20 @@
 
 {% block content %}
 <div class="max-w-7xl mx-auto">
-    <div class="text-center py-8">
-        <h1 class="text-4xl font-bold text-foreground mb-4">Simulation Dashboard</h1>
-        <p class="text-xl text-muted-foreground mb-8">Analyze pricing scenarios and forecast opportunities</p>
-    </div>
+
 
     <!-- Tabs -->
-    <div class="border-b border-slate-200 mb-8">
-        <nav class="-mb-px flex space-x-8 justify-center" aria-label="Tabs">
-            <button data-tab="allocation" class="border-slate-800 text-slate-900 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+    <div class="flex justify-center mb-8">
+        <nav class="flex p-1 space-x-1 bg-zinc-100/80 rounded-xl border border-zinc-200/50" aria-label="Tabs">
+            <button data-tab="allocation" class="px-4 py-2 text-sm font-medium text-zinc-500 rounded-lg transition-all hover:text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-200 focus:ring-offset-2">
                 Allocation Optimizer
             </button>
-            <button data-tab="forecast" class="border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300 whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors">
+            <button data-tab="forecast" class="px-4 py-2 text-sm font-medium text-zinc-500 rounded-lg transition-all hover:text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-200 focus:ring-offset-2">
                 Forecast Strategy Analyzer
+            </button>
+            <button data-tab="pareto_agent" class="group inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-zinc-500 rounded-lg transition-all hover:text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-200 focus:ring-offset-2">
+                <svg class="w-4 h-4 text-zinc-400 group-hover:text-zinc-900 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                Pareto Agent
             </button>
         </nav>
     </div>
@@ -35,6 +36,11 @@
         <!-- Content rendered by SimulationLookupStrategyForecast.js -->
     </div>
 
+    <!-- Pareto Agent Container -->
+    <div id="paretoAgentContainer" class="hidden min-h-[400px]">
+        <!-- Content rendered by ParetoAgent.js -->
+    </div>
+
 </div>
 
 <!-- Chart.js Library -->
@@ -44,5 +50,6 @@
 <script src="/static/util/toast.js"></script>
 <script src="/static/home/js/SimulationAllocation.js"></script>
 <script src="/static/home/js/SimulationLookupStrategyForecast.js"></script>
+<script src="/static/home/js/ParetoAgent.js"></script>
 <script src="/static/home/js/optimizationApp.js"></script>
 {% endblock %}
