@@ -280,15 +280,31 @@ class SimulationAllocation {
                 const selectedTier = tiersData.find(t => t.is_selected);
                 const billedTierNum = selectedTier ? selectedTier.tier_number : 1;
 
+                // Fetch Offers for this provider
+                const offersRes = await fetch(`/api/offers/provider/${contract.provider_id}`);
+                const offersData = await offersRes.json();
+                
+                // Map offers: itemId -> tierNum -> price
+                const offerMap = {};
+                offersData.forEach(o => {
+                    // Filter by process if needed, assuming generic items for now or strict process match
+                    if (o.process_id === processId) {
+                        if (!offerMap[o.item_id]) offerMap[o.item_id] = {};
+                        offerMap[o.item_id][o.tier_number] = o.price_per_unit;
+                    }
+                });
+
                 return {
                     id: contract.provider_id,
                     name: contract.provider_name || contract.contract_name,
                     contractId: contract.contract_id,
-                    tierMode: 'billed', // per-provider: 'raw' | 'effective' | 'billed'
-                    tiers: tiersData,
+                    tierMode: 'billed', // per-provider: 'raw' | 'effective' | 'billed' | 'manual'
+                    tiers: tiersData.sort((a, b) => a.threshold_units - b.threshold_units),
                     billedTier: billedTierNum,
                     rawTier: 1, // calculated later
                     effectiveTier: 1, // calculated later
+                    manualTier: 1, // default manual tier
+                    offerMap: offerMap,
                     strategy: {
                         method: lookupData.method || 'SUM',
                         lookback: (lookupData.lookback_months || 0) + 1
@@ -304,6 +320,12 @@ class SimulationAllocation {
             const products = await Promise.all(uniqueProductIds.map(async (pid) => {
                 const detailRes = await fetch(`/api/products/${pid}`);
                 const details = await detailRes.json();
+                
+                // Ensure item_ids is available (it comes from the API response structure)
+                // If not directly on top, check if it's in the response structure from router
+                // Based on router code: _format_product_summary includes 'item_ids'
+                const itemIds = details.item_ids || [];
+                const multipliers = details.price_multipliers || {};
 
                 const pActuals = processActuals.filter(a => a.product_id === pid);
                 const pForecasts = processForecasts.filter(f => f.product_id === pid);
@@ -313,6 +335,16 @@ class SimulationAllocation {
                     if (act) return Number(act.actual_units);
                     const fc = pForecasts.find(f => f.year === t.year && f.month === t.month);
                     return fc ? Number(fc.forecast_units) : 0;
+                });
+
+                const actualStream = timeline.map(t => {
+                    const act = pActuals.find(a => a.year === t.year && a.month === t.month);
+                    return act ? Number(act.actual_units) : null;
+                });
+
+                const forecastStream = timeline.map(t => {
+                    const fc = pForecasts.find(f => f.year === t.year && f.month === t.month);
+                    return fc ? Number(fc.forecast_units) : null;
                 });
 
                 // Parse allocations
@@ -349,9 +381,13 @@ class SimulationAllocation {
                     id: pid,
                     name: details.name,
                     description: details.description,
+                    itemIds,
+                    multipliers,
                     allocMode,
                     allocations,
                     rawStream: stream,
+                    actualStream,
+                    forecastStream,
                     totalVolume: stream.reduce((a, b) => a + b, 0)
                 };
             }));
@@ -430,10 +466,13 @@ class SimulationAllocation {
                             <button data-mode="billed" class="tier-mode-btn px-2 py-0.5 text-[10px] font-bold rounded transition-all ${p.tierMode === 'billed' ? 'bg-orange-500 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}">
                                 Billed <span class="tier-num" id="billed-tier-${p.id}">T${p.billedTier}</span>
                             </button>
+                            <button data-mode="manual" class="tier-mode-btn px-2 py-0.5 text-[10px] font-bold rounded transition-all ${p.tierMode === 'manual' ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}">
+                                Manual <span class="tier-num" id="manual-tier-badge-${p.id}">T${p.manualTier}</span>
+                            </button>
                         </div>
                         
                         <!-- Strategy Controls - Only active in Effective mode -->
-                        <div class="flex items-center gap-2 mt-2 strategy-controls ${p.tierMode === 'effective' ? '' : 'opacity-40 pointer-events-none'}" data-provider-id="${p.id}">
+                        <div class="flex items-center gap-2 mt-2 strategy-controls ${p.tierMode === 'effective' ? '' : 'hidden'}" data-provider-id="${p.id}">
                             <div class="flex bg-slate-100 rounded-md p-0.5 shrink-0">
                                 <button class="px-2 py-0.5 rounded text-[10px] font-bold transition-all strategy-btn ${p.strategy.method === 'SUM' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-400 hover:text-slate-600'}" 
                                         data-provider-id="${p.id}" data-method="SUM">SUM</button>
@@ -450,22 +489,46 @@ class SimulationAllocation {
                                 <span class="text-[10px] text-slate-400 ml-1">mo</span>
                             </div>
                         </div>
+
+                        <!-- Manual Controls - Only active in Manual mode -->
+                        <div class="flex items-center gap-2 mt-2 manual-controls ${p.tierMode === 'manual' ? '' : 'hidden'}" data-provider-id="${p.id}">
+                             <select class="manual-tier-select text-[10px] font-bold text-slate-700 bg-slate-100 rounded-md border-0 py-0.5 pl-2 pr-6 focus:ring-1 focus:ring-purple-500 cursor-pointer" data-provider-id="${p.id}">
+                                ${p.tiers.map(t => `<option value="${t.tier_number}" ${t.tier_number === p.manualTier ? 'selected' : ''}>Tier ${t.tier_number}</option>`).join('')}
+                             </select>
+                        </div>
+
+                        <!-- Cost Mix Chart Toggle -->
+                        <button class="mix-toggle-btn ml-2 p-1 rounded text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all" 
+                                data-provider-id="${p.id}" title="Toggle Cost Breakdown">
+                            <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" /></svg>
+                        </button>
                     </div>
                     <div class="text-right">
                         <div class="text-2xl font-bold text-slate-900" id="cost-total-${p.id}">$0</div>
-                        <div class="text-[10px] text-slate-400 uppercase tracking-wider">Total Cost</div>
+                        <div class="text-[10px] text-slate-400 uppercase tracking-wider">Month Cost</div>
                         <div class="text-[10px] mt-1 px-2 py-0.5 rounded font-bold" id="active-tier-badge-${p.id}">
                             Using T${p.billedTier}
                         </div>
                     </div>
                 </div>
-                <div class="h-[200px]">
-                    <canvas id="chart-cost-${p.id}"></canvas>
-                </div>
-                
-                <!-- Cost breakdown footer -->
-                <div class="mt-3 pt-3 border-t border-slate-100 flex flex-wrap gap-2 text-xs" id="cost-status-${p.id}">
-                    <!-- Injected dynamically -->
+                <div class="flex h-[200px] relative">
+                    <div class="flex-1 min-w-0 transition-all duration-300 ease-out">
+                        <canvas id="chart-cost-${p.id}"></canvas>
+                    </div>
+                    <!-- Cost Mix Pie (Slide-Out) -->
+                    <div id="mix-chart-wrapper-${p.id}" class="w-0 opacity-0 transition-all duration-300 ease-out flex flex-col border-l border-slate-100 bg-slate-50/50 overflow-hidden whitespace-nowrap">
+                         <div class="text-[9px] font-bold text-slate-400 mb-1 text-center uppercase tracking-wider truncate mt-2 px-2">
+                            Cost Mix
+                         </div>
+                         <div class="flex-1 flex items-center justify-center min-h-0 pb-1">
+                             <div class="relative w-32 h-32">
+                                 <canvas id="chart-cost-mix-${p.id}"></canvas>
+                                 <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                    <span class="text-[10px] font-bold text-slate-400" id="mix-total-${p.id}"></span>
+                                 </div>
+                             </div>
+                         </div>
+                    </div>
                 </div>
             `;
             container.appendChild(card);
@@ -517,8 +580,40 @@ class SimulationAllocation {
                 }
             });
 
+            // Create Mix Chart Instance
+            const mixCtx = document.getElementById(`chart-cost-mix-${p.id}`).getContext('2d');
+            p.mixChartInstance = new Chart(mixCtx, {
+                type: 'doughnut',
+                data: { labels: [], datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                title: (tooltipItems) => {
+                                    return tooltipItems[0].label;
+                                },
+                                label: (ctx) => {
+                                    let val = ctx.parsed;
+                                    let total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                    let pct = total > 0 ? (val / total) * 100 : 0;
+                                    return [
+                                        new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val),
+                                        `${pct.toFixed(1)}%`
+                                    ];
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
             p.chartInstance = chart;
             this.charts.push(chart);
+            this.charts.push(p.mixChartInstance);
         });
 
         // Event Delegation for per-provider tier mode toggle
@@ -555,6 +650,29 @@ class SimulationAllocation {
                     this.updateCostSimulation(providers, products, timeline);
                 }
             }
+
+            // Mix Toggle Button
+            const mixBtn = e.target.closest('.mix-toggle-btn');
+            if (mixBtn) {
+                const provId = parseInt(mixBtn.dataset.providerId);
+                const wrapper = document.getElementById(`mix-chart-wrapper-${provId}`);
+                
+                if (wrapper) {
+                    const isClosed = wrapper.classList.contains('w-0');
+                    
+                    if (isClosed) {
+                        wrapper.classList.remove('w-0', 'opacity-0');
+                        wrapper.classList.add('w-40', 'opacity-100', 'pl-2');
+                        mixBtn.classList.add('bg-emerald-50', 'text-emerald-600');
+                        mixBtn.classList.remove('text-slate-400');
+                    } else {
+                        wrapper.classList.add('w-0', 'opacity-0');
+                        wrapper.classList.remove('w-40', 'opacity-100', 'pl-2');
+                        mixBtn.classList.remove('bg-emerald-50', 'text-emerald-600');
+                        mixBtn.classList.add('text-slate-400');
+                    }
+                }
+            }
         });
 
         container.addEventListener('input', (e) => {
@@ -565,6 +683,18 @@ class SimulationAllocation {
                 const provider = providers.find(p => p.id === provId);
                 if (provider) {
                     provider.strategy.lookback = val;
+                    this.updateCostSimulation(providers, products, timeline);
+                }
+            }
+            
+            // Manual tier select change
+            if (e.target.classList.contains('manual-tier-select')) {
+                const provId = parseInt(e.target.dataset.providerId);
+                const val = parseInt(e.target.value);
+                
+                const provider = providers.find(p => p.id === provId);
+                if (provider) {
+                    provider.manualTier = val;
                     this.updateCostSimulation(providers, products, timeline);
                 }
             }
@@ -694,14 +824,114 @@ class SimulationAllocation {
     updateCostSimulation(providers, products, timeline) {
         const refIndex = timeline.findIndex(t => `${t.year}-${t.month}` === this.referenceDateKey);
 
-        // Calculate cost per provider per month
+        // 1. Calculate Raw Volume Stream per Provider (for all months)
+        // This is needed first because 'Effective' tier calculation relies on historical raw volumes
+        providers.forEach(p => {
+            p.rawVolumeStream = timeline.map((t, idx) => {
+                let totalVol = 0;
+                products.forEach(prod => {
+                    const alloc = prod.allocations[p.id] || 0;
+                    
+                    // Dynamic Volume Selection based on Simulation Horizon
+                    // If month is <= selected Analysis Month: Treat as Actual (Past/Present)
+                    // If month is > selected Analysis Month: Treat as Forecast (Future)
+                    let monthVol = 0;
+                    if (idx <= refIndex) {
+                        // Priority: Actual > Forecast
+                        monthVol = prod.actualStream[idx] !== null ? prod.actualStream[idx] : (prod.forecastStream[idx] || 0);
+                    } else {
+                        // Priority: Forecast > Actual
+                        monthVol = prod.forecastStream[idx] !== null ? prod.forecastStream[idx] : (prod.actualStream[idx] || 0);
+                    }
+
+                    let allocatedVol = 0;
+                    if (prod.allocMode === 'percentage') {
+                        allocatedVol = monthVol * (alloc / 100.0);
+                    } else {
+                        allocatedVol = alloc;
+                    }
+                    totalVol += allocatedVol;
+                });
+                return totalVol;
+            });
+        });
+
+        // 2. Calculate Cost per Provider per Month
         providers.forEach(p => {
             const costHistory = timeline.map((t, idx) => {
+                
+                // --- Step A: Determine Tier ---
+                let activeTier = 1;
+
+                if (p.tierMode === 'billed') {
+                    activeTier = p.billedTier;
+                } else if (p.tierMode === 'manual') {
+                    activeTier = p.manualTier;
+                } else {
+                    // Calculate Volume for Tier Lookup
+                    let lookupVol = p.rawVolumeStream[idx];
+
+                    if (p.tierMode === 'effective') {
+                        // Apply Strategy (Lookback)
+                        const lookback = p.strategy.lookback || 1;
+                        let sum = 0;
+                        let count = 0;
+
+                        // Sum previous months (including current)
+                        for (let i = 0; i < lookback; i++) {
+                            const histIdx = idx - i;
+                            if (histIdx >= 0) {
+                                sum += p.rawVolumeStream[histIdx];
+                                count++;
+                            }
+                        }
+
+                        if (p.strategy.method === 'AVG' && count > 0) {
+                            lookupVol = sum / count;
+                        } else {
+                            lookupVol = sum; // Default SUM
+                        }
+                    }
+
+                    // Find matching tier
+                    // Tiers are sorted by threshold ASC (e.g. 0, 1000, 5000)
+                    // We want the highest threshold that is <= lookupVol? 
+                    // Usually tiers are "Up to X" or "From X". 
+                    // Database schema: "threshold_units". Usually "Volume > Threshold -> Tier X".
+                    // Let's assume standard: Tier 1 (0+), Tier 2 (1000+)...
+                    // We find the last tier where threshold <= lookupVol
+                    
+                    let foundTier = p.tiers[0]; // Default to lowest
+                    for (let i = 0; i < p.tiers.length; i++) {
+                        if (lookupVol >= p.tiers[i].threshold_units) {
+                            foundTier = p.tiers[i];
+                        } else {
+                            break; 
+                        }
+                    }
+                    activeTier = foundTier ? foundTier.tier_number : 1;
+                }
+
+                // Store calculated tiers for current reference month for display
+                if (idx === refIndex) {
+                    if (p.tierMode === 'raw') p.rawTier = activeTier;
+                    if (p.tierMode === 'effective') p.effectiveTier = activeTier;
+                    // Billed is static
+                }
+
+                // --- Step B: Calculate Cost using Active Tier ---
                 let totalCost = 0;
 
                 products.forEach(prod => {
                     const alloc = prod.allocations[p.id] || 0;
-                    const monthVol = prod.rawStream[idx] || 0;
+                    
+                    // Dynamic Volume Selection (Same as Step 1)
+                    let monthVol = 0;
+                    if (idx <= refIndex) {
+                        monthVol = prod.actualStream[idx] !== null ? prod.actualStream[idx] : (prod.forecastStream[idx] || 0);
+                    } else {
+                        monthVol = prod.forecastStream[idx] !== null ? prod.forecastStream[idx] : (prod.actualStream[idx] || 0);
+                    }
 
                     let allocatedVol = 0;
                     if (prod.allocMode === 'percentage') {
@@ -710,16 +940,38 @@ class SimulationAllocation {
                         allocatedVol = alloc;
                     }
 
-                    // Simplified cost calculation (would normally use tier pricing)
-                    // For now, use a placeholder rate
-                    const costPerUnit = 0.05; // Placeholder - should fetch from offers
-                    totalCost += allocatedVol * costPerUnit;
+                    if (allocatedVol <= 0) return;
+
+                    // Calculate Price for this Product's Items
+                    // We assume 1 Product Unit = 1 Unit of EACH Item in the product
+                    // (Bundle pricing logic)
+                    let productCompositePrice = 0;
+                    
+                    if (prod.itemIds && prod.itemIds.length > 0) {
+                        prod.itemIds.forEach(itemId => {
+                            // Check if provider has offer for this item
+                            if (p.offerMap[itemId]) {
+                                const price = p.offerMap[itemId][activeTier] || 0;
+                                // Apply multiplier if exists
+                                const multiplierInfo = prod.multipliers[itemId];
+                                const multiplier = multiplierInfo ? (typeof multiplierInfo === 'object' ? multiplierInfo.multiplier : multiplierInfo) : 1.0;
+                                
+                                productCompositePrice += price * multiplier;
+                            }
+                        });
+                    }
+
+                    totalCost += allocatedVol * productCompositePrice;
                 });
 
                 return totalCost;
             });
 
             p.costHistory = costHistory;
+            
+            // Calculate Current Cost and Sum for this provider
+            const currentCost = costHistory[refIndex] || 0;
+            const sum = costHistory.reduce((a, b) => a + b, 0);
 
             // Update chart
             if (p.chartInstance) {
@@ -727,7 +979,7 @@ class SimulationAllocation {
                     label: 'Cost',
                     data: costHistory,
                     backgroundColor: timeline.map((t, i) =>
-                        t.source === 'actual' ? p.color : p.color + '60'
+                        i <= refIndex ? p.color : p.color + '60'
                     ),
                     borderRadius: 4,
                     barPercentage: 0.7
@@ -735,28 +987,115 @@ class SimulationAllocation {
                 p.chartInstance.update('none');
             }
 
-            // Update total
+            // Update Mix Chart (Cost Breakdown for Selected Month)
+            if (p.mixChartInstance) {
+                const mixData = [];
+                const mixLabels = [];
+                const mixColors = [];
+                
+                // Colors for products in pie
+                const palette = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#6366f1', '#ec4899', '#14b8a6'];
+                
+                products.forEach((prod, idx) => {
+                    const alloc = prod.allocations[p.id] || 0;
+                    
+                    // Re-calculate cost for THIS specific month (refIndex) for this product
+                    let monthVol = 0;
+                    // Use priority logic (Actual > Forecast) for current month
+                    if (refIndex <= refIndex) { // Tautology, but keeping logic consistent
+                         monthVol = prod.actualStream[refIndex] !== null ? prod.actualStream[refIndex] : (prod.forecastStream[refIndex] || 0);
+                    }
+                    
+                    let allocatedVol = 0;
+                    if (prod.allocMode === 'percentage') {
+                        allocatedVol = monthVol * (alloc / 100.0);
+                    } else {
+                        allocatedVol = alloc;
+                    }
+
+                    if (allocatedVol > 0) {
+                        // Calculate Price (copied from main loop logic)
+                        let productCompositePrice = 0;
+                        let activeTier = 1;
+                        
+                        // Determine Active Tier (Recalculate or store from previous loop?)
+                        // Since we are inside the provider loop, we have p.rawTier/eff/manual etc.
+                        if (p.tierMode === 'raw') activeTier = p.rawTier;
+                        else if (p.tierMode === 'effective') activeTier = p.effectiveTier;
+                        else if (p.tierMode === 'manual') activeTier = p.manualTier;
+                        else activeTier = p.billedTier;
+
+                        if (prod.itemIds && prod.itemIds.length > 0) {
+                            prod.itemIds.forEach(itemId => {
+                                if (p.offerMap[itemId]) {
+                                    const price = p.offerMap[itemId][activeTier] || 0;
+                                    const multiplierInfo = prod.multipliers[itemId];
+                                    const multiplier = multiplierInfo ? (typeof multiplierInfo === 'object' ? multiplierInfo.multiplier : multiplierInfo) : 1.0;
+                                    productCompositePrice += price * multiplier;
+                                }
+                            });
+                        }
+                        
+                        const prodCost = allocatedVol * productCompositePrice;
+                        if (prodCost > 0) {
+                            mixLabels.push(prod.name);
+                            mixData.push(prodCost);
+                            mixColors.push(palette[idx % palette.length]);
+                        }
+                    }
+                });
+                
+                p.mixChartInstance.data = {
+                    labels: mixLabels,
+                    datasets: [{
+                        data: mixData,
+                        backgroundColor: mixColors,
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                };
+                p.mixChartInstance.update('none');
+                
+                // Update Center Text
+                const mixTotalEl = document.getElementById(`mix-total-${p.id}`);
+                if (mixTotalEl) {
+                    mixTotalEl.textContent = new Intl.NumberFormat('en-US', { 
+                        style: 'currency', 
+                        currency: 'USD', 
+                        maximumFractionDigits: 0,
+                        notation: "compact"
+                    }).format(currentCost);
+                }
+            }
+
+            // Update total (Main KPI now shows Selected Month Cost)
             const totalEl = document.getElementById(`cost-total-${p.id}`);
+
             if (totalEl) {
-                const sum = costHistory.reduce((a, b) => a + b, 0);
-                totalEl.textContent = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(sum);
+                totalEl.textContent = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(currentCost);
             }
-
-            // Update status footer
-            const statusEl = document.getElementById(`cost-status-${p.id}`);
-            if (statusEl) {
-                const currentCost = costHistory[refIndex] || 0;
-                const avgCost = costHistory.length > 0 ? costHistory.reduce((a, b) => a + b, 0) / costHistory.length : 0;
-
-                statusEl.innerHTML = `
-                    <span class="px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-100 font-medium">
-                        Current: ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(currentCost)}
-                    </span>
-                    <span class="px-2 py-1 rounded bg-slate-50 text-slate-600 border border-slate-100 font-medium">
-                        Avg: ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(avgCost)}
-                    </span>
-                `;
+            
+            // Update active tier badge text to reflect dynamic changes
+            const badge = document.getElementById(`active-tier-badge-${p.id}`);
+            if (badge) {
+                let displayTier = 1;
+                if (p.tierMode === 'raw') displayTier = p.rawTier;
+                else if (p.tierMode === 'effective') displayTier = p.effectiveTier;
+                else if (p.tierMode === 'manual') displayTier = p.manualTier;
+                else displayTier = p.billedTier;
+                
+                badge.textContent = `Using T${displayTier}`;
             }
+            
+            // Update the tier number badges on the buttons
+            const rawBadge = document.getElementById(`raw-tier-${p.id}`);
+            if (rawBadge) rawBadge.textContent = `T${p.rawTier}`;
+            
+            const effBadge = document.getElementById(`eff-tier-${p.id}`);
+            if (effBadge) effBadge.textContent = `T${p.effectiveTier}`;
+
+            const manBadge = document.getElementById(`manual-tier-badge-${p.id}`);
+            if (manBadge) manBadge.textContent = `T${p.manualTier}`;
         });
     }
 
@@ -778,6 +1117,7 @@ class SimulationAllocation {
                         if (btnMode === 'raw') selectedClass = 'bg-slate-800 text-white';
                         else if (btnMode === 'effective') selectedClass = 'bg-emerald-600 text-white';
                         else if (btnMode === 'billed') selectedClass = 'bg-orange-500 text-white';
+                        else if (btnMode === 'manual') selectedClass = 'bg-purple-600 text-white';
                     }
                     btn.className = `tier-mode-btn px-2 py-0.5 text-[10px] font-bold rounded transition-all ${selectedClass}`;
                 });
@@ -787,9 +1127,19 @@ class SimulationAllocation {
             const strategyControls = card.querySelector('.strategy-controls');
             if (strategyControls) {
                 if (mode === 'effective') {
-                    strategyControls.classList.remove('opacity-40', 'pointer-events-none');
+                    strategyControls.classList.remove('hidden');
                 } else {
-                    strategyControls.classList.add('opacity-40', 'pointer-events-none');
+                    strategyControls.classList.add('hidden');
+                }
+            }
+
+            // Update manual controls visibility
+            const manualControls = card.querySelector('.manual-controls');
+            if (manualControls) {
+                 if (mode === 'manual') {
+                    manualControls.classList.remove('hidden');
+                } else {
+                    manualControls.classList.add('hidden');
                 }
             }
 
@@ -803,6 +1153,9 @@ class SimulationAllocation {
                 } else if (mode === 'effective') {
                     tierNum = provider.effectiveTier;
                     color = 'bg-emerald-50 text-emerald-700';
+                } else if (mode === 'manual') {
+                    tierNum = provider.manualTier;
+                    color = 'bg-purple-50 text-purple-700';
                 } else {
                     tierNum = provider.billedTier;
                     color = 'bg-orange-50 text-orange-700';

@@ -346,8 +346,14 @@ class CRUDOperations(DatabaseSchema):
     def get_offers_by_provider(self, provider_id: int) -> List[Dict[str, Any]]:
         """Get all offers for a specific provider"""
         conn = self._get_connection()
+        # Use explicit column selection to ensure mapping is correct regardless of schema column order
         results = conn.execute(
-            "SELECT * FROM offers WHERE provider_id = ? ORDER BY tier_number",
+            """
+            SELECT offer_id, item_id, provider_id, process_id, tier_number, price_per_unit, status, date_creation, date_last_update
+            FROM offers 
+            WHERE provider_id = ? 
+            ORDER BY tier_number
+            """,
             [provider_id]
         ).fetchall()
         return [

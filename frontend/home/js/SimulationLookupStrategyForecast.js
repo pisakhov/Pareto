@@ -346,17 +346,27 @@ class SimulationLookupStrategyForecast {
             const products = await Promise.all(uniqueProductIds.map(async (pid) => {
                 const details = await this.getProductDetails(pid);
                 
-                // Build Combined Stream aligned to Global Timeline
+                // Build Streams aligned to Global Timeline
                 const pForecasts = processForecasts.filter(f => f.product_id === pid);
                 const pActuals = processActuals.filter(a => a.product_id === pid);
                 
+                // 1. Raw Stream (Priority: Actual > Forecast) - Used for Default/Init
                 const stream = timeline.map(t => {
-                    // Priority: Actual > Forecast
                     const act = pActuals.find(a => a.year === t.year && a.month === t.month);
                     if (act) return Number(act.actual_units);
-                    
                     const fc = pForecasts.find(f => f.year === t.year && f.month === t.month);
                     return fc ? Number(fc.forecast_units) : 0;
+                });
+                
+                // 2. Separate Streams for Hybrid Simulation
+                const actualStream = timeline.map(t => {
+                    const act = pActuals.find(a => a.year === t.year && a.month === t.month);
+                    return act ? Number(act.actual_units) : null;
+                });
+
+                const forecastStream = timeline.map(t => {
+                    const fc = pForecasts.find(f => f.year === t.year && f.month === t.month);
+                    return fc ? Number(fc.forecast_units) : null;
                 });
                 
                 const totalVolume = stream.reduce((a, b) => a + b, 0);
@@ -409,6 +419,8 @@ class SimulationLookupStrategyForecast {
                     allocMode: allocMode,
                     allocations: allocations, // { providerId: value }
                     rawStream: stream,
+                    actualStream: actualStream,
+                    forecastStream: forecastStream,
                     totalVolume: totalVolume
                 };
             }));
@@ -532,7 +544,7 @@ class SimulationLookupStrategyForecast {
                     </div>
                     <div class="text-right">
                         <div class="text-2xl font-bold text-slate-900" id="vol-total-${p.id}">0</div>
-                        <div class="text-[10px] text-slate-400 uppercase tracking-wider">Total Eff. Vol</div>
+                        <div class="text-[10px] text-slate-400 uppercase tracking-wider">Month Eff. Vol</div>
                     </div>
                 </div>
                 <div class="flex h-[220px] relative">
@@ -679,7 +691,18 @@ class SimulationLookupStrategyForecast {
                         legend: { display: false },
                         tooltip: {
                             callbacks: {
-                                label: (ctx) => ` ${ctx.label}: ${ctx.parsed.toLocaleString()}`
+                                title: (tooltipItems) => {
+                                    return tooltipItems[0].label;
+                                },
+                                label: (ctx) => {
+                                    let val = ctx.parsed;
+                                    let total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                    let pct = total > 0 ? (val / total) * 100 : 0;
+                                    return [
+                                        `${val.toLocaleString()} units`,
+                                        `${pct.toFixed(1)}%`
+                                    ];
+                                }
                             }
                         }
                     }
@@ -802,11 +825,18 @@ class SimulationLookupStrategyForecast {
         const refIndex = timeline.findIndex(t => `${t.year}-${t.month}` === this.referenceDateKey);
         
         // Calculate Product Mix Data
-        const productVols = products.map(p => ({
-            name: p.name,
-            volume: refIndex >= 0 && p.rawStream[refIndex] !== undefined ? p.rawStream[refIndex] : 0,
-            color: '' // assigned later
-        }));
+        const productVols = products.map(p => {
+            let vol = 0;
+            if (refIndex >= 0) {
+                // Priority: Actual > Forecast for the reference month itself
+                vol = p.actualStream[refIndex] !== null ? p.actualStream[refIndex] : (p.forecastStream[refIndex] || 0);
+            }
+            return {
+                name: p.name,
+                volume: vol,
+                color: '' // assigned later
+            };
+        });
         const totalMonthVol = productVols.reduce((a, b) => a + b.volume, 0);
 
         // Month Select HTML
@@ -883,7 +913,23 @@ class SimulationLookupStrategyForecast {
                 cutout: '75%',
                 plugins: {
                     legend: { display: false },
-                    tooltip: { enabled: false } // We show data in the list
+                    tooltip: { 
+                        enabled: true,
+                        callbacks: {
+                            title: (tooltipItems) => {
+                                return tooltipItems[0].label;
+                            },
+                            label: (ctx) => {
+                                let val = ctx.parsed;
+                                let total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                let pct = total > 0 ? (val / total) * 100 : 0;
+                                return [
+                                    `${val.toLocaleString()} units`,
+                                    `${pct.toFixed(1)}%`
+                                ];
+                            }
+                        }
+                    } 
                 }
             }
         });
@@ -893,8 +939,11 @@ class SimulationLookupStrategyForecast {
             const card = document.createElement('div');
             card.className = "bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow mb-4";
             
-            // Get Volume for Reference Month
-            const monthVol = refIndex >= 0 && prod.rawStream[refIndex] !== undefined ? prod.rawStream[refIndex] : 0;
+            // Get Volume for Reference Month (Hybrid)
+            let monthVol = 0;
+            if (refIndex >= 0) {
+                monthVol = prod.actualStream[refIndex] !== null ? prod.actualStream[refIndex] : (prod.forecastStream[refIndex] || 0);
+            }
 
             // Generate sliders for each provider
             const slidersHtml = providers.map(prov => {
@@ -916,8 +965,15 @@ class SimulationLookupStrategyForecast {
                 let count = 0;
                 for (let k = 0; k < prov.strategy.lookback; k++) {
                     const targetIdx = refIndex - k;
-                    if (targetIdx >= 0 && prod.rawStream[targetIdx] !== undefined) {
-                        const histVol = prod.rawStream[targetIdx];
+                    if (targetIdx >= 0) {
+                        // Hybrid Volume Logic
+                        let histVol = 0;
+                        if (targetIdx <= refIndex) {
+                            histVol = prod.actualStream[targetIdx] !== null ? prod.actualStream[targetIdx] : (prod.forecastStream[targetIdx] || 0);
+                        } else {
+                            histVol = prod.forecastStream[targetIdx] !== null ? prod.forecastStream[targetIdx] : (prod.actualStream[targetIdx] || 0);
+                        }
+                        
                         const histAlloc = prod.allocMode === 'percentage' ? (histVol * (share / 100.0)) : share;
                         sum += histAlloc;
                         count++;
@@ -1019,8 +1075,15 @@ class SimulationLookupStrategyForecast {
                         let count = 0;
                         for (let k = 0; k < provider.strategy.lookback; k++) {
                             const targetIdx = refIndex - k;
-                            if (targetIdx >= 0 && product.rawStream[targetIdx] !== undefined) {
-                                const histVol = product.rawStream[targetIdx];
+                            if (targetIdx >= 0) {
+                                // Hybrid Volume Logic for History Calculation
+                                let histVol = 0;
+                                if (targetIdx <= refIndex) {
+                                    histVol = product.actualStream[targetIdx] !== null ? product.actualStream[targetIdx] : (product.forecastStream[targetIdx] || 0);
+                                } else {
+                                    histVol = product.forecastStream[targetIdx] !== null ? product.forecastStream[targetIdx] : (product.actualStream[targetIdx] || 0);
+                                }
+                                
                                 const histAlloc = product.allocMode === 'percentage' ? (histVol * (val / 100.0)) : val;
                                 sum += histAlloc;
                                 count++;
@@ -1069,17 +1132,32 @@ class SimulationLookupStrategyForecast {
         });
 
         // 2. Accumulate Volumes
+        
+        // Get Reference Month Index for Hybrid Logic
+        const refIndex = timeline.findIndex(t => `${t.year}-${t.month}` === this.referenceDateKey);
+
         products.forEach(prod => {
-            const rawStream = prod.rawStream;
-            
             // For each provider, add allocated portion
             providers.forEach(prov => {
                 const alloc = prod.allocations[prov.id] || 0;
                 
-                for (let i = 0; i < rawStream.length; i++) {
+                for (let i = 0; i < timeline.length; i++) {
+                    // Dynamic Volume Selection based on Simulation Horizon
+                    // If month index (i) <= Analysis Month (refIndex): Treat as Actual (Past/Present)
+                    // If month index (i) > Analysis Month: Treat as Forecast (Future)
+                    let volSource = 0;
+                    
+                    if (i <= refIndex) {
+                        // Priority: Actual > Forecast
+                        volSource = prod.actualStream[i] !== null ? prod.actualStream[i] : (prod.forecastStream[i] || 0);
+                    } else {
+                        // Priority: Forecast > Actual
+                        volSource = prod.forecastStream[i] !== null ? prod.forecastStream[i] : (prod.actualStream[i] || 0);
+                    }
+
                     let vol = 0;
                     if (prod.allocMode === 'percentage') {
-                        vol = rawStream[i] * (alloc / 100.0);
+                        vol = volSource * (alloc / 100.0);
                     } else {
                         vol = alloc; // Fixed units
                     }
@@ -1091,7 +1169,6 @@ class SimulationLookupStrategyForecast {
         // 3. Calculate Strategy & Update Charts
         
         // Get Reference Month for Mix Charts
-        const refIndex = timeline.findIndex(t => `${t.year}-${t.month}` === this.referenceDateKey);
         const refLabel = refIndex >= 0 ? timeline[refIndex].label : 'N/A';
 
         providers.forEach(p => {
@@ -1109,11 +1186,13 @@ class SimulationLookupStrategyForecast {
                 return p.strategy.method === 'AVG' ? (count > 0 ? sum / count : 0) : sum;
             });
 
-            // Update Header Stats
+            // Update Header Stats (Show Effective Volume for Selected Month)
             const totalVolEl = document.getElementById(`vol-total-${p.id}`);
             if (totalVolEl) {
-                const sumTotal = p.totalEffectiveVolume.reduce((a,b)=>a+b,0);
-                totalVolEl.textContent = sumTotal.toLocaleString(undefined, {maximumFractionDigits:0});
+                const monthEffVol = (refIndex >= 0 && p.totalEffectiveVolume[refIndex] !== undefined) 
+                                    ? p.totalEffectiveVolume[refIndex] 
+                                    : 0;
+                totalVolEl.textContent = monthEffVol.toLocaleString(undefined, {maximumFractionDigits:0});
             }
             
             // Update Mix Chart (Breakdown of RAW volume for Analysis Month)
@@ -1197,23 +1276,29 @@ class SimulationLookupStrategyForecast {
                     fill: true,
                     pointRadius: (ctx) => {
                         const index = ctx.dataIndex;
-                        // Show point if it's the last actual or first forecast to mark transition
-                        if (!timeline[index]) return 0;
+                        // Show point at the transition (reference index)
+                        if (index === refIndex) return 4;
                         return 0; 
                     },
+                    pointBackgroundColor: 'white',
+                    pointBorderColor: p.color,
+                    pointBorderWidth: 2,
                     pointHitRadius: 10,
                     segment: {
                         borderColor: (ctx) => {
-                            // Color depends on the START point of the segment
-                            const index = ctx.p0DataIndex; 
-                            const point = timeline[index];
-                            if (point && point.source === 'actual') return 'rgb(156, 163, 175)'; // Grey for history
+                            // Segment starts at p0 and goes to p1
+                            // If p0 is before or at the cut-off (refIndex), it's considered "History/Actuals" context
+                            // However, we want the line TO the next point to be dashed if the next point is future.
+                            // Logic: If p1 (destination) is <= refIndex, it's a solid line (both points in past/present).
+                            // If p1 is > refIndex, it's a future projection line.
+                            
+                            const p1Index = ctx.p1DataIndex;
+                            if (p1Index <= refIndex) return 'rgb(156, 163, 175)'; // Grey for history
                             return p.color; // Provider color for forecast
                         },
                         borderDash: (ctx) => {
-                            const index = ctx.p0DataIndex;
-                            const point = timeline[index];
-                            if (point && point.source === 'actual') return undefined; // Solid
+                            const p1Index = ctx.p1DataIndex;
+                            if (p1Index <= refIndex) return undefined; // Solid
                             return [6, 4]; // Dashed for forecast
                         }
                     }
